@@ -35,3 +35,8 @@ class StrategySignal(BaseModel):
     snapshot_updated_at: Optional[str] = None
     risk_checked: bool = False
     command_id: Optional[str] = None
+    context_session: Optional[str] = None
+    context_regime: Optional[str] = None
+    context_bias: Optional[str] = None
+    range_high: Optional[float] = None
+    range_low: Optional[float] = None

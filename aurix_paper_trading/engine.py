@@ -77,15 +77,15 @@ class PaperTradingEngine:
         if bid is None or ask is None or bid <= 0 or ask <= 0:
             return None, {"created": False, "reason": "snapshot bid/ask missing", "signal": signal.model_dump()}
 
-        entry = ask if signal.direction == "BUY" else bid
+        entry = signal.entry_reference or (ask if signal.direction == "BUY" else bid)
         stop_distance = self.config.default_stop_points * point
         take_profit_distance = self.config.default_take_profit_points * point
         if signal.direction == "BUY":
-            stop_loss = entry - stop_distance
-            take_profit = entry + take_profit_distance
+            stop_loss = signal.stop_loss_reference or (entry - stop_distance)
+            take_profit = signal.take_profit_reference or (entry + take_profit_distance)
         else:
-            stop_loss = entry + stop_distance
-            take_profit = entry - take_profit_distance
+            stop_loss = signal.stop_loss_reference or (entry + stop_distance)
+            take_profit = signal.take_profit_reference or (entry - take_profit_distance)
 
         risk_command = Command(
             type="OPEN_MARKET",

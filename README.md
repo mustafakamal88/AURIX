@@ -7,6 +7,7 @@ Part 4 adds a shadow-only deterministic strategy engine that logs paper signals 
 Part 5 adds a paper trade ledger that simulates signal outcomes without queueing MT5 commands.
 Part 6 records live market data and quality metrics for future replay, backtesting, and review.
 Part 7 classifies session and market-regime context without queueing or execution.
+Part 8 adds XAUUSD Paper Strategy V1 for paper-only liquidity sweep/reclaim testing.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -205,6 +206,18 @@ Watch context:
 python3 scripts/watch_context.py
 ```
 
+Evaluate XAUUSD Paper V1 once:
+
+```bash
+python3 scripts/evaluate_xauusd_paper_v1_once.py
+```
+
+Watch XAUUSD Paper V1:
+
+```bash
+python3 scripts/watch_xauusd_paper_v1.py
+```
+
 ## API Endpoints
 
 ```text
@@ -253,6 +266,8 @@ POST /paper/reset
 POST /market/reset
 POST /context/evaluate
 POST /context/reset
+POST /strategy/evaluate-paper-v1
+POST /paper/evaluate-paper-v1
 ```
 
 ## Safety
@@ -400,6 +415,22 @@ More detail:
 docs/context_engine.md
 ```
 
+## Part 8: XAUUSD Paper Strategy V1
+
+Strategy settings live in:
+
+```text
+config/strategy_xauusd_paper_v1.yaml
+```
+
+The strategy uses context, recorded M1 candles, spread filtering, session filtering, and a deterministic range sweep/reclaim setup. It stores strategy signals and can create paper trades only. It never queues MT5 commands.
+
+More detail:
+
+```text
+docs/xauusd_paper_strategy_v1.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -442,4 +473,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 8 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, and context classification are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 9 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, and XAUUSD Paper V1 are stable. Do not enable live trading until every layer has been reviewed and tested.

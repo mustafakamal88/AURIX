@@ -1,0 +1,18 @@
+enabled: true
+mode: PAPER
+symbol: XAUUSDm
+timeframe: M1
+min_candles: 20
+lookback_range_candles: 10
+max_spread_points: 350
+allowed_sessions:
+  - LONDON
+  - NY_PRE_MARKET
+  - NY_OPEN
+  - NY_LATE
+block_closed_session: true
+allow_buy: true
+allow_sell: true
+signal_cooldown_seconds: 120
+default_stop_points: 300
+default_take_profit_points: 600

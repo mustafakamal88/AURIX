@@ -16,6 +16,7 @@ from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trad
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
+from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load_xauusd_paper_v1_config
 
 from .command_codec import encode_command_for_mql5
 from .models import Command, ExecutionResult, utc_now_iso
@@ -31,6 +32,7 @@ risk_config = load_risk_config()
 risk_governor = RiskGovernor(risk_config)
 strategy_config = load_strategy_config()
 strategy_engine = StrategyEngine(strategy_config)
+xauusd_paper_v1_config = load_xauusd_paper_v1_config()
 paper_config = load_paper_trading_config()
 paper_ledger = PaperLedger(DATA_DIR)
 paper_engine = PaperTradingEngine(paper_config, risk_config)
@@ -59,6 +61,7 @@ def root() -> dict[str, Any]:
         "results": "/results",
         "execution_results": "/execution/results",
         "strategy_status": "/strategy/status",
+        "xauusd_paper_v1": "/strategy/evaluate-paper-v1",
         "paper_status": "/paper/status",
         "market_status": "/market/status",
         "context_status": "/context/status",
@@ -362,6 +365,36 @@ def reset_strategy_signals() -> dict[str, Any]:
     return {"ok": True, "signals": 0}
 
 
+def current_context() -> dict[str, Any]:
+    latest = context_engine.latest()
+    if latest is not None:
+        return latest
+    context = context_engine.evaluate(
+        snapshot=store.latest_snapshot(),
+        recorded_candles=market_recorder.list_candles(),
+        market_quality=market_recorder.quality(),
+    )
+    context_engine.store(context)
+    return context.model_dump()
+
+
+def evaluate_xauusd_paper_v1_signal() -> dict[str, Any]:
+    signal = evaluate_xauusd_paper_v1(
+        snapshot=store.latest_snapshot(),
+        context=current_context(),
+        candles=market_recorder.list_candles(),
+        previous_signals=store.list_strategy_signals(),
+        config=xauusd_paper_v1_config,
+    )
+    store.add_strategy_signal(signal.model_dump())
+    return signal.model_dump()
+
+
+@app.post("/strategy/evaluate-paper-v1")
+def strategy_evaluate_paper_v1() -> dict[str, Any]:
+    return evaluate_xauusd_paper_v1_signal()
+
+
 @app.get("/paper/status")
 def paper_status() -> dict[str, Any]:
     return paper_engine.status(store.latest_snapshot(), paper_ledger.list_trades())
@@ -384,6 +417,23 @@ def paper_evaluate_signal() -> dict[str, Any]:
         previous_signals=store.list_strategy_signals(),
     )
     store.add_strategy_signal(signal.model_dump())
+    trade, result = paper_engine.create_from_signal(
+        signal=signal,
+        snapshot=store.latest_snapshot(),
+        open_trades=paper_ledger.list_open_trades(),
+        previous_risk_decisions=store.list_risk_decisions(),
+    )
+    if trade is not None:
+        paper_ledger.add_trade(trade)
+    return result
+
+
+@app.post("/paper/evaluate-paper-v1")
+def paper_evaluate_paper_v1() -> dict[str, Any]:
+    signal_data = evaluate_xauusd_paper_v1_signal()
+    from aurix_strategy_engine.models import StrategySignal
+
+    signal = StrategySignal(**signal_data)
     trade, result = paper_engine.create_from_signal(
         signal=signal,
         snapshot=store.latest_snapshot(),
