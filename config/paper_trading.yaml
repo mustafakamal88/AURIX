@@ -1,0 +1,10 @@
+enabled: true
+symbol: XAUUSDm
+default_volume: 0.01
+default_stop_points: 300
+default_take_profit_points: 600
+max_open_paper_trades: 1
+allow_multiple_same_direction: false
+spread_points_for_entry: snapshot
+commission_per_lot: 0.0
+slippage_points: 0

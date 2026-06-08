@@ -17,29 +17,33 @@ def main() -> int:
     url = f"http://{host}:{port}/strategy/evaluate"
 
     print(f"Watching shadow strategy every {interval:g}s. Press Ctrl+C to stop.")
-    while True:
-        req = urllib.request.Request(url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                signal = json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-            print(f"FAIL: {exc}")
-            time.sleep(interval)
-            continue
+    try:
+        while True:
+            req = urllib.request.Request(url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    signal = json.loads(resp.read().decode("utf-8"))
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+                print(f"FAIL: {exc}")
+                time.sleep(interval)
+                continue
 
-        print(
-            " | ".join(
-                [
-                    f"time={signal.get('created_at')}",
-                    f"symbol={signal.get('symbol')}",
-                    f"status={signal.get('status')}",
-                    f"direction={signal.get('direction')}",
-                    f"confidence={signal.get('confidence')}",
-                    f"reasons={'; '.join(signal.get('reasons') or [])}",
-                ]
+            print(
+                " | ".join(
+                    [
+                        f"time={signal.get('created_at')}",
+                        f"symbol={signal.get('symbol')}",
+                        f"status={signal.get('status')}",
+                        f"direction={signal.get('direction')}",
+                        f"confidence={signal.get('confidence')}",
+                        f"reasons={'; '.join(signal.get('reasons') or [])}",
+                    ]
+                )
             )
-        )
-        time.sleep(interval)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print("\nStopped strategy watch.")
+        return 0
 
 
 if __name__ == "__main__":

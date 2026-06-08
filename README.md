@@ -4,6 +4,7 @@ Part 1 is the MT5 bridge layer for a macOS Python server talking to MetaTrader 5
 Part 2 adds a deterministic Risk Governor in front of command queueing.
 Part 3 adds command lifecycle tracking from queue creation to final execution result.
 Part 4 adds a shadow-only deterministic strategy engine that logs paper signals without queueing orders.
+Part 5 adds a paper trade ledger that simulates signal outcomes without queueing MT5 commands.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -142,6 +143,30 @@ Watch shadow strategy signals:
 python3 scripts/watch_strategy.py
 ```
 
+Check paper trading status:
+
+```bash
+python3 scripts/check_paper.py
+```
+
+Evaluate one signal through the paper ledger:
+
+```bash
+python3 scripts/evaluate_paper_once.py
+```
+
+Update paper trades once:
+
+```bash
+python3 scripts/update_paper_once.py
+```
+
+Watch paper trades:
+
+```bash
+python3 scripts/watch_paper.py
+```
+
 ## API Endpoints
 
 ```text
@@ -165,6 +190,9 @@ GET  /risk/status
 GET  /risk/decisions
 GET  /strategy/status
 GET  /strategy/signals
+GET  /paper/status
+GET  /paper/trades
+GET  /paper/open
 
 POST /commands/open-market
 POST /commands/close-position
@@ -173,6 +201,10 @@ POST /commands/{command_id}/cancel
 POST /commands/cancel/{command_id}
 POST /strategy/evaluate
 POST /strategy/reset-signals
+POST /paper/evaluate-signal
+POST /paper/update
+POST /paper/close/{paper_trade_id}
+POST /paper/reset
 ```
 
 ## Safety
@@ -252,6 +284,28 @@ More detail:
 docs/shadow_strategy_engine.md
 ```
 
+## Part 5: Paper Trading
+
+Paper trading settings live in:
+
+```text
+config/paper_trading.yaml
+```
+
+Paper trades are stored in:
+
+```text
+data/paper_trades.json
+```
+
+The paper engine evaluates shadow signals, runs a simulated risk check, creates virtual trades, and closes them when live snapshots hit SL or TP. It never calls `/commands/open-market` and never queues anything for MT5.
+
+More detail:
+
+```text
+docs/paper_trading.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -294,4 +348,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 5 can add strategy refinement after bridge, Risk Governor, lifecycle, and shadow signal plumbing are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 6 can add reporting or strategy refinement after bridge, Risk Governor, lifecycle, shadow signal plumbing, and paper trading are stable. Do not enable live trading until every layer has been reviewed and tested.

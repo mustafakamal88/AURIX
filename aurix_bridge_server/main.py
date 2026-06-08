@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
@@ -28,6 +29,9 @@ risk_config = load_risk_config()
 risk_governor = RiskGovernor(risk_config)
 strategy_config = load_strategy_config()
 strategy_engine = StrategyEngine(strategy_config)
+paper_config = load_paper_trading_config()
+paper_ledger = PaperLedger(DATA_DIR)
+paper_engine = PaperTradingEngine(paper_config, risk_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -49,6 +53,7 @@ def root() -> dict[str, Any]:
         "results": "/results",
         "execution_results": "/execution/results",
         "strategy_status": "/strategy/status",
+        "paper_status": "/paper/status",
     }
 
 
@@ -346,6 +351,65 @@ def evaluate_strategy() -> dict[str, Any]:
 def reset_strategy_signals() -> dict[str, Any]:
     store.reset_strategy_signals()
     return {"ok": True, "signals": 0}
+
+
+@app.get("/paper/status")
+def paper_status() -> dict[str, Any]:
+    return paper_engine.status(store.latest_snapshot(), paper_ledger.list_trades())
+
+
+@app.get("/paper/trades")
+def paper_trades() -> list[dict[str, Any]]:
+    return paper_ledger.list_trades()
+
+
+@app.get("/paper/open")
+def paper_open_trades() -> list[dict[str, Any]]:
+    return paper_ledger.list_open_trades()
+
+
+@app.post("/paper/evaluate-signal")
+def paper_evaluate_signal() -> dict[str, Any]:
+    signal = strategy_engine.evaluate(
+        snapshot=store.latest_snapshot(),
+        previous_signals=store.list_strategy_signals(),
+    )
+    store.add_strategy_signal(signal.model_dump())
+    trade, result = paper_engine.create_from_signal(
+        signal=signal,
+        snapshot=store.latest_snapshot(),
+        open_trades=paper_ledger.list_open_trades(),
+        previous_risk_decisions=store.list_risk_decisions(),
+    )
+    if trade is not None:
+        paper_ledger.add_trade(trade)
+    return result
+
+
+@app.post("/paper/update")
+def paper_update() -> dict[str, Any]:
+    trades, updated = paper_engine.update_open_trades(store.latest_snapshot(), paper_ledger.list_trades())
+    paper_ledger.save_trades(trades)
+    return {"ok": True, "updated": updated, "open": paper_ledger.list_open_trades()}
+
+
+@app.post("/paper/close/{paper_trade_id}")
+def paper_close(paper_trade_id: str) -> dict[str, Any]:
+    trades = paper_ledger.list_trades()
+    for trade in trades:
+        if trade.get("id") == paper_trade_id:
+            if trade.get("status") != "OPEN":
+                raise HTTPException(status_code=400, detail="Only OPEN paper trades can be closed manually.")
+            closed = paper_engine.close_manual(trade, store.latest_snapshot())
+            paper_ledger.save_trades(trades)
+            return {"ok": True, "paper_trade": closed}
+    raise HTTPException(status_code=404, detail="Paper trade not found.")
+
+
+@app.post("/paper/reset")
+def paper_reset() -> dict[str, Any]:
+    paper_ledger.reset()
+    return {"ok": True, "trades": 0}
 
 
 @app.post("/commands/open-market")
