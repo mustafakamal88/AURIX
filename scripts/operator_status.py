@@ -33,6 +33,7 @@ def main() -> int:
     paper = status.get("paper") or {}
     supervisor = status.get("supervisor") or {}
     analytics = status.get("analytics") or {}
+    journal = status.get("journal") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -57,6 +58,7 @@ def main() -> int:
         f"total_r={analytics.get('total_r')} expectancy_r={analytics.get('expectancy_r')}"
     )
     print(f"supervisor: mode={supervisor.get('mode')} loops={supervisor.get('loop_count')} heartbeat={supervisor.get('last_heartbeat_at')}")
+    print(f"journal: entries={journal.get('entries_count')} latest={journal.get('latest_classification')}")
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")
     print(

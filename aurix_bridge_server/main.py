@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
 from aurix_analytics.performance import summary_from_report
 from aurix_context_engine import ContextEngine, load_context_config
+from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
@@ -57,6 +58,9 @@ paper_supervisor = PaperSupervisor(
     market_config=market_config,
 )
 performance_store = PaperPerformanceStore(DATA_DIR)
+journal_config = load_journal_config()
+journal_store = JournalStore(DATA_DIR, journal_config)
+journal_reviewer = JournalReviewer(journal_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -85,6 +89,7 @@ def root() -> dict[str, Any]:
         "supervisor_status": "/supervisor/status",
         "operator_status": "/operator/status",
         "paper_analytics": "/analytics/paper",
+        "journal_status": "/journal/status",
     }
 
 
@@ -589,6 +594,46 @@ def analytics_paper_summary() -> dict[str, Any]:
     return paper_analytics_summary()
 
 
+@app.get("/journal/status")
+def journal_status() -> dict[str, Any]:
+    return journal_store.status()
+
+
+@app.get("/journal/entries")
+def journal_entries() -> list[dict[str, Any]]:
+    return journal_store.list_entries()
+
+
+@app.post("/journal/review-paper-trades")
+def journal_review_paper_trades() -> dict[str, Any]:
+    trades, signals, contexts, quality, _ = journal_store.read_inputs()
+    entries = journal_reviewer.review_paper_trades(trades, signals, contexts, quality)
+    saved = journal_store.upsert_entries(entries)
+    return {"ok": True, "paper_trade_reviews": len(saved), "entries": saved}
+
+
+@app.post("/journal/review-signals")
+def journal_review_signals() -> dict[str, Any]:
+    trades, signals, contexts, quality, _ = journal_store.read_inputs()
+    entries = journal_reviewer.review_signals(signals, trades, contexts, quality)
+    saved = journal_store.upsert_entries(entries)
+    return {"ok": True, "signal_reviews": len(saved), "entries": saved}
+
+
+@app.post("/journal/generate-daily-summary")
+def journal_generate_daily_summary() -> dict[str, Any]:
+    trades, signals, _, quality, analytics_report = journal_store.read_inputs()
+    entry = journal_reviewer.daily_summary(trades, signals, analytics_report, quality)
+    saved = journal_store.upsert_entries([entry])
+    return {"ok": True, "entry": saved[0] if saved else entry.model_dump()}
+
+
+@app.post("/journal/reset")
+def journal_reset() -> dict[str, Any]:
+    journal_store.reset()
+    return {"ok": True, "entries": 0}
+
+
 def operator_status_payload() -> dict[str, Any]:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -602,6 +647,7 @@ def operator_status_payload() -> dict[str, Any]:
         paper_status=paper_status(),
         supervisor_status=supervisor_status(),
         analytics_summary=paper_analytics_summary(),
+        journal_status=journal_status(),
     ).model_dump()
 
 
@@ -624,6 +670,7 @@ def operator_summary() -> dict[str, Any]:
         paper_status=paper_status(),
         supervisor_status=supervisor_status(),
         analytics_summary=paper_analytics_summary(),
+        journal_status=journal_status(),
     )
     return build_operator_summary(status).model_dump()
 

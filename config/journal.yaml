@@ -1,0 +1,7 @@
+enabled: true
+symbol: "XAUUSDm"
+review_paper_trades: true
+review_signals: true
+include_context: true
+include_market_quality: true
+max_entries: 1000

@@ -11,6 +11,7 @@ Part 8 adds XAUUSD Paper Strategy V1 for paper-only liquidity sweep/reclaim test
 Part 9 adds a paper-only supervisor loop that runs the local quality, context, strategy, and paper ledger pipeline.
 Part 10 adds a read-only operator console and system health summary.
 Part 11 adds deterministic paper performance analytics.
+Part 12 adds deterministic paper trade and strategy signal journaling.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -269,6 +270,36 @@ Watch paper analytics:
 python3 scripts/watch_analytics.py
 ```
 
+Check journal status:
+
+```bash
+python3 scripts/check_journal.py
+```
+
+Review paper trades:
+
+```bash
+python3 scripts/review_paper_trades.py
+```
+
+Review strategy signals:
+
+```bash
+python3 scripts/review_signals.py
+```
+
+Generate daily journal summary:
+
+```bash
+python3 scripts/generate_daily_journal.py
+```
+
+Watch journal reviews:
+
+```bash
+python3 scripts/watch_journal.py
+```
+
 ## API Endpoints
 
 ```text
@@ -307,6 +338,8 @@ GET  /operator/status
 GET  /operator/summary
 GET  /analytics/paper
 GET  /analytics/paper/summary
+GET  /journal/status
+GET  /journal/entries
 
 POST /commands/open-market
 POST /commands/close-position
@@ -327,6 +360,10 @@ POST /paper/evaluate-paper-v1
 POST /supervisor/run-once
 POST /supervisor/reset
 POST /analytics/paper/generate
+POST /journal/review-paper-trades
+POST /journal/review-signals
+POST /journal/generate-daily-summary
+POST /journal/reset
 ```
 
 ## Safety
@@ -341,6 +378,7 @@ POST /analytics/paper/generate
 - The Part 9 supervisor is paper-only and has `allow_command_queueing=false`.
 - The Part 10 operator console is read-only and does not queue commands.
 - The Part 11 analytics layer is report-only and does not queue commands.
+- The Part 12 journal engine is review-only and does not queue commands.
 
 ## Part 2: Risk Governor
 
@@ -551,6 +589,34 @@ More detail:
 docs/paper_performance_analytics.md
 ```
 
+## Part 12: Trade Review / Journal Engine
+
+Journal settings live in:
+
+```text
+config/journal.yaml
+```
+
+Journal entries are stored in:
+
+```text
+data/journal_entries.json
+```
+
+Generate deterministic reviews:
+
+```bash
+python3 scripts/review_paper_trades.py
+python3 scripts/review_signals.py
+python3 scripts/generate_daily_journal.py
+```
+
+More detail:
+
+```text
+docs/journal_engine.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -593,4 +659,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 12 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, and paper analytics are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 13 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, and journal engine are stable. Do not enable live trading until every layer has been reviewed and tested.

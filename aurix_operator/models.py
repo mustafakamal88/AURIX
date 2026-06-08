@@ -17,6 +17,7 @@ class OperatorStatus(BaseModel):
     paper: dict[str, Any] = Field(default_factory=dict)
     supervisor: dict[str, Any] = Field(default_factory=dict)
     analytics: dict[str, Any] = Field(default_factory=dict)
+    journal: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -36,4 +37,6 @@ class OperatorSummary(BaseModel):
     paper_total_r: float = 0.0
     paper_expectancy_r: float = 0.0
     supervisor_loop_count: int = 0
+    journal_entry_count: int = 0
+    journal_latest_classification: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)
