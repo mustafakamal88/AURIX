@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
+from aurix_analytics.performance import summary_from_report
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
@@ -54,6 +56,7 @@ paper_supervisor = PaperSupervisor(
     paper_ledger=paper_ledger,
     market_config=market_config,
 )
+performance_store = PaperPerformanceStore(DATA_DIR)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -81,6 +84,7 @@ def root() -> dict[str, Any]:
         "context_status": "/context/status",
         "supervisor_status": "/supervisor/status",
         "operator_status": "/operator/status",
+        "paper_analytics": "/analytics/paper",
     }
 
 
@@ -563,6 +567,28 @@ def supervisor_reset() -> dict[str, Any]:
     return paper_supervisor.reset().model_dump()
 
 
+def paper_analytics_summary() -> dict[str, Any]:
+    return summary_from_report(performance_store.latest())
+
+
+@app.get("/analytics/paper")
+def analytics_paper() -> dict[str, Any]:
+    return performance_store.latest().model_dump()
+
+
+@app.post("/analytics/paper/generate")
+def analytics_paper_generate() -> dict[str, Any]:
+    trades, signals, contexts, quality = performance_store.read_inputs()
+    report = generate_paper_performance_report(trades, signals, contexts, quality)
+    performance_store.save(report)
+    return report.model_dump()
+
+
+@app.get("/analytics/paper/summary")
+def analytics_paper_summary() -> dict[str, Any]:
+    return paper_analytics_summary()
+
+
 def operator_status_payload() -> dict[str, Any]:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -575,6 +601,7 @@ def operator_status_payload() -> dict[str, Any]:
         strategy_status=strategy_status(),
         paper_status=paper_status(),
         supervisor_status=supervisor_status(),
+        analytics_summary=paper_analytics_summary(),
     ).model_dump()
 
 
@@ -596,6 +623,7 @@ def operator_summary() -> dict[str, Any]:
         strategy_status=strategy_status(),
         paper_status=paper_status(),
         supervisor_status=supervisor_status(),
+        analytics_summary=paper_analytics_summary(),
     )
     return build_operator_summary(status).model_dump()
 

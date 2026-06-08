@@ -16,6 +16,7 @@ class OperatorStatus(BaseModel):
     strategy: dict[str, Any] = Field(default_factory=dict)
     paper: dict[str, Any] = Field(default_factory=dict)
     supervisor: dict[str, Any] = Field(default_factory=dict)
+    analytics: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -30,5 +31,9 @@ class OperatorSummary(BaseModel):
     spread_points: Optional[float] = None
     market_quality_ok: bool = False
     paper_open_count: int = 0
+    paper_closed_trades: int = 0
+    paper_win_rate: float = 0.0
+    paper_total_r: float = 0.0
+    paper_expectancy_r: float = 0.0
     supervisor_loop_count: int = 0
     warnings: list[str] = Field(default_factory=list)

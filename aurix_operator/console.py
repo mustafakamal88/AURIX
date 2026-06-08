@@ -21,6 +21,7 @@ def build_operator_status(
     strategy_status: dict[str, Any],
     paper_status: dict[str, Any],
     supervisor_status: dict[str, Any],
+    analytics_summary: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -82,6 +83,7 @@ def build_operator_status(
         },
         paper=paper_status,
         supervisor=supervisor_status,
+        analytics=analytics_summary or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -100,6 +102,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     market_quality = as_dict(as_dict(status.market.get("quality")))
     context_latest = as_dict(status.context.get("latest"))
     supervisor = as_dict(status.supervisor)
+    analytics = as_dict(status.analytics)
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -126,6 +129,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         spread_points=as_float(market_quality.get("spread_points")),
         market_quality_ok=bool(market_quality.get("ok")),
         paper_open_count=int(status.paper.get("open_trades") or supervisor.get("paper_open_count") or 0),
+        paper_closed_trades=int(analytics.get("closed_trades") or status.paper.get("closed_trades") or 0),
+        paper_win_rate=float(analytics.get("win_rate") or 0.0),
+        paper_total_r=float(analytics.get("total_r") or 0.0),
+        paper_expectancy_r=float(analytics.get("expectancy_r") or 0.0),
         supervisor_loop_count=int(supervisor.get("loop_count") or 0),
         warnings=warnings,
     )

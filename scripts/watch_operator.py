@@ -43,6 +43,10 @@ def main() -> int:
                         f"regime={summary.get('regime')}",
                         f"spread={summary.get('spread_points')}",
                         f"paper_open={summary.get('paper_open_count')}",
+                        f"paper_closed={summary.get('paper_closed_trades')}",
+                        f"win_rate={summary.get('paper_win_rate')}",
+                        f"total_r={summary.get('paper_total_r')}",
+                        f"expectancy_r={summary.get('paper_expectancy_r')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )

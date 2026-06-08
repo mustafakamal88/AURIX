@@ -10,6 +10,7 @@ Part 7 classifies session and market-regime context without queueing or executio
 Part 8 adds XAUUSD Paper Strategy V1 for paper-only liquidity sweep/reclaim testing.
 Part 9 adds a paper-only supervisor loop that runs the local quality, context, strategy, and paper ledger pipeline.
 Part 10 adds a read-only operator console and system health summary.
+Part 11 adds deterministic paper performance analytics.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -250,6 +251,24 @@ Watch the operator summary:
 python3 scripts/watch_operator.py
 ```
 
+Check paper analytics:
+
+```bash
+python3 scripts/check_analytics.py
+```
+
+Generate paper performance report:
+
+```bash
+python3 scripts/generate_paper_report.py
+```
+
+Watch paper analytics:
+
+```bash
+python3 scripts/watch_analytics.py
+```
+
 ## API Endpoints
 
 ```text
@@ -286,6 +305,8 @@ GET  /context/history
 GET  /supervisor/status
 GET  /operator/status
 GET  /operator/summary
+GET  /analytics/paper
+GET  /analytics/paper/summary
 
 POST /commands/open-market
 POST /commands/close-position
@@ -305,6 +326,7 @@ POST /strategy/evaluate-paper-v1
 POST /paper/evaluate-paper-v1
 POST /supervisor/run-once
 POST /supervisor/reset
+POST /analytics/paper/generate
 ```
 
 ## Safety
@@ -318,6 +340,7 @@ POST /supervisor/reset
 - The Risk Governor does not replace the EA safety gate.
 - The Part 9 supervisor is paper-only and has `allow_command_queueing=false`.
 - The Part 10 operator console is read-only and does not queue commands.
+- The Part 11 analytics layer is report-only and does not queue commands.
 
 ## Part 2: Risk Governor
 
@@ -507,6 +530,27 @@ More detail:
 docs/operator_console.md
 ```
 
+## Part 11: Paper Performance Analytics
+
+Paper analytics reads the paper ledger, strategy signals, context snapshots, and market quality runtime files, then writes:
+
+```text
+data/paper_performance_report.json
+```
+
+Generate and inspect the report:
+
+```bash
+python3 scripts/generate_paper_report.py
+python3 scripts/check_analytics.py
+```
+
+More detail:
+
+```text
+docs/paper_performance_analytics.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -549,4 +593,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 11 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, and operator console are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 12 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, and paper analytics are stable. Do not enable live trading until every layer has been reviewed and tested.

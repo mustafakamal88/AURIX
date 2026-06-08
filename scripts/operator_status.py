@@ -32,6 +32,7 @@ def main() -> int:
     risk = status.get("risk") or {}
     paper = status.get("paper") or {}
     supervisor = status.get("supervisor") or {}
+    analytics = status.get("analytics") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -50,6 +51,11 @@ def main() -> int:
     print(f"context: session={context.get('session_name')} regime={context.get('regime')} bias={context.get('directional_bias')}")
     print(f"risk: can_trade={risk.get('can_trade')} reasons={'; '.join(risk.get('reasons') or []) or 'none'}")
     print(f"paper: open={paper.get('open_trades')} closed={paper.get('closed_trades')}")
+    print(
+        "analytics: "
+        f"closed={analytics.get('closed_trades')} win_rate={analytics.get('win_rate')} "
+        f"total_r={analytics.get('total_r')} expectancy_r={analytics.get('expectancy_r')}"
+    )
     print(f"supervisor: mode={supervisor.get('mode')} loops={supervisor.get('loop_count')} heartbeat={supervisor.get('last_heartbeat_at')}")
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")
