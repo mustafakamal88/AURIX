@@ -1,6 +1,7 @@
 # AURIX Mac/Wine MT5 Bridge
 
-Part 1 is only the MT5 bridge layer for a macOS Python server talking to MetaTrader 5 running through Wine.
+Part 1 is the MT5 bridge layer for a macOS Python server talking to MetaTrader 5 running through Wine.
+Part 2 adds a deterministic Risk Governor in front of command queueing.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -91,6 +92,18 @@ python3 scripts/queue_test_command.py
 
 The command includes `live_confirm="I_ACCEPT_LIVE_RISK"`, but the EA still blocks execution unless `AllowLiveTrading=true` is manually enabled in EA inputs.
 
+Check Risk Governor status:
+
+```bash
+python3 scripts/check_risk.py
+```
+
+Queue a dry test command through the Risk Governor:
+
+```bash
+python3 scripts/queue_test_command_with_risk.py
+```
+
 ## API Endpoints
 
 ```text
@@ -107,6 +120,8 @@ GET  /state/orders
 GET  /state/deals
 GET  /commands
 GET  /results
+GET  /risk/status
+GET  /risk/decisions
 
 POST /commands/open-market
 POST /commands/close-position
@@ -118,10 +133,33 @@ POST /commands/cancel/{command_id}
 
 - No live trading is enabled by default.
 - Commands are queued on the Python server.
+- `POST /commands/open-market` must pass the Risk Governor before it is queued.
 - The EA blocks execution unless `AllowLiveTrading=true` is manually enabled.
 - The EA also requires `live_confirm="I_ACCEPT_LIVE_RISK"` on each live command.
 - `MaxVolume` defaults to `0.01`.
-- A future Risk Governor must be built and tested before real trading.
+- The Risk Governor does not replace the EA safety gate.
+
+## Part 2: Risk Governor
+
+Risk settings live in:
+
+```text
+config/risk.yaml
+```
+
+Risk decisions are stored in:
+
+```text
+data/risk_decisions.json
+```
+
+The governor checks latest snapshot availability, symbol, direction, max volume, open position count, spread, optional SL/TP requirements, daily loss limits, daily trade count, and live execution gating. It is deterministic and does not contain strategy logic or AI reasoning.
+
+More detail:
+
+```text
+docs/risk_governor.md
+```
 
 ## Troubleshooting
 
@@ -165,4 +203,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 2 can add a Risk Governor after the bridge is stable. Do not add strategy logic, auto-trading, or AI reasoning in Part 1.
+Part 3 can add strategy design after the bridge and Risk Governor are stable. Do not enable live trading until risk behavior has been reviewed and tested.

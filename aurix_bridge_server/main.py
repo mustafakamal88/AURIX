@@ -10,6 +10,9 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from aurix_risk_governor import RiskGovernor, load_risk_config
+from aurix_risk_governor.checks import as_dict, as_float, as_list
+
 from .command_codec import encode_command_for_mql5
 from .models import Command, ExecutionResult, utc_now_iso
 from .store import JsonStore
@@ -20,12 +23,28 @@ DATA_DIR = os.getenv("AURIX_DATA_DIR", "data")
 DEFAULT_TERMINAL_ID = os.getenv("AURIX_TERMINAL_ID", "AURIX-MAC-001")
 
 store = JsonStore(DATA_DIR)
+risk_config = load_risk_config()
+risk_governor = RiskGovernor(risk_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
     version="0.1.0",
     description="Mac/Wine-safe MT5 bridge using an MQL5 EA + Python API.",
 )
+
+
+@app.get("/")
+def root() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "service": "aurix-mac-wine-bridge",
+        "name": "AURIX",
+        "docs": "/docs",
+        "health": "/health",
+        "latest_state": "/state/latest",
+        "risk_status": "/risk/status",
+        "results": "/results",
+    }
 
 
 class OpenMarketRequest(BaseModel):
@@ -84,6 +103,24 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_execution_result(payload: dict[str, Any]) -> ExecutionResult:
+    return ExecutionResult(
+        terminal_id=str(payload.get("terminal_id") or DEFAULT_TERMINAL_ID),
+        command_id=str(payload.get("command_id") or ""),
+        ok=bool(payload.get("ok")),
+        retcode=payload.get("retcode"),
+        message=str(payload.get("message") or ""),
+        order=payload.get("order"),
+        deal=payload.get("deal"),
+        symbol=payload.get("symbol"),
+        direction=payload.get("direction"),
+        volume=payload.get("volume"),
+        price=payload.get("price"),
+        received_at=str(payload.get("received_at") or utc_now_iso()),
+        raw=_dict_or_empty(payload.get("raw")),
+    )
+
+
 def log_snapshot(snapshot: dict[str, Any]) -> None:
     account = _dict_or_empty(snapshot.get("account"))
     tick = _dict_or_empty(snapshot.get("tick"))
@@ -125,7 +162,11 @@ async def receive_snapshot_debug(request: Request) -> dict[str, Any]:
 
 
 @app.post("/mt5/execution-result")
-def receive_execution_result(result: ExecutionResult) -> dict[str, Any]:
+async def receive_execution_result(request: Request) -> dict[str, Any]:
+    payload = await read_lenient_json_object(request)
+    result = normalize_execution_result(payload)
+    if not result.command_id:
+        raise HTTPException(status_code=400, detail="Execution result command_id is required.")
     store.mark_result(result)
     return {"ok": True}
 
@@ -188,6 +229,65 @@ def list_results() -> list[dict[str, Any]]:
     return store.list_results()
 
 
+@app.get("/risk/status")
+def risk_status() -> dict[str, Any]:
+    snapshot = store.latest_snapshot()
+    reasons: list[str] = []
+    account: dict[str, Any] = {}
+    tick: dict[str, Any] = {}
+    positions: list[Any] = []
+    spread_points: Optional[float] = None
+    equity: Optional[float] = None
+    balance: Optional[float] = None
+
+    if snapshot is None:
+        reasons.append("account snapshot missing")
+        reasons.append("tick missing")
+        reasons.append("spread missing")
+    else:
+        account = as_dict(snapshot.get("account"))
+        tick = as_dict(snapshot.get("tick"))
+        positions = as_list(snapshot.get("positions"))
+        spread_points = as_float(tick.get("spread_points"))
+        equity = as_float(account.get("equity"))
+        balance = as_float(account.get("balance"))
+
+        if not account:
+            reasons.append("account snapshot missing")
+        if not tick:
+            reasons.append("tick missing")
+        if spread_points is None:
+            reasons.append("spread missing")
+        elif spread_points > risk_config.max_spread_points:
+            reasons.append(f"spread {spread_points} exceeds max_spread_points {risk_config.max_spread_points}")
+        if len(positions) >= risk_config.max_open_positions:
+            reasons.append(f"open positions {len(positions)} reached max_open_positions {risk_config.max_open_positions}")
+
+    if not risk_config.enabled:
+        reasons = []
+
+    return {
+        "enabled": risk_config.enabled,
+        "latest_snapshot": {
+            "terminal_id": snapshot.get("terminal_id") if snapshot else None,
+            "received_at": snapshot.get("received_at") if snapshot else None,
+            "symbol": tick.get("symbol") if tick else None,
+            "equity": equity,
+            "balance": balance,
+        },
+        "spread_points": spread_points,
+        "open_positions": len(positions),
+        "can_trade": len(reasons) == 0,
+        "reasons": reasons,
+        "config": risk_config.model_dump(),
+    }
+
+
+@app.get("/risk/decisions")
+def risk_decisions() -> list[dict[str, Any]]:
+    return store.list_risk_decisions()
+
+
 @app.post("/commands/open-market")
 def open_market(req: OpenMarketRequest) -> Command:
     direction = req.direction.upper()
@@ -205,6 +305,17 @@ def open_market(req: OpenMarketRequest) -> Command:
         comment=req.comment,
         live_confirm=req.live_confirm,
     )
+
+    decision = risk_governor.evaluate_open_market(
+        command=cmd,
+        snapshot=store.latest_snapshot(),
+        previous_decisions=store.list_risk_decisions(),
+    )
+    store.add_risk_decision(decision.model_dump())
+
+    if not decision.approved:
+        raise HTTPException(status_code=400, detail=decision.model_dump())
+
     return store.add_command(cmd)
 
 

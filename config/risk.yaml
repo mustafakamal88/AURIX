@@ -1,0 +1,15 @@
+enabled: true
+max_volume: 0.01
+max_open_positions: 1
+max_spread_points: 350
+require_stop_loss: false
+require_take_profit: false
+max_daily_loss_amount: 1.0
+max_daily_loss_percent: 2.0
+max_trades_per_day: 3
+allowed_symbols:
+  - XAUUSDm
+allowed_directions:
+  - BUY
+  - SELL
+live_trading_allowed: false
