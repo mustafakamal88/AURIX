@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from aurix_context_engine import ContextEngine, load_context_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
@@ -35,6 +36,8 @@ paper_ledger = PaperLedger(DATA_DIR)
 paper_engine = PaperTradingEngine(paper_config, risk_config)
 market_config = load_market_data_config()
 market_recorder = MarketDataRecorder(DATA_DIR, market_config)
+context_config = load_context_config()
+context_engine = ContextEngine(DATA_DIR, context_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -58,6 +61,7 @@ def root() -> dict[str, Any]:
         "strategy_status": "/strategy/status",
         "paper_status": "/paper/status",
         "market_status": "/market/status",
+        "context_status": "/context/status",
     }
 
 
@@ -441,6 +445,41 @@ def market_quality() -> dict[str, Any]:
 def market_reset() -> dict[str, Any]:
     market_recorder.reset()
     return {"ok": True, "ticks": 0, "candles": 0}
+
+
+@app.get("/context/status")
+def context_status() -> dict[str, Any]:
+    return context_engine.status()
+
+
+@app.get("/context/latest")
+def context_latest() -> dict[str, Any]:
+    latest = context_engine.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No context snapshots yet.")
+    return latest
+
+
+@app.get("/context/history")
+def context_history() -> list[dict[str, Any]]:
+    return context_engine.history()
+
+
+@app.post("/context/evaluate")
+def context_evaluate() -> dict[str, Any]:
+    context = context_engine.evaluate(
+        snapshot=store.latest_snapshot(),
+        recorded_candles=market_recorder.list_candles(),
+        market_quality=market_recorder.quality(),
+    )
+    context_engine.store(context)
+    return context.model_dump()
+
+
+@app.post("/context/reset")
+def context_reset() -> dict[str, Any]:
+    context_engine.reset()
+    return {"ok": True, "contexts": 0}
 
 
 @app.post("/commands/open-market")

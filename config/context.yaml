@@ -1,0 +1,24 @@
+enabled: true
+symbol: XAUUSDm
+timezone: Europe/London
+sessions:
+  ASIA:
+    start: "00:00"
+    end: "07:00"
+  LONDON:
+    start: "07:00"
+    end: "12:00"
+  NY_PRE_MARKET:
+    start: "12:00"
+    end: "14:30"
+  NY_OPEN:
+    start: "14:30"
+    end: "17:00"
+  NY_LATE:
+    start: "17:00"
+    end: "21:00"
+max_spread_points: 350
+min_candles_required: 20
+lookback_candles: 20
+range_lookback_candles: 10
+volatility_expansion_multiplier: 1.5

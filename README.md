@@ -6,6 +6,7 @@ Part 3 adds command lifecycle tracking from queue creation to final execution re
 Part 4 adds a shadow-only deterministic strategy engine that logs paper signals without queueing orders.
 Part 5 adds a paper trade ledger that simulates signal outcomes without queueing MT5 commands.
 Part 6 records live market data and quality metrics for future replay, backtesting, and review.
+Part 7 classifies session and market-regime context without queueing or execution.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -186,6 +187,24 @@ Export market data CSV files:
 python3 scripts/export_market_csv.py
 ```
 
+Check context status:
+
+```bash
+python3 scripts/check_context.py
+```
+
+Evaluate context once:
+
+```bash
+python3 scripts/evaluate_context_once.py
+```
+
+Watch context:
+
+```bash
+python3 scripts/watch_context.py
+```
+
 ## API Endpoints
 
 ```text
@@ -216,6 +235,9 @@ GET  /market/status
 GET  /market/ticks
 GET  /market/candles
 GET  /market/quality
+GET  /context/status
+GET  /context/latest
+GET  /context/history
 
 POST /commands/open-market
 POST /commands/close-position
@@ -229,6 +251,8 @@ POST /paper/update
 POST /paper/close/{paper_trade_id}
 POST /paper/reset
 POST /market/reset
+POST /context/evaluate
+POST /context/reset
 ```
 
 ## Safety
@@ -354,6 +378,28 @@ More detail:
 docs/market_data_recorder.md
 ```
 
+## Part 7: Context Engine
+
+Context settings live in:
+
+```text
+config/context.yaml
+```
+
+Context snapshots are stored in:
+
+```text
+data/context_snapshots.json
+```
+
+The context engine classifies the current session, spread state, data quality, range, directional bias, volatility expansion, chop, and breakout/breakdown regimes. It never queues commands and never executes trades.
+
+More detail:
+
+```text
+docs/context_engine.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -396,4 +442,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 7 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, and market recording are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 8 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, and context classification are stable. Do not enable live trading until every layer has been reviewed and tested.
