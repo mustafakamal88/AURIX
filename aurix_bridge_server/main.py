@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
@@ -32,6 +33,8 @@ strategy_engine = StrategyEngine(strategy_config)
 paper_config = load_paper_trading_config()
 paper_ledger = PaperLedger(DATA_DIR)
 paper_engine = PaperTradingEngine(paper_config, risk_config)
+market_config = load_market_data_config()
+market_recorder = MarketDataRecorder(DATA_DIR, market_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -54,6 +57,7 @@ def root() -> dict[str, Any]:
         "execution_results": "/execution/results",
         "strategy_status": "/strategy/status",
         "paper_status": "/paper/status",
+        "market_status": "/market/status",
     }
 
 
@@ -160,6 +164,7 @@ async def receive_snapshot(request: Request) -> dict[str, Any]:
     payload = await read_lenient_json_object(request)
     snapshot = normalize_snapshot(payload)
     store.save_snapshot(snapshot)
+    market_recorder.record_snapshot(snapshot)
     log_snapshot(snapshot)
     return {"ok": True}
 
@@ -410,6 +415,32 @@ def paper_close(paper_trade_id: str) -> dict[str, Any]:
 def paper_reset() -> dict[str, Any]:
     paper_ledger.reset()
     return {"ok": True, "trades": 0}
+
+
+@app.get("/market/status")
+def market_status() -> dict[str, Any]:
+    return market_recorder.status()
+
+
+@app.get("/market/ticks")
+def market_ticks() -> list[dict[str, Any]]:
+    return market_recorder.list_ticks()
+
+
+@app.get("/market/candles")
+def market_candles() -> list[dict[str, Any]]:
+    return market_recorder.list_candles()
+
+
+@app.get("/market/quality")
+def market_quality() -> dict[str, Any]:
+    return market_recorder.quality()
+
+
+@app.post("/market/reset")
+def market_reset() -> dict[str, Any]:
+    market_recorder.reset()
+    return {"ok": True, "ticks": 0, "candles": 0}
 
 
 @app.post("/commands/open-market")

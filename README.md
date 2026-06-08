@@ -5,6 +5,7 @@ Part 2 adds a deterministic Risk Governor in front of command queueing.
 Part 3 adds command lifecycle tracking from queue creation to final execution result.
 Part 4 adds a shadow-only deterministic strategy engine that logs paper signals without queueing orders.
 Part 5 adds a paper trade ledger that simulates signal outcomes without queueing MT5 commands.
+Part 6 records live market data and quality metrics for future replay, backtesting, and review.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -167,6 +168,24 @@ Watch paper trades:
 python3 scripts/watch_paper.py
 ```
 
+Check market data status:
+
+```bash
+python3 scripts/check_market.py
+```
+
+Watch market quality:
+
+```bash
+python3 scripts/watch_market.py
+```
+
+Export market data CSV files:
+
+```bash
+python3 scripts/export_market_csv.py
+```
+
 ## API Endpoints
 
 ```text
@@ -193,6 +212,10 @@ GET  /strategy/signals
 GET  /paper/status
 GET  /paper/trades
 GET  /paper/open
+GET  /market/status
+GET  /market/ticks
+GET  /market/candles
+GET  /market/quality
 
 POST /commands/open-market
 POST /commands/close-position
@@ -205,6 +228,7 @@ POST /paper/evaluate-signal
 POST /paper/update
 POST /paper/close/{paper_trade_id}
 POST /paper/reset
+POST /market/reset
 ```
 
 ## Safety
@@ -306,6 +330,30 @@ More detail:
 docs/paper_trading.md
 ```
 
+## Part 6: Market Data Recorder
+
+Market data settings live in:
+
+```text
+config/market_data.yaml
+```
+
+Market data is stored in:
+
+```text
+data/market_ticks.json
+data/market_candles_m1.json
+data/market_quality.json
+```
+
+The recorder runs after every successful MT5 snapshot. It appends ticks, deduplicates M1 candles by timestamp, caps stored records, and updates a quality report. It never queues commands and never executes trades.
+
+More detail:
+
+```text
+docs/market_data_recorder.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -348,4 +396,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 6 can add reporting or strategy refinement after bridge, Risk Governor, lifecycle, shadow signal plumbing, and paper trading are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 7 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, and market recording are stable. Do not enable live trading until every layer has been reviewed and tested.

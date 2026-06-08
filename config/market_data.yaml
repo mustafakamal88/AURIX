@@ -1,0 +1,10 @@
+enabled: true
+symbol: XAUUSDm
+record_ticks: true
+record_candles: true
+record_spread: true
+max_tick_records: 5000
+max_candle_records: 10000
+max_snapshot_age_seconds: 10
+max_spread_points: 350
+min_candles_required: 20
