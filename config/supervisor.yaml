@@ -1,0 +1,10 @@
+enabled: true
+mode: "PAPER"
+symbol: "XAUUSDm"
+loop_interval_seconds: 5
+max_snapshot_age_seconds: 10
+require_market_quality_ok: true
+run_context: true
+run_strategy: true
+run_paper_trading: true
+allow_command_queueing: false

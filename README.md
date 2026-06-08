@@ -8,6 +8,7 @@ Part 5 adds a paper trade ledger that simulates signal outcomes without queueing
 Part 6 records live market data and quality metrics for future replay, backtesting, and review.
 Part 7 classifies session and market-regime context without queueing or execution.
 Part 8 adds XAUUSD Paper Strategy V1 for paper-only liquidity sweep/reclaim testing.
+Part 9 adds a paper-only supervisor loop that runs the local quality, context, strategy, and paper ledger pipeline.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -218,6 +219,24 @@ Watch XAUUSD Paper V1:
 python3 scripts/watch_xauusd_paper_v1.py
 ```
 
+Check paper supervisor status:
+
+```bash
+python3 scripts/check_supervisor.py
+```
+
+Run the paper supervisor once:
+
+```bash
+python3 scripts/run_supervisor_once.py
+```
+
+Watch the paper supervisor loop:
+
+```bash
+python3 scripts/watch_supervisor.py
+```
+
 ## API Endpoints
 
 ```text
@@ -251,6 +270,7 @@ GET  /market/quality
 GET  /context/status
 GET  /context/latest
 GET  /context/history
+GET  /supervisor/status
 
 POST /commands/open-market
 POST /commands/close-position
@@ -268,6 +288,8 @@ POST /context/evaluate
 POST /context/reset
 POST /strategy/evaluate-paper-v1
 POST /paper/evaluate-paper-v1
+POST /supervisor/run-once
+POST /supervisor/reset
 ```
 
 ## Safety
@@ -279,6 +301,7 @@ POST /paper/evaluate-paper-v1
 - The EA also requires `live_confirm="I_ACCEPT_LIVE_RISK"` on each live command.
 - `MaxVolume` defaults to `0.01`.
 - The Risk Governor does not replace the EA safety gate.
+- The Part 9 supervisor is paper-only and has `allow_command_queueing=false`.
 
 ## Part 2: Risk Governor
 
@@ -431,6 +454,28 @@ More detail:
 docs/xauusd_paper_strategy_v1.md
 ```
 
+## Part 9: Paper Trading Supervisor Loop
+
+Supervisor settings live in:
+
+```text
+config/supervisor.yaml
+```
+
+Runtime status is stored in:
+
+```text
+data/supervisor_status.json
+```
+
+The supervisor checks the latest snapshot, validates market quality, evaluates context, evaluates XAUUSD Paper Strategy V1, creates paper trades only from actionable paper signals, and updates open paper trades. It never calls `/commands/open-market` and never queues MT5 commands.
+
+More detail:
+
+```text
+docs/supervisor_loop.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -473,4 +518,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 9 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, and XAUUSD Paper V1 are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 10 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, and the paper supervisor loop are stable. Do not enable live trading until every layer has been reviewed and tested.

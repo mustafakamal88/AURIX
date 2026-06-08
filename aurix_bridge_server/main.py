@@ -15,6 +15,7 @@ from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
+from aurix_supervisor import PaperSupervisor, load_supervisor_config
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
 from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load_xauusd_paper_v1_config
 
@@ -40,6 +41,18 @@ market_config = load_market_data_config()
 market_recorder = MarketDataRecorder(DATA_DIR, market_config)
 context_config = load_context_config()
 context_engine = ContextEngine(DATA_DIR, context_config)
+supervisor_config = load_supervisor_config()
+paper_supervisor = PaperSupervisor(
+    data_dir=DATA_DIR,
+    config=supervisor_config,
+    store=store,
+    market_recorder=market_recorder,
+    context_engine=context_engine,
+    xauusd_paper_v1_config=xauusd_paper_v1_config,
+    paper_engine=paper_engine,
+    paper_ledger=paper_ledger,
+    market_config=market_config,
+)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -65,6 +78,7 @@ def root() -> dict[str, Any]:
         "paper_status": "/paper/status",
         "market_status": "/market/status",
         "context_status": "/context/status",
+        "supervisor_status": "/supervisor/status",
     }
 
 
@@ -530,6 +544,21 @@ def context_evaluate() -> dict[str, Any]:
 def context_reset() -> dict[str, Any]:
     context_engine.reset()
     return {"ok": True, "contexts": 0}
+
+
+@app.get("/supervisor/status")
+def supervisor_status() -> dict[str, Any]:
+    return paper_supervisor.status().model_dump()
+
+
+@app.post("/supervisor/run-once")
+def supervisor_run_once() -> dict[str, Any]:
+    return paper_supervisor.run_once().model_dump()
+
+
+@app.post("/supervisor/reset")
+def supervisor_reset() -> dict[str, Any]:
+    return paper_supervisor.reset().model_dump()
 
 
 @app.post("/commands/open-market")
