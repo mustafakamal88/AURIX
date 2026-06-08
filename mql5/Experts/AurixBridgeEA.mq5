@@ -1,0 +1,536 @@
+//+------------------------------------------------------------------+
+//| AURIX Bridge EA                                                  |
+//| Mac/Wine-safe bridge: MT5 EA <-> Python FastAPI                  |
+//+------------------------------------------------------------------+
+#property strict
+
+#include <Trade/Trade.mqh>
+
+input string TerminalId       = "AURIX-MAC-001";
+input string ServerBaseUrl    = "http://127.0.0.1:8765";
+input string TradeSymbol      = "XAUUSDm";
+input int    TimerSeconds     = 2;
+input bool   AllowLiveTrading = false;
+input double MaxVolume        = 0.01;
+input int    MagicNumber      = 880001;
+input int    DeviationPoints  = 20;
+
+CTrade trade;
+
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   trade.SetExpertMagicNumber(MagicNumber);
+   trade.SetDeviationInPoints(DeviationPoints);
+   EventSetTimer(TimerSeconds);
+   Print("AURIX Bridge EA started. TerminalId=", TerminalId, " Server=", ServerBaseUrl);
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   EventKillTimer();
+   Print("AURIX Bridge EA stopped. Reason=", reason);
+}
+
+//+------------------------------------------------------------------+
+void OnTimer()
+{
+   SendSnapshot();
+   PollCommand();
+}
+
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   // Tick handling stays light. Snapshot/command polling is timer-based.
+}
+
+//+------------------------------------------------------------------+
+string JsonEscape(string s)
+{
+   StringReplace(s, "\\", "\\\\");
+   StringReplace(s, "\"", "\\\"");
+   StringReplace(s, "\r", "\\r");
+   StringReplace(s, "\n", "\\n");
+   return s;
+}
+
+//+------------------------------------------------------------------+
+string Num(double v, int digits=8)
+{
+   return DoubleToString(v, digits);
+}
+
+//+------------------------------------------------------------------+
+string AccountJson()
+{
+   string j = "{";
+   j += "\"login\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
+   j += "\"server\":\"" + JsonEscape(AccountInfoString(ACCOUNT_SERVER)) + "\",";
+   j += "\"currency\":\"" + JsonEscape(AccountInfoString(ACCOUNT_CURRENCY)) + "\",";
+   j += "\"company\":\"" + JsonEscape(AccountInfoString(ACCOUNT_COMPANY)) + "\",";
+   j += "\"name\":\"" + JsonEscape(AccountInfoString(ACCOUNT_NAME)) + "\",";
+   j += "\"balance\":" + Num(AccountInfoDouble(ACCOUNT_BALANCE), 2) + ",";
+   j += "\"equity\":" + Num(AccountInfoDouble(ACCOUNT_EQUITY), 2) + ",";
+   j += "\"profit\":" + Num(AccountInfoDouble(ACCOUNT_PROFIT), 2) + ",";
+   j += "\"margin\":" + Num(AccountInfoDouble(ACCOUNT_MARGIN), 2) + ",";
+   j += "\"margin_free\":" + Num(AccountInfoDouble(ACCOUNT_MARGIN_FREE), 2) + ",";
+   j += "\"margin_level\":" + Num(AccountInfoDouble(ACCOUNT_MARGIN_LEVEL), 2) + ",";
+   j += "\"leverage\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LEVERAGE)) + ",";
+   j += "\"trade_allowed\":" + (AccountInfoInteger(ACCOUNT_TRADE_ALLOWED) ? "true" : "false") + ",";
+   j += "\"trade_expert\":" + (AccountInfoInteger(ACCOUNT_TRADE_EXPERT) ? "true" : "false");
+   j += "}";
+   return j;
+}
+
+//+------------------------------------------------------------------+
+string TickJson(string symbol)
+{
+   MqlTick tick;
+   bool ok = SymbolInfoTick(symbol, tick);
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   double spread = 0;
+   if(ok && point > 0)
+      spread = (tick.ask - tick.bid) / point;
+
+   string j = "{";
+   j += "\"symbol\":\"" + JsonEscape(symbol) + "\",";
+   j += "\"ok\":" + (ok ? "true" : "false") + ",";
+   j += "\"time\":" + IntegerToString((long)tick.time) + ",";
+   j += "\"bid\":" + Num(tick.bid) + ",";
+   j += "\"ask\":" + Num(tick.ask) + ",";
+   j += "\"last\":" + Num(tick.last) + ",";
+   j += "\"volume\":" + Num((double)tick.volume) + ",";
+   j += "\"spread_points\":" + Num(spread, 2);
+   j += "}";
+   return j;
+}
+
+//+------------------------------------------------------------------+
+string CandlesJson(string symbol)
+{
+   MqlRates rates[];
+   ArraySetAsSeries(rates, true);
+   int copied = CopyRates(symbol, PERIOD_M1, 0, 20, rates);
+
+   string j = "[";
+   for(int i = copied - 1; i >= 0; i--)
+   {
+      j += "{";
+      j += "\"time\":" + IntegerToString((long)rates[i].time) + ",";
+      j += "\"open\":" + Num(rates[i].open) + ",";
+      j += "\"high\":" + Num(rates[i].high) + ",";
+      j += "\"low\":" + Num(rates[i].low) + ",";
+      j += "\"close\":" + Num(rates[i].close) + ",";
+      j += "\"tick_volume\":" + IntegerToString((long)rates[i].tick_volume) + ",";
+      j += "\"spread\":" + IntegerToString(rates[i].spread) + ",";
+      j += "\"real_volume\":" + IntegerToString((long)rates[i].real_volume);
+      j += "}";
+      if(i > 0) j += ",";
+   }
+   j += "]";
+   return j;
+}
+
+//+------------------------------------------------------------------+
+string PositionsJson()
+{
+   string j = "[";
+   int total = PositionsTotal();
+   int added = 0;
+
+   for(int i = 0; i < total; i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+
+      string symbol = PositionGetString(POSITION_SYMBOL);
+
+      if(added > 0) j += ",";
+      j += "{";
+      j += "\"ticket\":" + IntegerToString((long)ticket) + ",";
+      j += "\"symbol\":\"" + JsonEscape(symbol) + "\",";
+      j += "\"type\":" + IntegerToString((int)PositionGetInteger(POSITION_TYPE)) + ",";
+      j += "\"magic\":" + IntegerToString((long)PositionGetInteger(POSITION_MAGIC)) + ",";
+      j += "\"volume\":" + Num(PositionGetDouble(POSITION_VOLUME), 2) + ",";
+      j += "\"price_open\":" + Num(PositionGetDouble(POSITION_PRICE_OPEN)) + ",";
+      j += "\"sl\":" + Num(PositionGetDouble(POSITION_SL)) + ",";
+      j += "\"tp\":" + Num(PositionGetDouble(POSITION_TP)) + ",";
+      j += "\"price_current\":" + Num(PositionGetDouble(POSITION_PRICE_CURRENT)) + ",";
+      j += "\"profit\":" + Num(PositionGetDouble(POSITION_PROFIT), 2) + ",";
+      j += "\"swap\":" + Num(PositionGetDouble(POSITION_SWAP), 2) + ",";
+      j += "\"comment\":\"" + JsonEscape(PositionGetString(POSITION_COMMENT)) + "\"";
+      j += "}";
+      added++;
+   }
+
+   j += "]";
+   return j;
+}
+
+//+------------------------------------------------------------------+
+string OrdersJson()
+{
+   string j = "[";
+   int total = OrdersTotal();
+   int added = 0;
+
+   for(int i = 0; i < total; i++)
+   {
+      ulong ticket = OrderGetTicket(i);
+      if(ticket == 0) continue;
+
+      if(added > 0) j += ",";
+      j += "{";
+      j += "\"ticket\":" + IntegerToString((long)ticket) + ",";
+      j += "\"symbol\":\"" + JsonEscape(OrderGetString(ORDER_SYMBOL)) + "\",";
+      j += "\"type\":" + IntegerToString((int)OrderGetInteger(ORDER_TYPE)) + ",";
+      j += "\"state\":" + IntegerToString((int)OrderGetInteger(ORDER_STATE)) + ",";
+      j += "\"magic\":" + IntegerToString((long)OrderGetInteger(ORDER_MAGIC)) + ",";
+      j += "\"volume_current\":" + Num(OrderGetDouble(ORDER_VOLUME_CURRENT), 2) + ",";
+      j += "\"volume_initial\":" + Num(OrderGetDouble(ORDER_VOLUME_INITIAL), 2) + ",";
+      j += "\"price_open\":" + Num(OrderGetDouble(ORDER_PRICE_OPEN)) + ",";
+      j += "\"sl\":" + Num(OrderGetDouble(ORDER_SL)) + ",";
+      j += "\"tp\":" + Num(OrderGetDouble(ORDER_TP)) + ",";
+      j += "\"comment\":\"" + JsonEscape(OrderGetString(ORDER_COMMENT)) + "\"";
+      j += "}";
+      added++;
+   }
+
+   j += "]";
+   return j;
+}
+
+//+------------------------------------------------------------------+
+string DealsJson()
+{
+   datetime to = TimeCurrent();
+   datetime from = to - 86400 * 3;
+   HistorySelect(from, to);
+
+   int total = HistoryDealsTotal();
+   int start = MathMax(0, total - 20);
+
+   string j = "[";
+   int added = 0;
+
+   for(int i = start; i < total; i++)
+   {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket == 0) continue;
+
+      if(added > 0) j += ",";
+      j += "{";
+      j += "\"ticket\":" + IntegerToString((long)ticket) + ",";
+      j += "\"order\":" + IntegerToString((long)HistoryDealGetInteger(ticket, DEAL_ORDER)) + ",";
+      j += "\"time\":" + IntegerToString((long)HistoryDealGetInteger(ticket, DEAL_TIME)) + ",";
+      j += "\"symbol\":\"" + JsonEscape(HistoryDealGetString(ticket, DEAL_SYMBOL)) + "\",";
+      j += "\"type\":" + IntegerToString((int)HistoryDealGetInteger(ticket, DEAL_TYPE)) + ",";
+      j += "\"entry\":" + IntegerToString((int)HistoryDealGetInteger(ticket, DEAL_ENTRY)) + ",";
+      j += "\"magic\":" + IntegerToString((long)HistoryDealGetInteger(ticket, DEAL_MAGIC)) + ",";
+      j += "\"volume\":" + Num(HistoryDealGetDouble(ticket, DEAL_VOLUME), 2) + ",";
+      j += "\"price\":" + Num(HistoryDealGetDouble(ticket, DEAL_PRICE)) + ",";
+      j += "\"profit\":" + Num(HistoryDealGetDouble(ticket, DEAL_PROFIT), 2) + ",";
+      j += "\"commission\":" + Num(HistoryDealGetDouble(ticket, DEAL_COMMISSION), 2) + ",";
+      j += "\"swap\":" + Num(HistoryDealGetDouble(ticket, DEAL_SWAP), 2) + ",";
+      j += "\"comment\":\"" + JsonEscape(HistoryDealGetString(ticket, DEAL_COMMENT)) + "\"";
+      j += "}";
+      added++;
+   }
+
+   j += "]";
+   return j;
+}
+
+//+------------------------------------------------------------------+
+bool HttpPostJson(string path, string payload, string &response)
+{
+   string url = ServerBaseUrl + path;
+   string headers = "Content-Type: application/json\r\n";
+   char data[];
+   char result[];
+   string result_headers;
+
+   StringToCharArray(payload, data, 0, WHOLE_ARRAY, CP_UTF8);
+   ResetLastError();
+
+   int code = WebRequest("POST", url, headers, 5000, data, result, result_headers);
+   response = CharArrayToString(result, 0, -1, CP_UTF8);
+
+   if(code == -1)
+   {
+      Print("AURIX WebRequest POST failed. Error=", GetLastError(), " URL=", url);
+      return false;
+   }
+
+   if(code < 200 || code >= 300)
+   {
+      Print("AURIX HTTP POST non-2xx. Code=", code, " Body=", response);
+      return false;
+   }
+
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool HttpGetText(string path, string &response)
+{
+   string url = ServerBaseUrl + path;
+   string headers = "";
+   char data[];
+   char result[];
+   string result_headers;
+
+   ResetLastError();
+   int code = WebRequest("GET", url, headers, 5000, data, result, result_headers);
+   response = CharArrayToString(result, 0, -1, CP_UTF8);
+
+   if(code == -1)
+   {
+      Print("AURIX WebRequest GET failed. Error=", GetLastError(), " URL=", url);
+      return false;
+   }
+
+   if(code < 200 || code >= 300)
+   {
+      Print("AURIX HTTP GET non-2xx. Code=", code, " Body=", response);
+      return false;
+   }
+
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void SendSnapshot()
+{
+   string symbol = TradeSymbol;
+   if(!SymbolSelect(symbol, true))
+   {
+      Print("AURIX cannot select symbol: ", symbol);
+      return;
+   }
+
+   string payload = "{";
+   payload += "\"terminal_id\":\"" + JsonEscape(TerminalId) + "\",";
+   payload += "\"account\":" + AccountJson() + ",";
+   payload += "\"tick\":" + TickJson(symbol) + ",";
+   payload += "\"candles\":" + CandlesJson(symbol) + ",";
+   payload += "\"positions\":" + PositionsJson() + ",";
+   payload += "\"orders\":" + OrdersJson() + ",";
+   payload += "\"deals\":" + DealsJson() + ",";
+   payload += "\"raw\":{";
+   payload += "\"ea\":\"AurixBridgeEA\",";
+   payload += "\"allow_live_trading\":" + (AllowLiveTrading ? "true" : "false") + ",";
+   payload += "\"magic\":" + IntegerToString(MagicNumber);
+   payload += "}";
+   payload += "}";
+
+   string response;
+   HttpPostJson("/mt5/snapshot", payload, response);
+}
+
+//+------------------------------------------------------------------+
+int SplitPipe(string text, string &parts[])
+{
+   return StringSplit(text, '|', parts);
+}
+
+//+------------------------------------------------------------------+
+bool ConfirmAllowed(string confirm)
+{
+   if(!AllowLiveTrading)
+      return false;
+
+   if(confirm != "I_ACCEPT_LIVE_RISK")
+      return false;
+
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void SendExecutionResult(
+   string command_id,
+   bool ok,
+   int retcode,
+   string message,
+   ulong order_ticket,
+   ulong deal_ticket,
+   string symbol,
+   string direction,
+   double volume,
+   double price
+)
+{
+   string payload = "{";
+   payload += "\"terminal_id\":\"" + JsonEscape(TerminalId) + "\",";
+   payload += "\"command_id\":\"" + JsonEscape(command_id) + "\",";
+   payload += "\"ok\":" + (ok ? "true" : "false") + ",";
+   payload += "\"retcode\":" + IntegerToString(retcode) + ",";
+   payload += "\"message\":\"" + JsonEscape(message) + "\",";
+   payload += "\"order\":" + IntegerToString((long)order_ticket) + ",";
+   payload += "\"deal\":" + IntegerToString((long)deal_ticket) + ",";
+   payload += "\"symbol\":\"" + JsonEscape(symbol) + "\",";
+   payload += "\"direction\":\"" + JsonEscape(direction) + "\",";
+   payload += "\"volume\":" + Num(volume, 2) + ",";
+   payload += "\"price\":" + Num(price) + ",";
+   payload += "\"raw\":{}";
+   payload += "}";
+
+   string response;
+   HttpPostJson("/mt5/execution-result", payload, response);
+}
+
+//+------------------------------------------------------------------+
+void ExecuteOpenMarket(string &parts[])
+{
+   // OPEN_MARKET|cmd_id|symbol|direction|volume|sl|tp|comment|confirm
+   string cmd_id   = parts[1];
+   string symbol   = parts[2];
+   string dir      = parts[3];
+   double volume   = StringToDouble(parts[4]);
+   double sl       = StringToDouble(parts[5]);
+   double tp       = StringToDouble(parts[6]);
+   string comment  = parts[7];
+   string confirm  = parts[8];
+
+   if(!ConfirmAllowed(confirm))
+   {
+      SendExecutionResult(cmd_id, false, -1, "Live trading blocked by EA safety gate", 0, 0, symbol, dir, volume, 0);
+      return;
+   }
+
+   if(volume <= 0 || volume > MaxVolume)
+   {
+      SendExecutionResult(cmd_id, false, -2, "Volume blocked by MaxVolume", 0, 0, symbol, dir, volume, 0);
+      return;
+   }
+
+   if(!SymbolSelect(symbol, true))
+   {
+      SendExecutionResult(cmd_id, false, -3, "SymbolSelect failed", 0, 0, symbol, dir, volume, 0);
+      return;
+   }
+
+   bool ok = false;
+   if(dir == "BUY")
+      ok = trade.Buy(volume, symbol, 0, sl, tp, comment);
+   else if(dir == "SELL")
+      ok = trade.Sell(volume, symbol, 0, sl, tp, comment);
+   else
+   {
+      SendExecutionResult(cmd_id, false, -4, "Unknown direction", 0, 0, symbol, dir, volume, 0);
+      return;
+   }
+
+   int retcode = (int)trade.ResultRetcode();
+   string msg = trade.ResultRetcodeDescription();
+   ulong order_ticket = trade.ResultOrder();
+   ulong deal_ticket = trade.ResultDeal();
+   double price = trade.ResultPrice();
+
+   SendExecutionResult(cmd_id, ok, retcode, msg, order_ticket, deal_ticket, symbol, dir, volume, price);
+}
+
+//+------------------------------------------------------------------+
+void ExecuteClosePosition(string &parts[])
+{
+   // CLOSE_POSITION|cmd_id|ticket|volume|comment|confirm
+   string cmd_id  = parts[1];
+   ulong ticket   = (ulong)StringToInteger(parts[2]);
+   double volume  = StringToDouble(parts[3]);
+   string comment = parts[4];
+   string confirm = parts[5];
+
+   if(!ConfirmAllowed(confirm))
+   {
+      SendExecutionResult(cmd_id, false, -1, "Close blocked by EA safety gate", ticket, 0, "", "CLOSE", volume, 0);
+      return;
+   }
+
+   bool selected = PositionSelectByTicket(ticket);
+   if(!selected)
+   {
+      SendExecutionResult(cmd_id, false, -2, "Position ticket not found", ticket, 0, "", "CLOSE", volume, 0);
+      return;
+   }
+
+   string symbol = PositionGetString(POSITION_SYMBOL);
+   double pos_volume = PositionGetDouble(POSITION_VOLUME);
+
+   bool ok;
+   if(volume > 0 && volume < pos_volume)
+      ok = trade.PositionClosePartial(ticket, volume, DeviationPoints);
+   else
+      ok = trade.PositionClose(ticket, DeviationPoints);
+
+   int retcode = (int)trade.ResultRetcode();
+   string msg = trade.ResultRetcodeDescription();
+   ulong order_ticket = trade.ResultOrder();
+   ulong deal_ticket = trade.ResultDeal();
+   double price = trade.ResultPrice();
+
+   SendExecutionResult(cmd_id, ok, retcode, msg, order_ticket, deal_ticket, symbol, "CLOSE", volume, price);
+}
+
+//+------------------------------------------------------------------+
+void ExecuteKillSwitch(string &parts[])
+{
+   // KILL_SWITCH|cmd_id|comment|confirm
+   string cmd_id = parts[1];
+   string confirm = parts[3];
+
+   if(!ConfirmAllowed(confirm))
+   {
+      SendExecutionResult(cmd_id, false, -1, "Kill switch blocked by EA safety gate", 0, 0, "", "KILL", 0, 0);
+      return;
+   }
+
+   bool all_ok = true;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(!trade.PositionClose(ticket, DeviationPoints))
+         all_ok = false;
+   }
+
+   SendExecutionResult(cmd_id, all_ok, (int)trade.ResultRetcode(), "Kill switch processed", trade.ResultOrder(), trade.ResultDeal(), "", "KILL", 0, trade.ResultPrice());
+}
+
+//+------------------------------------------------------------------+
+void PollCommand()
+{
+   string response;
+   string path = "/mt5/command?terminal_id=" + TerminalId;
+
+   if(!HttpGetText(path, response))
+      return;
+
+   StringTrimLeft(response);
+   StringTrimRight(response);
+
+   if(response == "" || response == "NOOP")
+      return;
+
+   string parts[];
+   int n = SplitPipe(response, parts);
+   if(n < 2)
+   {
+      Print("AURIX invalid command: ", response);
+      return;
+   }
+
+   string cmd = parts[0];
+
+   if(cmd == "OPEN_MARKET" && n >= 9)
+      ExecuteOpenMarket(parts);
+   else if(cmd == "CLOSE_POSITION" && n >= 6)
+      ExecuteClosePosition(parts);
+   else if(cmd == "KILL_SWITCH" && n >= 4)
+      ExecuteKillSwitch(parts);
+   else
+      Print("AURIX unknown/invalid command: ", response);
+}
+//+------------------------------------------------------------------+
