@@ -28,8 +28,9 @@ class JsonStore:
         self.results_file = self.data_dir / "execution_results.json"
         self.snapshot_debug_file = self.data_dir / "latest_snapshot_debug.json"
         self.risk_decisions_file = self.data_dir / "risk_decisions.json"
+        self.strategy_signals_file = self.data_dir / "strategy_signals.json"
 
-        for file in [self.commands_file, self.results_file, self.risk_decisions_file]:
+        for file in [self.commands_file, self.results_file, self.risk_decisions_file, self.strategy_signals_file]:
             if not file.exists():
                 file.write_text("[]", encoding="utf-8")
 
@@ -201,3 +202,14 @@ class JsonStore:
 
     def list_risk_decisions(self) -> list[dict[str, Any]]:
         return self._read_json(self.risk_decisions_file, [])
+
+    def add_strategy_signal(self, signal: dict[str, Any]) -> None:
+        signals = self.list_strategy_signals()
+        signals.append(signal)
+        self._write_json(self.strategy_signals_file, signals)
+
+    def list_strategy_signals(self) -> list[dict[str, Any]]:
+        return self._read_json(self.strategy_signals_file, [])
+
+    def reset_strategy_signals(self) -> None:
+        self._write_json(self.strategy_signals_file, [])

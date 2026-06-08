@@ -1,0 +1,10 @@
+enabled: true
+mode: SHADOW
+symbol: XAUUSDm
+timeframe: M1
+min_candles: 20
+max_spread_points: 350
+allow_buy: true
+allow_sell: true
+signal_cooldown_seconds: 60
+session_filter_enabled: false

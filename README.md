@@ -3,6 +3,7 @@
 Part 1 is the MT5 bridge layer for a macOS Python server talking to MetaTrader 5 running through Wine.
 Part 2 adds a deterministic Risk Governor in front of command queueing.
 Part 3 adds command lifecycle tracking from queue creation to final execution result.
+Part 4 adds a shadow-only deterministic strategy engine that logs paper signals without queueing orders.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -123,6 +124,24 @@ Cancel a queued command:
 python3 scripts/cancel_command.py COMMAND_ID
 ```
 
+Check shadow strategy status:
+
+```bash
+python3 scripts/check_strategy.py
+```
+
+Evaluate the shadow strategy once:
+
+```bash
+python3 scripts/evaluate_strategy_once.py
+```
+
+Watch shadow strategy signals:
+
+```bash
+python3 scripts/watch_strategy.py
+```
+
 ## API Endpoints
 
 ```text
@@ -144,12 +163,16 @@ GET  /results
 GET  /execution/results
 GET  /risk/status
 GET  /risk/decisions
+GET  /strategy/status
+GET  /strategy/signals
 
 POST /commands/open-market
 POST /commands/close-position
 POST /commands/kill-switch
 POST /commands/{command_id}/cancel
 POST /commands/cancel/{command_id}
+POST /strategy/evaluate
+POST /strategy/reset-signals
 ```
 
 ## Safety
@@ -207,6 +230,28 @@ More detail:
 docs/order_lifecycle.md
 ```
 
+## Part 4: Shadow Strategy Engine
+
+Strategy settings live in:
+
+```text
+config/strategy_xauusd_shadow_v1.yaml
+```
+
+Signals are stored in:
+
+```text
+data/strategy_signals.json
+```
+
+The V1 strategy reads the latest snapshot, checks `XAUUSDm` M1 candles and spread, and emits shadow-only `BUY`, `SELL`, or no-signal records. It never queues commands and never executes trades.
+
+More detail:
+
+```text
+docs/shadow_strategy_engine.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -249,4 +294,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 4 can add strategy design after the bridge, Risk Governor, and command lifecycle are stable. Do not enable live trading until risk behavior and lifecycle behavior have been reviewed and tested.
+Part 5 can add strategy refinement after bridge, Risk Governor, lifecycle, and shadow signal plumbing are stable. Do not enable live trading until every layer has been reviewed and tested.

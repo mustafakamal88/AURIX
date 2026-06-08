@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
+from aurix_strategy_engine import StrategyEngine, load_strategy_config
 
 from .command_codec import encode_command_for_mql5
 from .models import Command, ExecutionResult, utc_now_iso
@@ -25,6 +26,8 @@ DEFAULT_TERMINAL_ID = os.getenv("AURIX_TERMINAL_ID", "AURIX-MAC-001")
 store = JsonStore(DATA_DIR)
 risk_config = load_risk_config()
 risk_governor = RiskGovernor(risk_config)
+strategy_config = load_strategy_config()
+strategy_engine = StrategyEngine(strategy_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -45,6 +48,7 @@ def root() -> dict[str, Any]:
         "risk_status": "/risk/status",
         "results": "/results",
         "execution_results": "/execution/results",
+        "strategy_status": "/strategy/status",
     }
 
 
@@ -316,6 +320,32 @@ def risk_status() -> dict[str, Any]:
 @app.get("/risk/decisions")
 def risk_decisions() -> list[dict[str, Any]]:
     return store.list_risk_decisions()
+
+
+@app.get("/strategy/status")
+def strategy_status() -> dict[str, Any]:
+    return strategy_engine.status(store.latest_snapshot(), store.list_strategy_signals())
+
+
+@app.get("/strategy/signals")
+def strategy_signals() -> list[dict[str, Any]]:
+    return store.list_strategy_signals()
+
+
+@app.post("/strategy/evaluate")
+def evaluate_strategy() -> dict[str, Any]:
+    signal = strategy_engine.evaluate(
+        snapshot=store.latest_snapshot(),
+        previous_signals=store.list_strategy_signals(),
+    )
+    store.add_strategy_signal(signal.model_dump())
+    return signal.model_dump()
+
+
+@app.post("/strategy/reset-signals")
+def reset_strategy_signals() -> dict[str, Any]:
+    store.reset_strategy_signals()
+    return {"ok": True, "signals": 0}
 
 
 @app.post("/commands/open-market")
