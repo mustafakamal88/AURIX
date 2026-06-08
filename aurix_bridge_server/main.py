@@ -44,6 +44,7 @@ def root() -> dict[str, Any]:
         "latest_state": "/state/latest",
         "risk_status": "/risk/status",
         "results": "/results",
+        "execution_results": "/execution/results",
     }
 
 
@@ -224,9 +225,38 @@ def list_commands() -> list[dict[str, Any]]:
     return store.list_commands()
 
 
+@app.get("/commands/open")
+def list_open_commands() -> list[dict[str, Any]]:
+    return store.list_open_commands()
+
+
+@app.get("/commands/{command_id}")
+def get_command(command_id: str) -> dict[str, Any]:
+    command = store.get_command(command_id)
+    if command is None:
+        raise HTTPException(status_code=404, detail="Command not found.")
+    return command
+
+
+@app.post("/commands/{command_id}/cancel")
+def cancel_command(command_id: str) -> dict[str, Any]:
+    ok = store.cancel_command(command_id)
+    if not ok:
+        command = store.get_command(command_id)
+        if command is None:
+            raise HTTPException(status_code=404, detail="Command not found.")
+        raise HTTPException(status_code=400, detail="Only QUEUED commands can be cancelled.")
+    return {"ok": True, "command_id": command_id, "status": "CANCELLED"}
+
+
+@app.get("/execution/results")
+def execution_results() -> list[dict[str, Any]]:
+    return store.list_results()
+
+
 @app.get("/results")
 def list_results() -> list[dict[str, Any]]:
-    return store.list_results()
+    return execution_results()
 
 
 @app.get("/risk/status")
@@ -316,6 +346,7 @@ def open_market(req: OpenMarketRequest) -> Command:
     if not decision.approved:
         raise HTTPException(status_code=400, detail=decision.model_dump())
 
+    cmd.risk_decision_id = decision.id
     return store.add_command(cmd)
 
 

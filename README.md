@@ -2,6 +2,7 @@
 
 Part 1 is the MT5 bridge layer for a macOS Python server talking to MetaTrader 5 running through Wine.
 Part 2 adds a deterministic Risk Governor in front of command queueing.
+Part 3 adds command lifecycle tracking from queue creation to final execution result.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -104,6 +105,24 @@ Queue a dry test command through the Risk Governor:
 python3 scripts/queue_test_command_with_risk.py
 ```
 
+Check command lifecycle:
+
+```bash
+python3 scripts/check_command_lifecycle.py
+```
+
+List open commands:
+
+```bash
+python3 scripts/list_open_commands.py
+```
+
+Cancel a queued command:
+
+```bash
+python3 scripts/cancel_command.py COMMAND_ID
+```
+
 ## API Endpoints
 
 ```text
@@ -119,13 +138,17 @@ GET  /state/positions
 GET  /state/orders
 GET  /state/deals
 GET  /commands
+GET  /commands/open
+GET  /commands/{command_id}
 GET  /results
+GET  /execution/results
 GET  /risk/status
 GET  /risk/decisions
 
 POST /commands/open-market
 POST /commands/close-position
 POST /commands/kill-switch
+POST /commands/{command_id}/cancel
 POST /commands/cancel/{command_id}
 ```
 
@@ -159,6 +182,29 @@ More detail:
 
 ```text
 docs/risk_governor.md
+```
+
+## Part 3: Order Lifecycle
+
+Commands now track:
+
+```text
+QUEUED -> DISPATCHED -> EXECUTION_BLOCKED / EXECUTION_FAILED / EXECUTION_FILLED
+```
+
+They can also become:
+
+```text
+CANCELLED
+EXPIRED
+```
+
+Default command expiry is 30 seconds. Expired commands are not dispatched. Commands are dispatched once only; there is no automatic retry in Part 3.
+
+More detail:
+
+```text
+docs/order_lifecycle.md
 ```
 
 ## Troubleshooting
@@ -203,4 +249,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 3 can add strategy design after the bridge and Risk Governor are stable. Do not enable live trading until risk behavior has been reviewed and tested.
+Part 4 can add strategy design after the bridge, Risk Governor, and command lifecycle are stable. Do not enable live trading until risk behavior and lifecycle behavior have been reviewed and tested.

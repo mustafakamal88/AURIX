@@ -14,6 +14,18 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+CommandStatus = Literal[
+    "QUEUED",
+    "DISPATCHED",
+    "EA_RECEIVED",
+    "EXECUTION_BLOCKED",
+    "EXECUTION_FAILED",
+    "EXECUTION_FILLED",
+    "CANCELLED",
+    "EXPIRED",
+]
+
+
 class Command(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: Literal["OPEN_MARKET", "CLOSE_POSITION", "CANCEL_ORDER", "KILL_SWITCH"]
@@ -27,7 +39,13 @@ class Command(BaseModel):
     comment: str = "AURIX"
     live_confirm: Optional[str] = None
     created_at: str = Field(default_factory=utc_now_iso)
-    status: Literal["QUEUED", "DISPATCHED", "DONE", "FAILED", "CANCELLED"] = "QUEUED"
+    status: CommandStatus = "QUEUED"
+    risk_decision_id: Optional[str] = None
+    dispatched_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    dispatch_count: int = 0
+    last_error: Optional[str] = None
+    execution_result_id: Optional[str] = None
 
 
 class Snapshot(BaseModel):
@@ -43,6 +61,7 @@ class Snapshot(BaseModel):
 
 
 class ExecutionResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     terminal_id: str
     command_id: str
     ok: bool

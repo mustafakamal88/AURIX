@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Literal, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +9,7 @@ from aurix_bridge_server.models import utc_now_iso
 
 
 class RiskDecision(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     approved: bool
     decision: Literal["APPROVE", "BLOCK", "REDUCE"]
     reasons: list[str] = Field(default_factory=list)
