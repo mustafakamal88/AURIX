@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
+from aurix_operator import build_operator_summary, build_operator_status
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
@@ -79,6 +80,7 @@ def root() -> dict[str, Any]:
         "market_status": "/market/status",
         "context_status": "/context/status",
         "supervisor_status": "/supervisor/status",
+        "operator_status": "/operator/status",
     }
 
 
@@ -559,6 +561,43 @@ def supervisor_run_once() -> dict[str, Any]:
 @app.post("/supervisor/reset")
 def supervisor_reset() -> dict[str, Any]:
     return paper_supervisor.reset().model_dump()
+
+
+def operator_status_payload() -> dict[str, Any]:
+    return build_operator_status(
+        service="aurix-mac-wine-bridge",
+        terminal_id=DEFAULT_TERMINAL_ID,
+        store=store,
+        market_recorder=market_recorder,
+        market_config=market_config,
+        context_engine=context_engine,
+        risk_status=risk_status(),
+        strategy_status=strategy_status(),
+        paper_status=paper_status(),
+        supervisor_status=supervisor_status(),
+    ).model_dump()
+
+
+@app.get("/operator/status")
+def operator_status() -> dict[str, Any]:
+    return operator_status_payload()
+
+
+@app.get("/operator/summary")
+def operator_summary() -> dict[str, Any]:
+    status = build_operator_status(
+        service="aurix-mac-wine-bridge",
+        terminal_id=DEFAULT_TERMINAL_ID,
+        store=store,
+        market_recorder=market_recorder,
+        market_config=market_config,
+        context_engine=context_engine,
+        risk_status=risk_status(),
+        strategy_status=strategy_status(),
+        paper_status=paper_status(),
+        supervisor_status=supervisor_status(),
+    )
+    return build_operator_summary(status).model_dump()
 
 
 @app.post("/commands/open-market")

@@ -9,6 +9,7 @@ Part 6 records live market data and quality metrics for future replay, backtesti
 Part 7 classifies session and market-regime context without queueing or execution.
 Part 8 adds XAUUSD Paper Strategy V1 for paper-only liquidity sweep/reclaim testing.
 Part 9 adds a paper-only supervisor loop that runs the local quality, context, strategy, and paper ledger pipeline.
+Part 10 adds a read-only operator console and system health summary.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -237,6 +238,18 @@ Watch the paper supervisor loop:
 python3 scripts/watch_supervisor.py
 ```
 
+Check the operator console:
+
+```bash
+python3 scripts/operator_status.py
+```
+
+Watch the operator summary:
+
+```bash
+python3 scripts/watch_operator.py
+```
+
 ## API Endpoints
 
 ```text
@@ -271,6 +284,8 @@ GET  /context/status
 GET  /context/latest
 GET  /context/history
 GET  /supervisor/status
+GET  /operator/status
+GET  /operator/summary
 
 POST /commands/open-market
 POST /commands/close-position
@@ -302,6 +317,7 @@ POST /supervisor/reset
 - `MaxVolume` defaults to `0.01`.
 - The Risk Governor does not replace the EA safety gate.
 - The Part 9 supervisor is paper-only and has `allow_command_queueing=false`.
+- The Part 10 operator console is read-only and does not queue commands.
 
 ## Part 2: Risk Governor
 
@@ -476,6 +492,21 @@ More detail:
 docs/supervisor_loop.md
 ```
 
+## Part 10: Operator Console + System Health
+
+The operator console combines bridge, snapshot, account, market, context, risk, strategy, paper trading, supervisor, command, execution, and safety status into one read-only view.
+
+```bash
+python3 scripts/operator_status.py
+python3 scripts/watch_operator.py
+```
+
+More detail:
+
+```text
+docs/operator_console.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -518,4 +549,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 10 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, and the paper supervisor loop are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 11 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, and operator console are stable. Do not enable live trading until every layer has been reviewed and tested.
