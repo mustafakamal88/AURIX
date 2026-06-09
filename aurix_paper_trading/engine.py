@@ -56,7 +56,7 @@ class PaperTradingEngine:
         if not self.config.enabled:
             return None, {"created": False, "reason": "paper trading disabled", "signal": signal.model_dump()}
 
-        if signal.status != "SHADOW_SIGNAL" or signal.direction not in {"BUY", "SELL"}:
+        if signal.status not in {"SHADOW_SIGNAL", "PAPER_SIGNAL"} or signal.direction not in {"BUY", "SELL"}:
             return None, {"created": False, "reason": "signal is not actionable", "signal": signal.model_dump()}
 
         if signal.symbol != self.config.symbol:
@@ -117,7 +117,7 @@ class PaperTradingEngine:
             stop_loss=stop_loss,
             take_profit=take_profit,
             volume=self.config.default_volume,
-            reasons=["created from shadow signal", *signal.reasons],
+            reasons=["created from paper signal" if signal.status == "PAPER_SIGNAL" else "created from shadow signal", *signal.reasons],
             snapshot_opened_at=snapshot.get("received_at") if snapshot else None,
         )
         return trade, {"created": True, "paper_trade": trade.model_dump(), "risk_decision": risk_decision.model_dump(), "signal": signal.model_dump()}

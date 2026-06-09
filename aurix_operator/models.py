@@ -67,4 +67,8 @@ class OperatorSummary(BaseModel):
     orchestrator_session_allowed: bool = False
     orchestrator_forward_test_progress: float = 0.0
     orchestrator_evidence_status: Optional[str] = None
+    v2_signal_status: Optional[str] = None
+    backtest_v2_trade_count: int = 0
+    backtest_v2_expectancy_r: float = 0.0
+    backtest_v1_v2_expectancy_delta_r: Optional[float] = None
     warnings: list[str] = Field(default_factory=list)

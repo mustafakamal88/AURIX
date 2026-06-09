@@ -9,12 +9,12 @@ from .models import BacktestReport, BacktestTrade
 
 
 class BacktestStore:
-    def __init__(self, data_dir: str | Path = "data", config: BacktestConfig | None = None):
+    def __init__(self, data_dir: str | Path = "data", config: BacktestConfig | None = None, suffix: str = ""):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.config = config or BacktestConfig()
-        self.report_file = self.data_dir / "backtest_report.json"
-        self.trades_file = self.data_dir / "backtest_trades.json"
+        self.report_file = self.data_dir / f"backtest_report{suffix}.json"
+        self.trades_file = self.data_dir / f"backtest_trades{suffix}.json"
         self.source_candles_file = Path(self.config.source_candles_file)
 
     def status(self) -> dict[str, Any]:

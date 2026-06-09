@@ -30,6 +30,7 @@ def build_operator_status(
     daemon_status: dict[str, Any] | None = None,
     forward_test_status: dict[str, Any] | None = None,
     orchestrator_status: dict[str, Any] | None = None,
+    backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -41,6 +42,8 @@ def build_operator_status(
     results = store.list_results()
     signals = store.list_strategy_signals()
     latest_signal = signals[-1] if signals else {}
+    v2_signals = [signal for signal in signals if signal.get("strategy_name") == "xauusd_paper_v2"]
+    latest_v2_signal = v2_signals[-1] if v2_signals else {}
     market_quality = build_quality_report(snapshot, market_config)
     latest_context = context_engine.latest()
     ea_allow_live_trading = read_ea_allow_live_trading(snapshot)
@@ -87,6 +90,7 @@ def build_operator_status(
         strategy={
             "status": strategy_status,
             "latest_signal": latest_signal,
+            "latest_signal_v2": latest_v2_signal,
             "signals_count": len(signals),
         },
         paper=paper_status,
@@ -94,7 +98,7 @@ def build_operator_status(
         analytics=analytics_summary or {},
         journal=journal_status or {},
         ai_review=ai_review_status or {},
-        backtest=backtest_status or {},
+        backtest={**(backtest_status or {}), "compare_v1_v2": backtest_compare_v1_v2 or {}},
         research=research_status or {},
         evidence=evidence_status or {},
         daemon=daemon_status or {},
@@ -133,6 +137,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     campaign = as_dict(forward_test.get("campaign"))
     campaign_progress = as_dict(campaign.get("progress"))
     orchestrator = as_dict(status.orchestrator)
+    latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
+    comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
+    comparison_v2 = as_dict(comparison.get("v2"))
+    comparison_delta = as_dict(comparison.get("delta"))
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -187,5 +195,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         orchestrator_session_allowed=bool(orchestrator.get("session_allowed")),
         orchestrator_forward_test_progress=float(orchestrator.get("forward_test_progress") or 0.0),
         orchestrator_evidence_status=orchestrator.get("evidence_status"),
+        v2_signal_status=latest_v2_signal.get("status"),
+        backtest_v2_trade_count=int(comparison_v2.get("trades") or 0),
+        backtest_v2_expectancy_r=float(comparison_v2.get("expectancy_r") or 0.0),
+        backtest_v1_v2_expectancy_delta_r=as_float(comparison_delta.get("expectancy_r")),
         warnings=warnings,
     )

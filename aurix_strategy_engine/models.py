@@ -11,9 +11,15 @@ from aurix_bridge_server.models import utc_now_iso
 SignalStatus = Literal[
     "NO_SIGNAL",
     "SHADOW_SIGNAL",
+    "PAPER_SIGNAL",
+    "SKIPPED_SESSION",
     "SKIPPED_SPREAD",
+    "SKIPPED_MARKET_QUALITY",
+    "SKIPPED_CONTEXT",
+    "SKIPPED_CHOP",
     "SKIPPED_INSUFFICIENT_DATA",
     "SKIPPED_COOLDOWN",
+    "SKIPPED_MAX_SIGNALS",
     "ERROR",
 ]
 

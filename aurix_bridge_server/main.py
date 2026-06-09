@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from aurix_ai_review import AIReviewStore, AIReviewTemplateReviewer, load_ai_review_config
 from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
 from aurix_analytics.performance import summary_from_report
-from aurix_backtest import BacktestReplayEngine, BacktestStore, load_backtest_config
+from aurix_backtest import BacktestReplayEngine, BacktestStore, XauusdPaperV2BacktestReplayEngine, load_backtest_config
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
@@ -30,6 +30,7 @@ from aurix_risk_governor.checks import as_dict, as_float, as_list
 from aurix_supervisor import PaperSupervisor, load_supervisor_config
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
 from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load_xauusd_paper_v1_config
+from aurix_strategy_engine.xauusd_paper_v2 import evaluate_xauusd_paper_v2, load_xauusd_paper_v2_config
 
 from .command_codec import encode_command_for_mql5
 from .models import Command, ExecutionResult, utc_now_iso
@@ -46,6 +47,7 @@ risk_governor = RiskGovernor(risk_config)
 strategy_config = load_strategy_config()
 strategy_engine = StrategyEngine(strategy_config)
 xauusd_paper_v1_config = load_xauusd_paper_v1_config()
+xauusd_paper_v2_config = load_xauusd_paper_v2_config()
 paper_config = load_paper_trading_config()
 paper_ledger = PaperLedger(DATA_DIR)
 paper_engine = PaperTradingEngine(paper_config, risk_config)
@@ -75,6 +77,8 @@ ai_review_reviewer = AIReviewTemplateReviewer(ai_review_config)
 backtest_config = load_backtest_config()
 backtest_store = BacktestStore(DATA_DIR, backtest_config)
 backtest_engine = BacktestReplayEngine(backtest_config)
+backtest_v2_store = BacktestStore(DATA_DIR, backtest_config, suffix="_v2")
+backtest_v2_engine = XauusdPaperV2BacktestReplayEngine(xauusd_paper_v2_config)
 research_config = load_research_config()
 research_store = ResearchStore(DATA_DIR, research_config)
 evidence_gate_config = load_evidence_gate_config()
@@ -109,6 +113,7 @@ def root() -> dict[str, Any]:
         "execution_results": "/execution/results",
         "strategy_status": "/strategy/status",
         "xauusd_paper_v1": "/strategy/evaluate-paper-v1",
+        "xauusd_paper_v2": "/strategy/evaluate-paper-v2",
         "paper_status": "/paper/status",
         "market_status": "/market/status",
         "context_status": "/context/status",
@@ -118,6 +123,8 @@ def root() -> dict[str, Any]:
         "journal_status": "/journal/status",
         "ai_review_status": "/ai-review/status",
         "backtest_status": "/backtest/status",
+        "backtest_v2": "/backtest/run-v2",
+        "backtest_compare_v1_v2": "/backtest/compare-v1-v2",
         "research_status": "/research/status",
         "evidence_status": "/evidence/status",
         "daemon_status": "/daemon/status",
@@ -448,9 +455,29 @@ def evaluate_xauusd_paper_v1_signal() -> dict[str, Any]:
     return signal.model_dump()
 
 
+def evaluate_xauusd_paper_v2_signal() -> dict[str, Any]:
+    signal = evaluate_xauusd_paper_v2(
+        snapshot=store.latest_snapshot(),
+        context=current_context(),
+        candles=market_recorder.list_candles(),
+        market_quality=market_recorder.quality(),
+        previous_signals=store.list_strategy_signals(),
+        config=xauusd_paper_v2_config,
+    )
+    data = signal.model_dump()
+    data["command_id"] = None
+    store.add_strategy_signal(data)
+    return data
+
+
 @app.post("/strategy/evaluate-paper-v1")
 def strategy_evaluate_paper_v1() -> dict[str, Any]:
     return evaluate_xauusd_paper_v1_signal()
+
+
+@app.post("/strategy/evaluate-paper-v2")
+def strategy_evaluate_paper_v2() -> dict[str, Any]:
+    return evaluate_xauusd_paper_v2_signal()
 
 
 @app.get("/paper/status")
@@ -489,6 +516,23 @@ def paper_evaluate_signal() -> dict[str, Any]:
 @app.post("/paper/evaluate-paper-v1")
 def paper_evaluate_paper_v1() -> dict[str, Any]:
     signal_data = evaluate_xauusd_paper_v1_signal()
+    from aurix_strategy_engine.models import StrategySignal
+
+    signal = StrategySignal(**signal_data)
+    trade, result = paper_engine.create_from_signal(
+        signal=signal,
+        snapshot=store.latest_snapshot(),
+        open_trades=paper_ledger.list_open_trades(),
+        previous_risk_decisions=store.list_risk_decisions(),
+    )
+    if trade is not None:
+        paper_ledger.add_trade(trade)
+    return result
+
+
+@app.post("/paper/evaluate-paper-v2")
+def paper_evaluate_paper_v2() -> dict[str, Any]:
+    signal_data = evaluate_xauusd_paper_v2_signal()
     from aurix_strategy_engine.models import StrategySignal
 
     signal = StrategySignal(**signal_data)
@@ -609,6 +653,50 @@ def paper_analytics_summary() -> dict[str, Any]:
     return summary_from_report(performance_store.latest())
 
 
+def _metric_subset(report: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    if report is None:
+        return None
+    return {
+        "candles_used": report.get("candles_used", 0),
+        "trades": report.get("trades", 0),
+        "wins": report.get("wins", 0),
+        "losses": report.get("losses", 0),
+        "win_rate": report.get("win_rate", 0.0),
+        "total_r": report.get("total_r", 0.0),
+        "expectancy_r": report.get("expectancy_r", 0.0),
+        "profit_factor": report.get("profit_factor"),
+        "max_consecutive_losses": report.get("max_consecutive_losses", 0),
+        "warnings": report.get("warnings") or [],
+    }
+
+
+def build_backtest_compare(v1_report: Optional[dict[str, Any]], v2_report: Optional[dict[str, Any]]) -> dict[str, Any]:
+    warnings = ["comparison is paper/research only", "low sample sizes must not be treated as profitability evidence"]
+    if v1_report is None:
+        warnings.append("v1 backtest report missing; run POST /backtest/run")
+    if v2_report is None:
+        warnings.append("v2 backtest report missing; run POST /backtest/run-v2")
+    v1 = _metric_subset(v1_report)
+    v2 = _metric_subset(v2_report)
+    return {
+        "v1": v1,
+        "v2": v2,
+        "delta": {
+            "trades": (v2["trades"] - v1["trades"]) if v1 and v2 else None,
+            "win_rate": round(v2["win_rate"] - v1["win_rate"], 6) if v1 and v2 else None,
+            "total_r": round(v2["total_r"] - v1["total_r"], 6) if v1 and v2 else None,
+            "expectancy_r": round(v2["expectancy_r"] - v1["expectancy_r"], 6) if v1 and v2 else None,
+        },
+        "warnings": warnings,
+        "safety": {
+            "paper_research_only": True,
+            "no_mt5_execution": True,
+            "commands_queued": False,
+            "external_llm_used": False,
+        },
+    }
+
+
 @app.get("/analytics/paper")
 def analytics_paper() -> dict[str, Any]:
     return performance_store.latest().model_dump()
@@ -723,9 +811,24 @@ def backtest_run() -> dict[str, Any]:
     return report.model_dump()
 
 
+@app.post("/backtest/run-v2")
+def backtest_run_v2() -> dict[str, Any]:
+    report, trades = backtest_v2_engine.run(backtest_store.load_candles())
+    backtest_v2_store.save(report, trades)
+    return report.model_dump()
+
+
+@app.get("/backtest/compare-v1-v2")
+def backtest_compare_v1_v2() -> dict[str, Any]:
+    v1 = backtest_store.latest_report()
+    v2 = backtest_v2_store.latest_report()
+    return build_backtest_compare(v1.model_dump() if v1 else None, v2.model_dump() if v2 else None)
+
+
 @app.post("/backtest/reset")
 def backtest_reset() -> dict[str, Any]:
     backtest_store.reset()
+    backtest_v2_store.reset()
     return {"ok": True, "trades": 0}
 
 
@@ -1033,6 +1136,10 @@ def _build_operator_status(*, include_evidence: bool, include_forward_test: bool
         daemon_status=daemon_status(),
         forward_test_status=forward_test_status() if include_forward_test else {},
         orchestrator_status=orchestrator_status() if include_orchestrator else {},
+        backtest_compare_v1_v2=build_backtest_compare(
+            backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
+            backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
+        ),
     )
 
 

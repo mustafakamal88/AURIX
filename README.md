@@ -918,6 +918,43 @@ More detail:
 docs/session_orchestrator.md
 ```
 
+## Part 20: XAUUSD Paper Strategy V2
+
+V2 settings live in:
+
+```text
+config/strategy_xauusd_paper_v2.yaml
+```
+
+Run the server:
+
+```bash
+python3 scripts/run_server.py
+```
+
+Evaluate V2 once or watch it:
+
+```bash
+python3 scripts/evaluate_xauusd_paper_v2_once.py
+python3 scripts/watch_xauusd_paper_v2.py
+```
+
+Backtest V2 and compare V1 vs V2:
+
+```bash
+python3 scripts/run_backtest.py
+python3 scripts/run_backtest_v2.py
+python3 scripts/compare_backtest_v1_v2.py
+```
+
+V2 is paper/research only. It does not call `/commands/open-market`, does not queue MT5 commands, and all V2 signals keep `command_id=null`. Current evidence has low sample size, so V2 must not be treated as profitable or live-ready.
+
+More detail:
+
+```text
+docs/xauusd_paper_strategy_v2.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -960,4 +997,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 20 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, and session orchestration are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 21 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1/V2, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, and session orchestration are stable. Do not enable live trading until every layer has been reviewed and tested.
