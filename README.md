@@ -26,6 +26,15 @@ Part 23 adds a live execution readiness layer for deterministic manual-review as
 Part 24 adds an evidence growth monitor for tracking progress toward future manual readiness review.
 Part 25 adds signal path certification for proving paper signal pipeline integrity.
 Part 26 adds paper risk decision persistence for simulated paper-risk auditability.
+Part 27 adds the core event bus and runtime state engine.
+Part 28 adds the strategy agent registry.
+Part 29 adds the Fast RSI first-reversal scalper strategy agent.
+Part 30 adds the demo OMS dry-run layer.
+Part 31 adds broker reconciliation.
+Part 32 adds the dormant demo command queue adapter.
+Part 33 adds the AURIX decision engine and autonomy controller.
+Part 34 adds an advanced read-only XAUUSD runtime control dashboard.
+Part 35 hardens runtime persistence so concurrent status/dashboard polling cannot collide on fixed JSON temp files.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -51,6 +60,12 @@ Open:
 
 ```text
 http://127.0.0.1:8765/docs
+```
+
+Open the read-only runtime cockpit:
+
+```text
+http://127.0.0.1:8765/dashboard
 ```
 
 ## MT5/Wine EA Setup
@@ -133,6 +148,56 @@ Check command lifecycle:
 ```bash
 python3 scripts/check_command_lifecycle.py
 ```
+
+## Part 34 Runtime Dashboard
+
+The advanced XAUUSD runtime dashboard is a read-only control cockpit. It shows decision engine state, XAUUSDm feed state, account state, Fast RSI state, strategy agent registry state, broker reconciliation, demo OMS, demo command queue, event bus/runtime state, readiness/evidence status, and safety locks.
+
+Open it with the server running:
+
+```text
+http://127.0.0.1:8765/dashboard
+```
+
+Check the dashboard runtime summary from the CLI:
+
+```bash
+python3 scripts/check_dashboard_runtime.py
+```
+
+Watch the dashboard runtime state every 5 seconds:
+
+```bash
+python3 scripts/watch_dashboard_runtime.py
+```
+
+The main cards mean:
+
+- `AURIX Decision`: latest action such as `WAIT`, `TRADE_LONG`, `TRADE_SHORT`, `BLOCKED_BY_SPREAD`, `BLOCKED_BY_NO_SIGNAL`, or `SYSTEM_NOT_READY`.
+- `Market / XAUUSDm Feed`: bid, ask, spread, max spread threshold, and feed timestamps.
+- `Account`: currency, balance, equity, free margin, margin level, and demo/real hint.
+- `Fast RSI Strategy`: latest Fast RSI state, direction, RSI values, extremes, rejection reasons, bar, and trace availability.
+- `Strategy Agents`: registered/enabled counts, latest statuses, latest signal, and disabled creation flags.
+- `Broker Reconciliation`: broker positions/orders, mismatches, warnings, and unexpected exposure.
+- `Demo OMS`: dry-run OMS counts and disabled execution/queueing flags.
+- `Demo Command Queue`: preview/payload state and disabled demo/MT5 queueing flags.
+- `Event Bus / Runtime State`: event count, sequence, last event, runtime state timestamp, and latest decision event.
+- `Safety Locks`: confirms live execution, arming, command queueing, broker order creation, MT5 queueing, paper trade creation, and order request creation are disabled.
+- `Why No Trade?`: primary block, secondary blocks, warnings, and recommended next action from the latest decision context.
+
+The dashboard is read-only by design. It does not evaluate strategies, evaluate the decision engine, process demo OMS requests, preview or dry-run demo commands, queue MT5 commands, create paper trades, create order requests, or place/modify/close broker orders.
+
+## Part 35 Runtime Persistence Hardening
+
+Part 35 fixes a concurrent JSON status write race where multiple read-only status endpoints could try to replace the same fixed temp file, such as `status.json.tmp`, at the same time. Runtime stores now use unique temp file names plus atomic replacement for JSON and JSONL persistence.
+
+Stress test the read-only runtime/status endpoints:
+
+```bash
+python3 scripts/stress_runtime_status_endpoints.py
+```
+
+This hardening only improves backend persistence stability. It does not enable live trading, demo command queueing, broker order creation, MT5 command queueing, paper trade creation, order request creation, or EA setting changes.
 
 List open commands:
 

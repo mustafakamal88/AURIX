@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 from uuid import uuid4
 
+from aurix_common import write_json_atomic, write_text_atomic
 from aurix_event_bus import AurixEvent, AurixEventBus, AurixEventType, EventSafety
 
 from .config import StrategyAgentsConfig
@@ -25,9 +26,7 @@ class StrategyAgentStore:
             self._write_json_atomic(self.latest_file, [])
 
     def _write_json_atomic(self, path: Path, value: Any) -> None:
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(value, indent=2, default=str), encoding="utf-8")
-        tmp.replace(path)
+        write_json_atomic(path, value)
 
     def _read_json(self, path: Path, default: Any) -> Any:
         if not path.exists():
@@ -60,9 +59,7 @@ class StrategyAgentStore:
         existing = self.history()
         existing.extend(rows)
         existing = existing[-1000:]
-        tmp = self.history_file.with_suffix(".jsonl.tmp")
-        tmp.write_text("".join(json.dumps(item, default=str) + "\n" for item in existing), encoding="utf-8")
-        tmp.replace(self.history_file)
+        write_text_atomic(self.history_file, "".join(json.dumps(item, default=str) + "\n" for item in existing))
         self._write_json_atomic(self.status_file, self.status(registry))
 
     def status(self, registry: StrategyAgentRegistry) -> dict[str, Any]:

@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AURIX Cockpit</title>
+    <title>AURIX Runtime Control Cockpit</title>
     <link rel="stylesheet" href="/dashboard/static/styles.css">
   </head>
   <body>
     <header class="topbar">
       <div>
-        <h1>AURIX Cockpit</h1>
-        <p class="muted">Read-only local monitor</p>
+        <h1>AURIX Runtime Control Cockpit</h1>
+        <p class="muted">Read-only advanced XAUUSD runtime dashboard</p>
       </div>
       <div class="badges">
         <span class="badge danger">LIVE TRADING DISABLED</span>
-        <span class="badge good">PAPER MODE ONLY</span>
+        <span class="badge good">READ-ONLY DASHBOARD</span>
         <span class="badge neutral">NO MT5 COMMAND QUEUEING FROM DASHBOARD</span>
       </div>
     </header>
@@ -24,225 +24,12 @@
         <div><span>Service</span><strong id="service">--</strong></div>
         <div><span>Mode</span><strong id="mode">--</strong></div>
         <div><span>Symbol</span><strong id="symbol">--</strong></div>
+        <div><span>Health</span><strong id="health">--</strong></div>
         <div><span>Live Trading</span><strong id="liveTrading">DISABLED</strong></div>
         <div><span>Paper Only</span><strong id="paperOnly">--</strong></div>
       </section>
 
       <section class="grid">
-        <article class="card">
-          <h2>Account</h2>
-          <dl>
-            <dt>Balance</dt><dd id="balance">--</dd>
-            <dt>Equity</dt><dd id="equity">--</dd>
-            <dt>Currency</dt><dd id="currency">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Market</h2>
-          <dl>
-            <dt>Bid</dt><dd id="bid">--</dd>
-            <dt>Ask</dt><dd id="ask">--</dd>
-            <dt>Spread</dt><dd id="spread">--</dd>
-            <dt>Quality</dt><dd id="marketQuality">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Context</h2>
-          <dl>
-            <dt>Session</dt><dd id="session">--</dd>
-            <dt>Session Allowed</dt><dd id="sessionAllowed">--</dd>
-            <dt>Regime</dt><dd id="regime">--</dd>
-            <dt>Bias</dt><dd id="bias">--</dd>
-          </dl>
-        </article>
-
-        <article class="card wide">
-          <h2>Strategy</h2>
-          <dl>
-            <dt>Latest V1 Signal</dt><dd id="v1Signal">--</dd>
-            <dt>Latest V2 Signal</dt><dd id="v2Signal">--</dd>
-            <dt>V2 Direction</dt><dd id="v2Direction">--</dd>
-            <dt>V2 Reasons</dt><dd id="v2Reasons">--</dd>
-            <dt>V1/V2 Comparison</dt><dd id="comparison">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Paper Trading</h2>
-          <dl>
-            <dt>Open Trades</dt><dd id="paperOpen">--</dd>
-            <dt>Closed Trades</dt><dd id="paperClosed">--</dd>
-            <dt>Win Rate</dt><dd id="winRate">--</dd>
-            <dt>Expectancy R</dt><dd id="expectancy">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Paper Risk Audit</h2>
-          <dl>
-            <dt>Decisions</dt><dd id="paperRiskCount">--</dd>
-            <dt>Latest Status</dt><dd id="paperRiskStatus">--</dd>
-            <dt>Signal ID</dt><dd id="paperRiskSignal">--</dd>
-            <dt>Trade ID</dt><dd id="paperRiskTrade">--</dd>
-            <dt>Strategy</dt><dd id="paperRiskStrategy">--</dd>
-            <dt>Direction</dt><dd id="paperRiskDirection">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Forward Test</h2>
-          <dl>
-            <dt>Status</dt><dd id="forwardStatus">--</dd>
-            <dt>Progress</dt><dd id="forwardProgress">--</dd>
-            <dt>Candles Recorded</dt><dd id="forwardCandles">--</dd>
-            <dt>Closed Paper Trades</dt><dd id="forwardClosed">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Evidence Gate</h2>
-          <dl>
-            <dt>Status</dt><dd id="evidenceStatus">--</dd>
-            <dt>Live Ready</dt><dd id="liveReady">false</dd>
-            <dt>Blocking Reasons</dt><dd id="blockingReasons">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Orchestrator / Daemon</h2>
-          <dl>
-            <dt>Orchestrator</dt><dd id="orchestratorRunning">--</dd>
-            <dt>Daemon</dt><dd id="daemonRunning">--</dd>
-            <dt>Daemon Loops</dt><dd id="daemonLoops">--</dd>
-            <dt>Last Heartbeat</dt><dd id="daemonHeartbeat">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Long Forward Test</h2>
-          <dl>
-            <dt>Running</dt><dd id="longRunning">--</dd>
-            <dt>Session</dt><dd id="longSession">--</dd>
-            <dt>Progress</dt><dd id="longProgress">--</dd>
-            <dt>Candles</dt><dd id="longCandles">--</dd>
-            <dt>Closed Trades</dt><dd id="longClosed">--</dd>
-            <dt>Evidence</dt><dd id="longEvidence">--</dd>
-            <dt>Daily Report</dt><dd id="longDailyReport">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Live Readiness</h2>
-          <dl>
-            <dt>Status</dt><dd id="liveReadinessStatus">--</dd>
-            <dt>Score</dt><dd id="liveReadinessScore">--</dd>
-            <dt>Arming Allowed</dt><dd id="liveReadinessArming">false</dd>
-            <dt>Execution Allowed</dt><dd id="liveReadinessExecution">false</dd>
-            <dt>Blocking Reasons</dt><dd id="liveReadinessBlocks">--</dd>
-            <dt>Checklist Items</dt><dd id="liveReadinessChecklist">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Evidence Growth</h2>
-          <dl>
-            <dt>Status</dt><dd id="evidenceGrowthStatus">--</dd>
-            <dt>Overall Progress</dt><dd id="evidenceGrowthProgress">--</dd>
-            <dt>Closed Trades</dt><dd id="evidenceGrowthClosed">--</dd>
-            <dt>Candles</dt><dd id="evidenceGrowthCandles">--</dd>
-            <dt>Forward Days</dt><dd id="evidenceGrowthDays">--</dd>
-            <dt>Missing</dt><dd id="evidenceGrowthMissing">--</dd>
-            <dt>Blocking Reasons</dt><dd id="evidenceGrowthBlocks">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Signal Path Certification</h2>
-          <dl>
-            <dt>Status</dt><dd id="signalCertStatus">--</dd>
-            <dt>Trade ID</dt><dd id="signalCertTrade">--</dd>
-            <dt>Signal ID</dt><dd id="signalCertSignal">--</dd>
-            <dt>Strategy</dt><dd id="signalCertStrategy">--</dd>
-            <dt>Direction</dt><dd id="signalCertDirection">--</dd>
-            <dt>Trade Status</dt><dd id="signalCertTradeStatus">--</dd>
-            <dt>Checks</dt><dd id="signalCertCounts">--</dd>
-            <dt>Top Issue</dt><dd id="signalCertTop">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Event Bus / Runtime State</h2>
-          <dl>
-            <dt>Event Count</dt><dd id="eventBusCount">--</dd>
-            <dt>Last Sequence</dt><dd id="eventBusSequence">--</dd>
-            <dt>Last Event</dt><dd id="eventBusType">--</dd>
-            <dt>State Generated</dt><dd id="eventBusStateAt">--</dd>
-            <dt>Live Execution</dt><dd id="eventBusLiveExecution">false</dd>
-            <dt>Command Queueing</dt><dd id="eventBusCommandQueueing">false</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Strategy Agents</h2>
-          <dl>
-            <dt>Registered</dt><dd id="strategyAgentsRegistered">--</dd>
-            <dt>Enabled</dt><dd id="strategyAgentsEnabled">--</dd>
-            <dt>Latest Statuses</dt><dd id="strategyAgentsStatuses">--</dd>
-            <dt>Latest Signal</dt><dd id="strategyAgentsSignal">--</dd>
-            <dt>Fast RSI Status</dt><dd id="fastRsiStatus">--</dd>
-            <dt>Fast RSI Reason</dt><dd id="fastRsiReason">--</dd>
-            <dt>Paper Creation</dt><dd id="strategyAgentsPaperAllowed">false</dd>
-            <dt>Order Requests</dt><dd id="strategyAgentsOrderAllowed">false</dd>
-            <dt>Live Execution</dt><dd id="strategyAgentsLiveExecution">false</dd>
-            <dt>Command Queueing</dt><dd id="strategyAgentsCommandQueueing">false</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Demo OMS</h2>
-          <dl>
-            <dt>Mode</dt><dd id="demoOmsMode">--</dd>
-            <dt>Intent Count</dt><dd id="demoOmsIntentCount">--</dd>
-            <dt>Request Count</dt><dd id="demoOmsRequestCount">--</dd>
-            <dt>Latest Request</dt><dd id="demoOmsLatestRequest">--</dd>
-            <dt>Demo Execution</dt><dd id="demoOmsDemoExecution">false</dd>
-            <dt>Live Execution</dt><dd id="demoOmsLiveExecution">false</dd>
-            <dt>Command Queueing</dt><dd id="demoOmsCommandQueueing">false</dd>
-            <dt>Broker Order</dt><dd id="demoOmsBrokerOrder">false</dd>
-            <dt>MT5 Commands</dt><dd id="demoOmsMt5Commands">false</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Broker Reconciliation</h2>
-          <dl>
-            <dt>Status</dt><dd id="brokerReconStatus">--</dd>
-            <dt>Positions</dt><dd id="brokerReconPositions">--</dd>
-            <dt>Orders</dt><dd id="brokerReconOrders">--</dd>
-            <dt>Mismatches</dt><dd id="brokerReconMismatches">--</dd>
-            <dt>Warnings</dt><dd id="brokerReconWarnings">--</dd>
-            <dt>Live Execution</dt><dd id="brokerReconLiveExecution">false</dd>
-            <dt>Command Queueing</dt><dd id="brokerReconCommandQueueing">false</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Demo Command Queue</h2>
-          <dl>
-            <dt>Mode</dt><dd id="demoCommandQueueMode">--</dd>
-            <dt>Preview Count</dt><dd id="demoCommandQueuePreviews">--</dd>
-            <dt>Payload Count</dt><dd id="demoCommandQueuePayloads">--</dd>
-            <dt>Latest Payload</dt><dd id="demoCommandQueueLatestPayload">--</dd>
-            <dt>Manual Arm</dt><dd id="demoCommandQueueManualArm">false</dd>
-            <dt>Demo Queueing</dt><dd id="demoCommandQueueDemoAllowed">false</dd>
-            <dt>MT5 Queueing</dt><dd id="demoCommandQueueMt5Allowed">false</dd>
-            <dt>Broker Order</dt><dd id="demoCommandQueueBrokerOrder">false</dd>
-            <dt>MT5 Commands</dt><dd id="demoCommandQueueMt5Commands">false</dd>
-          </dl>
-        </article>
-
         <article class="card">
           <h2>AURIX Decision</h2>
           <dl>
@@ -252,20 +39,153 @@
             <dt>Confidence</dt><dd id="decisionConfidence">--</dd>
             <dt>Strategy</dt><dd id="decisionStrategy">--</dd>
             <dt>Setup Reason</dt><dd id="decisionSetup">--</dd>
-            <dt>Top Block</dt><dd id="decisionTopBlock">--</dd>
+            <dt>Top Blocking Reason</dt><dd id="decisionTopBlock">--</dd>
             <dt>Top Warning</dt><dd id="decisionTopWarning">--</dd>
-            <dt>Autonomy</dt><dd id="decisionAutonomy">--</dd>
-            <dt>Demo Execution</dt><dd id="decisionDemoExecution">false</dd>
-            <dt>Live Execution</dt><dd id="decisionLiveExecution">false</dd>
-            <dt>Command Queueing</dt><dd id="decisionCommandQueueing">false</dd>
+            <dt>Autonomy Level</dt><dd id="decisionAutonomy">--</dd>
+            <dt>Mode</dt><dd id="decisionMode">--</dd>
           </dl>
         </article>
 
         <article class="card">
-          <h2>AI Review</h2>
+          <h2>Market / XAUUSDm Feed</h2>
           <dl>
-            <dt>Latest Summary</dt><dd id="aiSummary">--</dd>
-            <dt>Action Items</dt><dd id="aiActions">--</dd>
+            <dt>Symbol</dt><dd id="marketSymbol">--</dd>
+            <dt>Bid</dt><dd id="bid">--</dd>
+            <dt>Ask</dt><dd id="ask">--</dd>
+            <dt>Spread Points</dt><dd id="spread">--</dd>
+            <dt>Max Spread Threshold</dt><dd id="maxSpread">--</dd>
+            <dt>Spread Status</dt><dd id="spreadStatus">--</dd>
+            <dt>Latest Tick Time</dt><dd id="latestTick">--</dd>
+            <dt>Latest Candle Time</dt><dd id="latestCandle">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Account</h2>
+          <dl>
+            <dt>Account Currency</dt><dd id="currency">--</dd>
+            <dt>Balance</dt><dd id="balance">--</dd>
+            <dt>Equity</dt><dd id="equity">--</dd>
+            <dt>Free Margin</dt><dd id="freeMargin">--</dd>
+            <dt>Margin Level</dt><dd id="marginLevel">--</dd>
+            <dt>Demo/Real Hint</dt><dd id="accountHint">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Fast RSI Strategy</h2>
+          <dl>
+            <dt>Status</dt><dd id="fastRsiStatus">--</dd>
+            <dt>Direction If Signal</dt><dd id="fastRsiDirection">--</dd>
+            <dt>RSI Current</dt><dd id="fastRsiRsi">--</dd>
+            <dt>RSI SMA Current</dt><dd id="fastRsiSma">--</dd>
+            <dt>Buy Extreme State</dt><dd id="fastRsiBuyExtreme">--</dd>
+            <dt>Sell Extreme State</dt><dd id="fastRsiSellExtreme">--</dd>
+            <dt>Rejection Reasons</dt><dd id="fastRsiRejections">--</dd>
+            <dt>Last Evaluated Bar</dt><dd id="fastRsiLastBar">--</dd>
+            <dt>Decision Trace Available</dt><dd id="fastRsiTrace">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Strategy Agents</h2>
+          <dl>
+            <dt>Registered Count</dt><dd id="strategyAgentsRegistered">--</dd>
+            <dt>Enabled Count</dt><dd id="strategyAgentsEnabled">--</dd>
+            <dt>Latest Statuses</dt><dd id="strategyAgentsStatuses">--</dd>
+            <dt>Latest Signal Strategy</dt><dd id="strategyAgentsLatestStrategy">--</dd>
+            <dt>Latest Signal Direction</dt><dd id="strategyAgentsSignal">--</dd>
+            <dt>Paper Trade Creation Allowed</dt><dd id="strategyAgentsPaperAllowed">false</dd>
+            <dt>Order Request Creation Allowed</dt><dd id="strategyAgentsOrderAllowed">false</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Broker Reconciliation</h2>
+          <dl>
+            <dt>Status</dt><dd id="brokerReconStatus">--</dd>
+            <dt>Broker Positions</dt><dd id="brokerReconPositions">--</dd>
+            <dt>Broker Orders</dt><dd id="brokerReconOrders">--</dd>
+            <dt>Mismatches</dt><dd id="brokerReconMismatches">--</dd>
+            <dt>Warnings</dt><dd id="brokerReconWarnings">--</dd>
+            <dt>Unexpected Exposure</dt><dd id="brokerReconExposure">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Demo OMS</h2>
+          <dl>
+            <dt>Mode</dt><dd id="demoOmsMode">--</dd>
+            <dt>Intent Count</dt><dd id="demoOmsIntentCount">--</dd>
+            <dt>Request Count</dt><dd id="demoOmsRequestCount">--</dd>
+            <dt>Latest Request Status</dt><dd id="demoOmsLatestRequest">--</dd>
+            <dt>Demo Execution Allowed</dt><dd id="demoOmsDemoExecution">false</dd>
+            <dt>Live Execution Allowed</dt><dd id="demoOmsLiveExecution">false</dd>
+            <dt>Command Queueing Allowed</dt><dd id="demoOmsCommandQueueing">false</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Demo Command Queue</h2>
+          <dl>
+            <dt>Mode</dt><dd id="demoCommandQueueMode">--</dd>
+            <dt>Preview Count</dt><dd id="demoCommandQueuePreviews">--</dd>
+            <dt>Payload Count</dt><dd id="demoCommandQueuePayloads">--</dd>
+            <dt>Latest Preview Status</dt><dd id="demoCommandQueueLatestPreview">--</dd>
+            <dt>Latest Payload Status</dt><dd id="demoCommandQueueLatestPayload">--</dd>
+            <dt>Manual Demo Arm</dt><dd id="demoCommandQueueManualArm">false</dd>
+            <dt>Demo Command Queueing Allowed</dt><dd id="demoCommandQueueDemoAllowed">false</dd>
+            <dt>MT5 Command Queueing Allowed</dt><dd id="demoCommandQueueMt5Allowed">false</dd>
+            <dt>MT5 Command ID</dt><dd id="demoCommandQueueMt5CommandId">--</dd>
+            <dt>Broker Order ID</dt><dd id="demoCommandQueueBrokerOrderId">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Event Bus / Runtime State</h2>
+          <dl>
+            <dt>Event Count</dt><dd id="eventBusCount">--</dd>
+            <dt>Last Sequence</dt><dd id="eventBusSequence">--</dd>
+            <dt>Last Event Type</dt><dd id="eventBusType">--</dd>
+            <dt>Runtime State Generated At</dt><dd id="eventBusStateAt">--</dd>
+            <dt>Latest Decision Event</dt><dd id="eventBusDecisionEvent">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Safety Locks</h2>
+          <dl>
+            <dt>EA AllowLiveTrading Reported</dt><dd id="eaAllowLiveTrading">false/unknown</dd>
+            <dt>Live Execution Allowed</dt><dd id="safetyLiveExecution">false</dd>
+            <dt>Live Arming Allowed</dt><dd id="safetyLiveArming">false</dd>
+            <dt>Demo Execution Allowed</dt><dd id="safetyDemoExecution">false</dd>
+            <dt>Command Queueing Allowed</dt><dd id="safetyCommandQueueing">false</dd>
+            <dt>Broker Order Created</dt><dd id="safetyBrokerOrder">false</dd>
+            <dt>MT5 Commands Queued</dt><dd id="safetyMt5Commands">false</dd>
+            <dt>Paper Trade Created</dt><dd id="safetyPaperTrade">false</dd>
+            <dt>Order Request Created</dt><dd id="safetyOrderRequest">false</dd>
+            <dt>Read Only Dashboard</dt><dd id="safetyReadOnly">true</dd>
+          </dl>
+        </article>
+
+        <article class="card wide">
+          <h2>Why No Trade?</h2>
+          <dl>
+            <dt>Primary Block</dt><dd id="whyPrimary">--</dd>
+            <dt>Secondary Blocks</dt><dd id="whySecondary">--</dd>
+            <dt>Warnings</dt><dd id="whyWarnings">--</dd>
+            <dt>Recommended Next Action</dt><dd id="whyNext">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Readiness / Evidence</h2>
+          <dl>
+            <dt>Live Readiness</dt><dd id="liveReadinessStatus">--</dd>
+            <dt>Evidence Growth</dt><dd id="evidenceGrowthStatus">--</dd>
+            <dt>Signal Certification</dt><dd id="signalCertStatus">--</dd>
+            <dt>Paper Risk Audit</dt><dd id="paperRiskStatus">--</dd>
+            <dt>Session</dt><dd id="session">--</dd>
           </dl>
         </article>
 

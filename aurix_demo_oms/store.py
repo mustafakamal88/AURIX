@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from aurix_common import write_json_atomic, write_text_atomic
+
 from .config import DemoOmsConfig
 from .models import DemoOmsSafety, DemoOmsStatus, OmsAuditRecord, OmsOrderIntent, OmsOrderRequest, utc_now_iso
 
@@ -27,9 +29,7 @@ class DemoOmsStore:
             self._write_status()
 
     def _write_json_atomic(self, path: Path, value: Any) -> None:
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(value, indent=2, default=str), encoding="utf-8")
-        tmp.replace(path)
+        write_json_atomic(path, value)
 
     def _read_json(self, path: Path, default: Any) -> Any:
         if not path.exists():
@@ -100,9 +100,7 @@ class DemoOmsStore:
         items = self.history(self.config.history_limit)
         items.append(record.model_dump(mode="json"))
         items = items[-max(int(self.config.history_limit or 1), 1):]
-        tmp = self.history_file.with_suffix(".jsonl.tmp")
-        tmp.write_text("".join(json.dumps(item, default=str) + "\n" for item in items), encoding="utf-8")
-        tmp.replace(self.history_file)
+        write_text_atomic(self.history_file, "".join(json.dumps(item, default=str) + "\n" for item in items))
 
     def status(self) -> dict[str, Any]:
         return self._write_status()

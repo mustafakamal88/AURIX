@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from aurix_common import write_json_atomic, write_text_atomic
+
 from .config import EventBusConfig
 from .models import AurixEvent, EventSafety, utc_now_iso
 from .projector import project_events
@@ -27,9 +29,7 @@ class EventBusStore:
             self._write_json_atomic(self.state_snapshot_file, initial_runtime_state(self.config.symbol, self.config.mode).model_dump())
 
     def _write_json_atomic(self, path: Path, value: Any) -> None:
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(value, indent=2, default=str), encoding="utf-8")
-        tmp.replace(path)
+        write_json_atomic(path, value)
 
     def _read_json(self, path: Path, default: Any) -> Any:
         if not path.exists():
@@ -55,9 +55,7 @@ class EventBusStore:
 
     def _write_events(self, events: list[AurixEvent]) -> None:
         lines = [json.dumps(event.model_dump(mode="json"), default=str) + "\n" for event in events]
-        tmp = self.events_file.with_suffix(".jsonl.tmp")
-        tmp.write_text("".join(lines), encoding="utf-8")
-        tmp.replace(self.events_file)
+        write_text_atomic(self.events_file, "".join(lines))
 
     def _build_status(self, events: list[AurixEvent]) -> dict[str, Any]:
         latest = events[-1] if events else None
@@ -98,9 +96,7 @@ class EventBusStore:
         history = self.state_history()
         history.append(state.model_dump())
         history = history[-max(int(self.config.state_history_limit or 1), 1):]
-        tmp = self.state_history_file.with_suffix(".jsonl.tmp")
-        tmp.write_text("".join(json.dumps(item, default=str) + "\n" for item in history), encoding="utf-8")
-        tmp.replace(self.state_history_file)
+        write_text_atomic(self.state_history_file, "".join(json.dumps(item, default=str) + "\n" for item in history))
 
     def recent_events(self, limit: int = 20) -> list[dict[str, Any]]:
         return [event.model_dump(mode="json") for event in self._read_events()[-max(int(limit), 1):]]

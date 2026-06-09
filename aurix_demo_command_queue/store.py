@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from aurix_common import write_json_atomic, write_text_atomic
+
 from .config import DemoCommandQueueConfig
 from .models import DemoCommandAuditRecord, DemoCommandPreview, DemoCommandQueueSafety, DemoCommandQueueStatus, DemoMt5CommandPayload, utc_now_iso
 
@@ -26,9 +28,7 @@ class DemoCommandQueueStore:
             self._write_status()
 
     def _write_json_atomic(self, path: Path, value: Any) -> None:
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(value, indent=2, default=str), encoding="utf-8")
-        tmp.replace(path)
+        write_json_atomic(path, value)
 
     def _read_json(self, path: Path, default: Any) -> Any:
         if not path.exists():
@@ -91,9 +91,7 @@ class DemoCommandQueueStore:
             return
         items = self.history(self.config.history_limit)
         items.append(DemoCommandAuditRecord(action=action, preview_id=preview_id, payload_id=payload_id, status=status).model_dump(mode="json"))
-        tmp = self.history_file.with_suffix(".jsonl.tmp")
-        tmp.write_text("".join(json.dumps(item, default=str) + "\n" for item in items[-self.config.history_limit :]), encoding="utf-8")
-        tmp.replace(self.history_file)
+        write_text_atomic(self.history_file, "".join(json.dumps(item, default=str) + "\n" for item in items[-self.config.history_limit :]))
 
     def status(self) -> dict[str, Any]:
         return self._write_status()

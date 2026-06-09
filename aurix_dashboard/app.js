@@ -1,37 +1,14 @@
 const REFRESH_MS = 5000;
-
-const READ_ONLY_ENDPOINTS = {
-  summary: "/operator/summary",
-  status: "/operator/status",
-  market: "/market/status",
-  context: "/context/latest",
-  paper: "/paper/status",
-  paperRiskAudit: "/paper-risk-audit/status",
-  analytics: "/analytics/paper/summary",
-  journal: "/journal/status",
-  aiReview: "/ai-review/latest",
-  evidence: "/evidence/latest",
-  forward: "/forward-test/status",
-  orchestrator: "/orchestrator/status",
-  daemon: "/daemon/status",
-  longForward: "/long-forward-test/status",
-  liveReadiness: "/live-readiness/status",
-  evidenceGrowth: "/evidence-monitor/status",
-  signalCertification: "/signal-certifier/status",
-  eventBus: "/event-bus/status",
-  strategyAgents: "/strategy-agents/status",
-  demoOms: "/demo-oms/status",
-  brokerReconciliation: "/broker-reconciliation/status",
-  demoCommandQueue: "/demo-command-queue/status",
-  decisionEngine: "/decision-engine/status"
-};
+const RUNTIME_SUMMARY_ENDPOINT = "/dashboard/runtime-summary";
 
 function byId(id) {
   return document.getElementById(id);
 }
 
 function text(id, value) {
-  byId(id).textContent = value === undefined || value === null || value === "" ? "--" : String(value);
+  const node = byId(id);
+  if (!node) return;
+  node.textContent = value === undefined || value === null || value === "" ? "--" : String(value);
 }
 
 function boolText(value) {
@@ -43,64 +20,13 @@ function fixed(value, digits = 2) {
   return Number.isFinite(number) ? number.toFixed(digits) : "--";
 }
 
-async function getJson(url) {
-  const response = await fetch(url, { method: "GET", cache: "no-store" });
-  if (response.status === 404) {
-    return null;
-  }
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`);
-  }
-  return response.json();
-}
-
-async function readAll() {
-  const entries = await Promise.all(
-    Object.entries(READ_ONLY_ENDPOINTS).map(async ([key, url]) => {
-      try {
-        return [key, await getJson(url)];
-      } catch (error) {
-        return [key, { error: error.message }];
-      }
-    })
-  );
-  return Object.fromEntries(entries);
-}
-
-function latestSignal(status, strategyName) {
-  const latest = status?.strategy?.latest_signal;
-  const latestV2 = status?.strategy?.latest_signal_v2;
-  if (strategyName === "xauusd_paper_v2") {
-    return latestV2 || {};
-  }
-  return latest?.strategy_name === strategyName ? latest : {};
-}
-
-function collectWarnings(data) {
-  const warnings = [];
-  warnings.push(...(data.summary?.warnings || []));
-  warnings.push(...(data.market?.quality?.reasons || []));
-  warnings.push(...(data.status?.market?.quality?.reasons || []));
-  warnings.push(...(data.evidence?.warnings || []));
-  warnings.push(...(data.evidence?.blocking_reasons || []));
-  warnings.push(...(data.liveReadiness?.latest?.warnings || []));
-  warnings.push(...(data.liveReadiness?.latest?.blocking_reasons || []));
-  warnings.push(...(data.evidenceGrowth?.latest?.warnings || []));
-  warnings.push(...(data.evidenceGrowth?.latest?.blocking_reasons || []));
-  warnings.push(...(data.signalCertification?.latest?.warnings || []));
-  warnings.push(...(data.signalCertification?.latest?.failed_checks || []));
-  warnings.push(...(data.status?.strategy?.latest_signal?.reasons || []));
-  warnings.push(...(data.status?.strategy?.latest_signal_v2?.reasons || []));
-  for (const [key, value] of Object.entries(data)) {
-    if (value?.error) {
-      warnings.push(`${key}: ${value.error}`);
-    }
-  }
-  return [...new Set(warnings.filter(Boolean).map(String))];
+function joinItems(items) {
+  return Array.isArray(items) && items.length ? items.map(String).join("; ") : "--";
 }
 
 function renderWarnings(items) {
   const list = byId("warnings");
+  if (!list) return;
   list.innerHTML = "";
   if (!items.length) {
     const item = document.createElement("li");
@@ -116,202 +42,149 @@ function renderWarnings(items) {
   }
 }
 
-function render(data) {
-  const status = data.status || {};
-  const summary = data.summary || {};
-  const account = status.account || {};
-  const market = status.market || {};
-  const context = data.context || status.context?.latest || {};
-  const safety = status.safety || {};
-  const strategy = status.strategy || {};
-  const latestV1 = latestSignal(status, "xauusd_paper_v1");
-  const latestV2 = latestSignal(status, "xauusd_paper_v2");
-  const comparison = status.backtest?.compare_v1_v2 || {};
-  const paper = data.paper || status.paper || {};
-  const paperRiskAudit = data.paperRiskAudit || status.paper_risk_audit || {};
-  const paperRiskLatest = paperRiskAudit.latest || {};
-  const analytics = data.analytics || status.analytics || {};
-  const forward = data.forward || status.forward_test || {};
-  const campaign = forward.campaign || {};
-  const progress = campaign.progress || {};
-  const evidence = data.evidence || status.evidence?.latest || {};
-  const daemon = data.daemon || status.daemon || {};
-  const orchestrator = data.orchestrator || status.orchestrator || {};
-  const longForward = data.longForward || status.long_forward_test || {};
-  const liveReadinessStatus = data.liveReadiness || status.live_readiness || {};
-  const liveReadiness = liveReadinessStatus.latest || {};
-  const evidenceGrowthStatus = data.evidenceGrowth || status.evidence_growth || {};
-  const evidenceGrowth = evidenceGrowthStatus.latest || {};
-  const evidenceGrowthCurrent = evidenceGrowth.current || {};
-  const evidenceGrowthTargets = evidenceGrowth.targets || {};
-  const signalCertificationStatus = data.signalCertification || status.signal_certification || {};
-  const signalCertification = signalCertificationStatus.latest || {};
-  const eventBus = data.eventBus || status.event_bus || {};
-  const strategyAgents = data.strategyAgents || status.strategy_agents || {};
-  const demoOms = data.demoOms || status.demo_oms || {};
-  const brokerReconciliation = data.brokerReconciliation || status.broker_reconciliation || {};
-  const demoCommandQueue = data.demoCommandQueue || status.demo_command_queue || {};
-  const decisionEngine = data.decisionEngine || status.decision_engine || {};
-  const aiReview = data.aiReview || {};
+async function getRuntimeSummary() {
+  const response = await fetch(RUNTIME_SUMMARY_ENDPOINT, { method: "GET", cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`${RUNTIME_SUMMARY_ENDPOINT} returned ${response.status}`);
+  }
+  return response.json();
+}
 
-  text("service", status.service || "aurix-mac-wine-bridge");
-  text("mode", summary.mode || "PAPER");
+function render(summary) {
+  const account = summary.account || {};
+  const market = summary.market || {};
+  const session = summary.session || {};
+  const decision = summary.decision || {};
+  const agents = summary.strategy_agents || {};
+  const fastRsi = summary.fast_rsi || {};
+  const eventBus = summary.event_bus || {};
+  const demoOms = summary.demo_oms || {};
+  const broker = summary.broker_reconciliation || {};
+  const queue = summary.demo_command_queue || {};
+  const safety = summary.safety || {};
+  const liveReadiness = summary.live_readiness || {};
+  const evidenceGrowth = summary.evidence_growth || {};
+  const signalCertification = summary.signal_certification || {};
+  const paperRiskAudit = summary.paper_risk_audit || {};
+
+  text("service", "aurix-mac-wine-bridge");
+  text("mode", decision.mode || queue.mode || demoOms.mode);
   text("symbol", summary.symbol || market.symbol);
-  text("liveTrading", safety.live_trading_enabled ? "ENABLED" : "DISABLED");
-  text("paperOnly", boolText(safety.paper_only !== false));
+  text("health", summary.health);
+  text("liveTrading", safety.live_execution_allowed ? "ENABLED" : "DISABLED");
+  text("paperOnly", boolText(!safety.real_account_execution_allowed));
 
-  text("balance", fixed(account.balance));
-  text("equity", fixed(account.equity));
-  text("currency", account.currency);
+  text("decisionAction", decision.action);
+  text("decisionDirection", decision.direction);
+  text("decisionScore", decision.score);
+  text("decisionConfidence", decision.confidence);
+  text("decisionStrategy", decision.strategy);
+  text("decisionSetup", decision.setup_reason);
+  text("decisionTopBlock", decision.top_blocking_reason || summary.top_blocks?.[0]);
+  text("decisionTopWarning", decision.top_warning || summary.top_warnings?.[0]);
+  text("decisionAutonomy", decision.autonomy_level);
+  text("decisionMode", decision.mode);
 
   text("bid", fixed(market.bid, 3));
   text("ask", fixed(market.ask, 3));
   text("spread", market.spread_points);
-  text("marketQuality", market.quality?.ok ? "OK" : "NOT OK");
+  text("maxSpread", market.max_spread_threshold);
+  text("spreadStatus", market.spread_status);
+  text("latestTick", market.latest_tick_time);
+  text("latestCandle", market.latest_candle_time);
+  text("marketQuality", market.spread_status);
 
-  text("session", context.session_name || summary.session);
-  text("sessionAllowed", boolText(orchestrator.session_allowed || summary.orchestrator_session_allowed));
-  text("regime", context.regime || summary.regime);
-  text("bias", context.directional_bias || context.context_bias);
+  text("currency", account.currency);
+  text("balance", fixed(account.balance));
+  text("equity", fixed(account.equity));
+  text("freeMargin", fixed(account.free_margin));
+  text("marginLevel", account.margin_level);
+  text("accountHint", account.demo_real_hint);
 
-  text("v1Signal", latestV1.status);
-  text("v2Signal", latestV2.status || summary.v2_signal_status);
-  text("v2Direction", latestV2.direction);
-  text("v2Reasons", (latestV2.reasons || []).join("; "));
-  text(
-    "comparison",
-    comparison.v2
-      ? `V1 ${comparison.v1?.trades ?? "--"} trades / ${comparison.v1?.expectancy_r ?? "--"}R, V2 ${comparison.v2?.trades ?? "--"} trades / ${comparison.v2?.expectancy_r ?? "--"}R`
-      : "No comparison report"
-  );
+  text("session", session.name);
 
-  text("paperOpen", paper.open_trades);
-  text("paperClosed", analytics.closed_trades ?? paper.closed_trades);
-  text("winRate", analytics.win_rate ?? summary.paper_win_rate);
-  text("expectancy", analytics.expectancy_r ?? summary.paper_expectancy_r);
+  text("fastRsiStatus", fastRsi.status);
+  text("fastRsiDirection", fastRsi.direction);
+  text("fastRsiRsi", fastRsi.rsi_current);
+  text("fastRsiSma", fastRsi.rsi_sma_current);
+  text("fastRsiBuyExtreme", fastRsi.buy_extreme_state);
+  text("fastRsiSellExtreme", fastRsi.sell_extreme_state);
+  text("fastRsiRejections", joinItems((fastRsi.rejection_reasons || []).map((item) => item.message || item.code || item)));
+  text("fastRsiLastBar", fastRsi.last_evaluated_bar);
+  text("fastRsiTrace", boolText(fastRsi.decision_trace_available));
 
-  text("paperRiskCount", paperRiskAudit.decision_count);
-  text("paperRiskStatus", paperRiskLatest.risk_status);
-  text("paperRiskSignal", paperRiskLatest.signal_id);
-  text("paperRiskTrade", paperRiskLatest.trade_id);
-  text("paperRiskStrategy", paperRiskLatest.strategy_name);
-  text("paperRiskDirection", paperRiskLatest.direction);
+  text("strategyAgentsRegistered", agents.registered_count);
+  text("strategyAgentsEnabled", agents.enabled_count);
+  text("strategyAgentsStatuses", JSON.stringify(agents.latest_statuses || {}));
+  text("strategyAgentsLatestStrategy", agents.latest_signal_strategy);
+  text("strategyAgentsSignal", agents.latest_signal_direction);
+  text("strategyAgentsPaperAllowed", boolText(agents.paper_trade_creation_allowed));
+  text("strategyAgentsOrderAllowed", boolText(agents.order_request_creation_allowed));
 
-  text("forwardStatus", campaign.status || summary.forward_test_status);
-  text("forwardProgress", `${progress.percent ?? summary.forward_test_progress_percent ?? 0}%`);
-  text("forwardCandles", campaign.candles_recorded ?? forward.candles_recorded);
-  text("forwardClosed", campaign.closed_paper_trades ?? summary.forward_test_closed_paper_trades);
+  text("brokerReconStatus", broker.status);
+  text("brokerReconPositions", broker.broker_positions);
+  text("brokerReconOrders", broker.broker_orders);
+  text("brokerReconMismatches", broker.mismatches);
+  text("brokerReconWarnings", broker.warnings);
+  text("brokerReconExposure", boolText(broker.unexpected_exposure));
 
-  text("evidenceStatus", evidence.status);
-  text("liveReady", boolText(evidence.live_ready));
-  text("blockingReasons", (evidence.blocking_reasons || []).join("; "));
+  text("demoOmsMode", demoOms.mode);
+  text("demoOmsIntentCount", demoOms.intent_count);
+  text("demoOmsRequestCount", demoOms.request_count);
+  text("demoOmsLatestRequest", demoOms.latest_request_status);
+  text("demoOmsDemoExecution", boolText(demoOms.demo_execution_allowed));
+  text("demoOmsLiveExecution", boolText(demoOms.live_execution_allowed));
+  text("demoOmsCommandQueueing", boolText(demoOms.command_queueing_allowed));
 
-  text("orchestratorRunning", boolText(orchestrator.running));
-  text("daemonRunning", boolText(daemon.running));
-  text("daemonLoops", daemon.loop_count);
-  text("daemonHeartbeat", daemon.last_heartbeat_at);
-
-  text("longRunning", boolText(longForward.running));
-  text("longSession", longForward.current_session);
-  text("longProgress", `${longForward.forward_test_progress ?? 0}%`);
-  text("longCandles", longForward.recorded_candles);
-  text("longClosed", longForward.paper_closed_trades);
-  text("longEvidence", longForward.evidence_status);
-  text("longDailyReport", longForward.daily_report_generated_at);
-
-  text("liveReadinessStatus", liveReadiness.status);
-  text("liveReadinessScore", liveReadiness.score);
-  text("liveReadinessArming", boolText(liveReadiness.live_arming_allowed));
-  text("liveReadinessExecution", boolText(liveReadiness.live_execution_allowed));
-  text("liveReadinessBlocks", (liveReadiness.blocking_reasons || []).join("; "));
-  text("liveReadinessChecklist", (liveReadiness.manual_requirements || []).length || (liveReadinessStatus.config ? 10 : 0));
-
-  text("evidenceGrowthStatus", evidenceGrowth.status);
-  text("evidenceGrowthProgress", evidenceGrowth.overall_progress);
-  text("evidenceGrowthClosed", `${evidenceGrowthCurrent.closed_paper_trades ?? "--"}/${evidenceGrowthTargets.closed_paper_trades ?? "--"}`);
-  text("evidenceGrowthCandles", `${evidenceGrowthCurrent.recorded_candles ?? "--"}/${evidenceGrowthTargets.recorded_candles ?? "--"}`);
-  text("evidenceGrowthDays", `${evidenceGrowthCurrent.forward_tested_days ?? "--"}/${evidenceGrowthTargets.forward_tested_days ?? "--"}`);
-  text("evidenceGrowthMissing", (evidenceGrowth.missing_requirements || []).join("; "));
-  text("evidenceGrowthBlocks", (evidenceGrowth.blocking_reasons || []).join("; "));
-
-  text("signalCertStatus", signalCertification.status);
-  text("signalCertTrade", signalCertification.certified_trade_id);
-  text("signalCertSignal", signalCertification.certified_signal_id);
-  text("signalCertStrategy", signalCertification.strategy);
-  text("signalCertDirection", signalCertification.direction);
-  text("signalCertTradeStatus", signalCertification.trade_status);
-  text("signalCertCounts", `passed ${signalCertification.passed_checks?.length ?? 0} / failed ${signalCertification.failed_checks?.length ?? 0} / warnings ${signalCertification.warnings?.length ?? 0}`);
-  text("signalCertTop", (signalCertification.failed_checks || signalCertification.warnings || [])[0]);
+  text("demoCommandQueueMode", queue.mode);
+  text("demoCommandQueuePreviews", queue.preview_count);
+  text("demoCommandQueuePayloads", queue.payload_count);
+  text("demoCommandQueueLatestPreview", queue.latest_preview_status);
+  text("demoCommandQueueLatestPayload", queue.latest_payload_status);
+  text("demoCommandQueueManualArm", boolText(queue.manual_demo_arm));
+  text("demoCommandQueueDemoAllowed", boolText(queue.demo_command_queueing_allowed));
+  text("demoCommandQueueMt5Allowed", boolText(queue.mt5_command_queueing_allowed));
+  text("demoCommandQueueMt5CommandId", queue.mt5_command_id);
+  text("demoCommandQueueBrokerOrderId", queue.broker_order_id);
 
   text("eventBusCount", eventBus.event_count);
   text("eventBusSequence", eventBus.last_sequence);
   text("eventBusType", eventBus.last_event_type);
   text("eventBusStateAt", eventBus.runtime_state_generated_at);
-  text("eventBusLiveExecution", boolText(eventBus.safety?.live_execution_allowed));
-  text("eventBusCommandQueueing", boolText(eventBus.safety?.command_queueing_allowed));
+  text("eventBusDecisionEvent", eventBus.latest_decision_event?.event_id || eventBus.latest_decision_event?.payload?.action);
 
-  text("strategyAgentsRegistered", strategyAgents.registered_count);
-  text("strategyAgentsEnabled", strategyAgents.enabled_count);
-  text("strategyAgentsStatuses", JSON.stringify(strategyAgents.latest_status_counts || {}));
-  text("strategyAgentsSignal", strategyAgents.latest_signal?.direction || strategyAgents.latest_signal?.status);
-  text("fastRsiStatus", strategyAgents.latest_fast_rsi?.status);
-  text("fastRsiReason", (strategyAgents.latest_fast_rsi?.rejection_reasons || [])[0]?.message || strategyAgents.latest_fast_rsi?.setup_reason);
-  text("strategyAgentsPaperAllowed", boolText(strategyAgents.paper_trade_creation_allowed));
-  text("strategyAgentsOrderAllowed", boolText(strategyAgents.order_request_creation_allowed));
-  text("strategyAgentsLiveExecution", boolText(strategyAgents.live_execution_allowed));
-  text("strategyAgentsCommandQueueing", boolText(strategyAgents.command_queueing_allowed));
+  text("eaAllowLiveTrading", "false/unknown");
+  text("safetyLiveExecution", boolText(safety.live_execution_allowed));
+  text("safetyLiveArming", boolText(safety.live_arming_allowed));
+  text("safetyDemoExecution", boolText(safety.demo_execution_allowed));
+  text("safetyCommandQueueing", boolText(safety.demo_command_queueing_allowed || safety.mt5_command_queueing_allowed));
+  text("safetyBrokerOrder", boolText(safety.broker_order_created));
+  text("safetyMt5Commands", boolText(safety.mt5_commands_queued));
+  text("safetyPaperTrade", boolText(safety.paper_trade_created));
+  text("safetyOrderRequest", boolText(safety.order_request_creation_allowed));
+  text("safetyReadOnly", boolText(safety.read_only_dashboard));
 
-  text("demoOmsMode", demoOms.mode);
-  text("demoOmsIntentCount", demoOms.order_intent_count);
-  text("demoOmsRequestCount", demoOms.order_request_count);
-  text("demoOmsLatestRequest", demoOms.latest_request_status);
-  text("demoOmsDemoExecution", boolText(demoOms.demo_execution_allowed));
-  text("demoOmsLiveExecution", boolText(demoOms.live_execution_allowed));
-  text("demoOmsCommandQueueing", boolText(demoOms.command_queueing_allowed));
-  text("demoOmsBrokerOrder", boolText(demoOms.broker_order_created));
-  text("demoOmsMt5Commands", boolText(demoOms.mt5_commands_queued));
+  text("whyPrimary", summary.top_blocks?.[0]);
+  text("whySecondary", joinItems((summary.top_blocks || []).slice(1)));
+  text("whyWarnings", joinItems(summary.top_warnings || []));
+  text("whyNext", summary.next_expected_action);
 
-  text("brokerReconStatus", brokerReconciliation.status);
-  text("brokerReconPositions", brokerReconciliation.broker_position_count);
-  text("brokerReconOrders", brokerReconciliation.broker_order_count);
-  text("brokerReconMismatches", brokerReconciliation.mismatch_count);
-  text("brokerReconWarnings", brokerReconciliation.warning_count);
-  text("brokerReconLiveExecution", boolText(brokerReconciliation.live_execution_allowed));
-  text("brokerReconCommandQueueing", boolText(brokerReconciliation.command_queueing_allowed));
+  text("liveReadinessStatus", liveReadiness.status);
+  text("evidenceGrowthStatus", evidenceGrowth.status);
+  text("signalCertStatus", signalCertification.status);
+  text("paperRiskStatus", paperRiskAudit.risk_status || paperRiskAudit.status);
 
-  text("demoCommandQueueMode", demoCommandQueue.mode);
-  text("demoCommandQueuePreviews", demoCommandQueue.preview_count);
-  text("demoCommandQueuePayloads", demoCommandQueue.payload_count);
-  text("demoCommandQueueLatestPayload", demoCommandQueue.latest_payload_status);
-  text("demoCommandQueueManualArm", boolText(demoCommandQueue.manual_demo_arm));
-  text("demoCommandQueueDemoAllowed", boolText(demoCommandQueue.demo_command_queueing_allowed));
-  text("demoCommandQueueMt5Allowed", boolText(demoCommandQueue.mt5_command_queueing_allowed));
-  text("demoCommandQueueBrokerOrder", boolText(demoCommandQueue.broker_order_created));
-  text("demoCommandQueueMt5Commands", boolText(demoCommandQueue.mt5_commands_queued));
-
-  text("decisionAction", decisionEngine.latest_action);
-  text("decisionDirection", decisionEngine.latest_direction);
-  text("decisionScore", decisionEngine.score);
-  text("decisionConfidence", decisionEngine.confidence);
-  text("decisionStrategy", decisionEngine.strategy);
-  text("decisionSetup", decisionEngine.setup_reason);
-  text("decisionTopBlock", decisionEngine.top_blocking_reason);
-  text("decisionTopWarning", decisionEngine.top_warning);
-  text("decisionAutonomy", decisionEngine.autonomy_level);
-  text("decisionDemoExecution", boolText(decisionEngine.demo_execution_allowed));
-  text("decisionLiveExecution", boolText(decisionEngine.live_execution_allowed));
-  text("decisionCommandQueueing", boolText(decisionEngine.command_queueing_allowed));
-
-  text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
-  text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);
-
-  renderWarnings(collectWarnings(data));
+  renderWarnings(summary.top_warnings || []);
   text("updatedAt", `Last refreshed ${new Date().toLocaleTimeString()}. Dashboard is read-only.`);
 }
 
 async function refresh() {
-  const data = await readAll();
-  render(data);
+  try {
+    render(await getRuntimeSummary());
+  } catch (error) {
+    text("health", "ERROR");
+    text("updatedAt", `Runtime summary failed: ${error.message}`);
+  }
 }
 
 refresh();

@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aurix_common import write_json_atomic
+
 from .base import StrategyAgent
 from .indicators import calculate_rsi, calculate_sma, detect_cross_down, detect_cross_up
 from .models import StrategyEvaluationInput, StrategyEvaluationResult, StrategyRejectionReason, utc_now_iso
@@ -99,9 +101,7 @@ class FastRsiFirstReversalAgent(StrategyAgent):
 
     def write_state(self, state: dict[str, Any]) -> None:
         state["updated_at"] = utc_now_iso()
-        tmp = self.state_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
-        tmp.replace(self.state_path)
+        write_json_atomic(self.state_path, state)
 
     def _candles_from_input(self, evaluation_input: StrategyEvaluationInput) -> list[dict[str, Any]]:
         market = evaluation_input.runtime_state.get("market") if isinstance(evaluation_input.runtime_state, dict) else {}

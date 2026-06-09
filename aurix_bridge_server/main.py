@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import json
+import logging
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Optional
@@ -23,6 +24,7 @@ from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_demo_command_queue import DemoCommandQueueAdapter, load_demo_command_queue_config
 from aurix_demo_oms import DemoOms, load_demo_oms_config
 from aurix_decision_engine import AurixDecisionEngine, load_decision_engine_config
+from aurix_dashboard_runtime import build_runtime_dashboard_summary
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_event_bus import AurixEventBus, EVENT_TYPES, collect_observation_events, load_event_bus_config
@@ -56,6 +58,7 @@ DEFAULT_TERMINAL_ID = os.getenv("AURIX_TERMINAL_ID", "AURIX-MAC-001")
 DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "aurix_dashboard"
 
 store = JsonStore(DATA_DIR)
+logger = logging.getLogger("aurix.runtime")
 risk_config = load_risk_config()
 risk_governor = RiskGovernor(risk_config)
 strategy_config = load_strategy_config()
@@ -220,6 +223,56 @@ def root() -> dict[str, Any]:
 @app.get("/dashboard/")
 def dashboard() -> FileResponse:
     return FileResponse(DASHBOARD_DIR / "index.html")
+
+
+@app.get("/dashboard/runtime-summary")
+def dashboard_runtime_summary() -> dict[str, Any]:
+    try:
+        return build_runtime_dashboard_summary(DATA_DIR).model_dump(mode="json")
+    except Exception as exc:
+        logger.exception("dashboard runtime summary degraded after unexpected runtime read failure")
+        return {
+            "generated_at": utc_now_iso(),
+            "symbol": None,
+            "account": {},
+            "market": {},
+            "session": {},
+            "decision": {},
+            "strategy_agents": {},
+            "fast_rsi": {},
+            "event_bus": {},
+            "demo_oms": {},
+            "demo_command_queue": {},
+            "broker_reconciliation": {},
+            "live_readiness": {},
+            "evidence_growth": {},
+            "signal_certification": {},
+            "paper_risk_audit": {},
+            "safety": {
+                "read_only_dashboard": True,
+                "paper_trade_creation_allowed": False,
+                "order_request_creation_allowed": False,
+                "demo_command_queueing_allowed": False,
+                "mt5_command_queueing_allowed": False,
+                "demo_execution_allowed": False,
+                "live_execution_allowed": False,
+                "live_arming_allowed": False,
+                "real_account_execution_allowed": False,
+                "mt5_commands_queued": False,
+                "broker_order_created": False,
+                "broker_order_modified": False,
+                "broker_order_closed": False,
+                "paper_trade_created": False,
+                "ea_settings_modified": False,
+                "external_llm_used": False,
+                "strategy_config_mutated": False,
+            },
+            "health": "ERROR",
+            "top_blocks": [str(exc)],
+            "top_warnings": [],
+            "next_expected_action": "Runtime summary degraded; inspect server logs.",
+            "degraded": True,
+        }
 
 
 class OpenMarketRequest(BaseModel):
@@ -441,7 +494,24 @@ def _event_bus_collect_payload() -> dict[str, Any]:
 
 @app.get("/event-bus/status")
 def event_bus_status() -> dict[str, Any]:
-    return event_bus.get_latest_status()
+    try:
+        return event_bus.get_latest_status()
+    except Exception as exc:
+        logger.exception("event bus status degraded after unexpected status write/read failure")
+        cached = store._read_json(Path(DATA_DIR) / "event_bus" / "status.json", {}) if hasattr(store, "_read_json") else {}
+        return {
+            **(cached if isinstance(cached, dict) else {}),
+            "degraded": True,
+            "error": str(exc),
+            "live_execution_allowed": False,
+            "command_queueing_allowed": False,
+            "safety": {
+                "live_execution_allowed": False,
+                "command_queueing_allowed": False,
+                "paper_trade_creation_allowed": False,
+                "mt5_execution_attempted": False,
+            },
+        }
 
 
 @app.get("/event-bus/latest-state")
@@ -1747,13 +1817,32 @@ def operator_status_payload() -> dict[str, Any]:
 
 @app.get("/operator/status")
 def operator_status() -> dict[str, Any]:
-    return operator_status_payload()
+    try:
+        return operator_status_payload()
+    except Exception as exc:
+        logger.exception("operator status degraded after unexpected runtime status failure")
+        summary = build_runtime_dashboard_summary(DATA_DIR).model_dump(mode="json")
+        return {"degraded": True, "error": str(exc), "runtime_summary": summary, "safety": summary.get("safety", {})}
 
 
 @app.get("/operator/summary")
 def operator_summary() -> dict[str, Any]:
-    status = _build_operator_status(include_evidence=True)
-    return build_operator_summary(status).model_dump()
+    try:
+        status = _build_operator_status(include_evidence=True)
+        return build_operator_summary(status).model_dump()
+    except Exception as exc:
+        logger.exception("operator summary degraded after unexpected runtime status failure")
+        summary = build_runtime_dashboard_summary(DATA_DIR).model_dump(mode="json")
+        return {
+            "degraded": True,
+            "error": str(exc),
+            "symbol": summary.get("symbol"),
+            "mode": (summary.get("decision") or {}).get("mode"),
+            "health": summary.get("health"),
+            "warnings": summary.get("top_warnings", []),
+            "blocking_reasons": summary.get("top_blocks", []),
+            "safety": summary.get("safety", {}),
+        }
 
 
 @app.get("/live-readiness/status")
