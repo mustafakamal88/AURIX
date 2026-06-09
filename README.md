@@ -1434,6 +1434,51 @@ More detail:
 docs/broker_reconciliation_engine.md
 ```
 
+## Part 32: Demo Command Queue Adapter
+
+Part 32 adds a dry-run adapter that can convert a validated Demo OMS request into an MT5 command payload preview. It still does not place trades.
+
+Default config keeps manual demo arming and MT5 command queueing off, so previews and payloads are stored as audit artifacts only. The adapter requires clean broker reconciliation before building a payload.
+
+Config lives in:
+
+```text
+config/demo_command_queue.yaml
+```
+
+Check demo command queue:
+
+```bash
+python3 scripts/check_demo_command_queue.py
+```
+
+Preview latest command:
+
+```bash
+python3 scripts/preview_latest_demo_command.py
+```
+
+Dry-run latest command payload:
+
+```bash
+python3 scripts/dry_run_latest_demo_command.py
+```
+
+Show previews and payloads:
+
+```bash
+python3 scripts/show_demo_command_previews.py
+python3 scripts/show_demo_command_payloads.py
+```
+
+Part 32 still does not call `/commands/open-market`, write to the MT5 command queue, create broker orders, or change EA settings. Before actual demo command queueing, manual demo arming and queue flags must be explicitly enabled in a later reviewed step.
+
+More detail:
+
+```text
+docs/demo_command_queue_adapter.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

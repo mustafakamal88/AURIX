@@ -83,6 +83,10 @@ def project_event(state: AurixRuntimeState, event: AurixEvent) -> AurixRuntimeSt
     elif event.event_type == AurixEventType.BROKER_RECONCILIATION_EVENT:
         state.execution["latest_broker_reconciliation"] = payload
         state.health["broker_reconciliation_status"] = payload.get("status")
+    elif event.event_type == AurixEventType.DEMO_COMMAND_PREVIEW_EVENT:
+        state.execution["latest_demo_command_preview"] = payload
+    elif event.event_type == AurixEventType.DEMO_COMMAND_QUEUE_EVENT:
+        state.execution["latest_demo_command_queue_event"] = payload
 
     return state
 

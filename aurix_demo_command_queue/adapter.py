@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+from typing import Any
+
+from aurix_broker_reconciliation import BrokerReconciliationStore
+from aurix_demo_oms import DemoOmsStore
+from aurix_event_bus import AurixEventBus
+
+from .config import DemoCommandQueueConfig
+from .models import DemoCommandPreview, DemoMt5CommandPayload
+from .models import DemoCommandQueueRejection
+from .router import publish_payload_event, publish_preview_event
+from .store import DemoCommandQueueStore
+from .validator import validate_command_preview as validate_preview
+
+
+class DemoCommandQueueAdapter:
+    def __init__(
+        self,
+        data_dir: str = "data",
+        config: DemoCommandQueueConfig | None = None,
+        event_bus: AurixEventBus | None = None,
+        snapshot_provider: Any | None = None,
+        demo_oms_store: DemoOmsStore | None = None,
+        broker_reconciliation_store: BrokerReconciliationStore | None = None,
+    ):
+        self.config = config or DemoCommandQueueConfig()
+        self.store = DemoCommandQueueStore(data_dir, self.config)
+        self.event_bus = event_bus
+        self.snapshot_provider = snapshot_provider
+        self.demo_oms_store = demo_oms_store or DemoOmsStore(data_dir)
+        self.broker_reconciliation_store = broker_reconciliation_store or BrokerReconciliationStore(data_dir)
+
+    def get_demo_command_queue_status(self) -> dict[str, Any]:
+        return self.store.status()
+
+    def load_previews(self) -> list[dict[str, Any]]:
+        return self.store.load_previews()
+
+    def load_payloads(self) -> list[dict[str, Any]]:
+        return self.store.load_payloads()
+
+    def history(self, limit: int = 100) -> list[dict[str, Any]]:
+        return self.store.history(limit)
+
+    def reset_demo_command_queue(self) -> dict[str, Any]:
+        return self.store.reset()
+
+    def _snapshot(self) -> dict[str, Any] | None:
+        if self.snapshot_provider is None:
+            return None
+        try:
+            value = self.snapshot_provider()
+        except Exception:
+            return None
+        return value if isinstance(value, dict) else None
+
+    def _latest_oms_request(self) -> dict[str, Any] | None:
+        requests = self.demo_oms_store.load_order_requests()
+        return requests[-1] if requests else None
+
+    def preview_latest_oms_request(self) -> dict[str, Any]:
+        request = self._latest_oms_request()
+        if request is None:
+            preview = DemoCommandPreview(status="BLOCKED", validation_status="BLOCK")
+            preview.rejection_reasons.append(DemoCommandQueueRejection(code="demo_oms_request_missing", message="No Demo OMS request exists"))
+            self.store.add_preview(preview)
+            publish_preview_event(self.event_bus, preview)
+            return {"status": "BLOCKED", "preview": preview.model_dump(mode="json"), "validation": None, "safety": preview.safety.model_dump()}
+        return self.preview_oms_request(request)
+
+    def preview_oms_request(self, oms_request: dict[str, Any]) -> dict[str, Any]:
+        preview = self._build_preview(oms_request)
+        validation = self.validate_command_preview(preview, oms_request)
+        preview.validation_status = validation.status
+        preview.rejection_reasons = validation.rejection_reasons
+        preview.warnings = validation.warnings
+        preview.status = "READY_BUT_QUEUE_DISABLED" if not validation.approved and all(r.code in {"manual_demo_arm_false", "demo_command_queueing_disabled", "mt5_command_queueing_disabled"} for r in validation.rejection_reasons) else "BLOCKED" if not validation.approved else "PREVIEW_CREATED"
+        self.store.add_preview(preview)
+        event = publish_preview_event(self.event_bus, preview, validation)
+        return {"status": preview.status, "preview": preview.model_dump(mode="json"), "validation": validation.model_dump(mode="json"), "event": event, "safety": preview.safety.model_dump()}
+
+    def _build_preview(self, request: dict[str, Any]) -> DemoCommandPreview:
+        return DemoCommandPreview(
+            source_oms_request_id=request.get("id"),
+            source_oms_intent_id=request.get("intent_id"),
+            source_signal_id=request.get("source_signal_id"),
+            source_signal_event_id=request.get("source_signal_event_id"),
+            strategy_name=request.get("strategy_name"),
+            strategy_version=request.get("strategy_version"),
+            symbol=request.get("symbol") or self.config.symbol,
+            direction=request.get("direction"),
+            order_type=request.get("order_type"),
+            volume=float(request.get("volume") or 0.0),
+            entry_reference=request.get("entry_reference"),
+            stop_loss=request.get("stop_loss"),
+            take_profit=request.get("take_profit"),
+            max_slippage_points=self.config.max_slippage_points,
+            ttl_seconds=self.config.command_ttl_seconds,
+            correlation_id=request.get("correlation_id"),
+            causation_id=request.get("id"),
+        )
+
+    def validate_command_preview(self, preview: DemoCommandPreview, oms_request: dict[str, Any] | None = None):
+        return validate_preview(
+            preview,
+            config=self.config,
+            oms_request=oms_request,
+            broker_reconciliation=self.broker_reconciliation_store.latest(),
+            snapshot=self._snapshot(),
+        )
+
+    def build_mt5_command_payload(self, preview: DemoCommandPreview, validation) -> DemoMt5CommandPayload:
+        status = "DRY_RUN_ONLY" if validation.approved else "QUEUE_DISABLED" if any(r.code in {"manual_demo_arm_false", "demo_command_queueing_disabled", "mt5_command_queueing_disabled"} for r in validation.rejection_reasons) else "BLOCKED"
+        return DemoMt5CommandPayload(
+            preview_id=preview.id,
+            command_type="OPEN_MARKET",
+            symbol=preview.symbol,
+            side=preview.direction,
+            volume=preview.volume,
+            sl=preview.stop_loss,
+            tp=preview.take_profit,
+            deviation_points=preview.max_slippage_points,
+            ttl_seconds=preview.ttl_seconds,
+            status=status,
+            mt5_command_id=None,
+            queued_at=None,
+            broker_order_id=None,
+            correlation_id=preview.correlation_id,
+            causation_id=preview.id,
+        )
+
+    def dry_run_latest_oms_request(self) -> dict[str, Any]:
+        request = self._latest_oms_request()
+        if request is None:
+            preview_result = self.preview_latest_oms_request()
+            return {**preview_result, "payload": None}
+        preview = self._build_preview(request)
+        validation = self.validate_command_preview(preview, request)
+        preview.validation_status = validation.status
+        preview.rejection_reasons = validation.rejection_reasons
+        preview.warnings = validation.warnings
+        preview.status = "READY_BUT_QUEUE_DISABLED" if not validation.approved and any(r.code.endswith("disabled") or r.code == "manual_demo_arm_false" for r in validation.rejection_reasons) else "BLOCKED" if not validation.approved else "PREVIEW_CREATED"
+        self.store.add_preview(preview)
+        preview_event = publish_preview_event(self.event_bus, preview, validation)
+        payload = self.build_mt5_command_payload(preview, validation)
+        self.store.add_payload(payload)
+        payload_event = publish_payload_event(self.event_bus, payload, validation)
+        return {
+            "status": payload.status,
+            "preview": preview.model_dump(mode="json"),
+            "payload": payload.model_dump(mode="json"),
+            "validation": validation.model_dump(mode="json"),
+            "preview_event": preview_event,
+            "payload_event": payload_event,
+            "paper_trades_created": 0,
+            "commands_queued": 0,
+            "broker_orders_created": 0,
+            "safety": payload.safety.model_dump(),
+        }

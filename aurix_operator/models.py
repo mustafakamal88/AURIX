@@ -34,6 +34,7 @@ class OperatorStatus(BaseModel):
     strategy_agents: dict[str, Any] = Field(default_factory=dict)
     demo_oms: dict[str, Any] = Field(default_factory=dict)
     broker_reconciliation: dict[str, Any] = Field(default_factory=dict)
+    demo_command_queue: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -122,4 +123,10 @@ class OperatorSummary(BaseModel):
     broker_order_count: int = 0
     broker_mismatch_count: int = 0
     broker_warning_count: int = 0
+    demo_command_queue_mode: Optional[str] = None
+    demo_command_preview_count: int = 0
+    demo_command_payload_count: int = 0
+    demo_command_queueing_allowed: bool = False
+    mt5_command_queueing_allowed: bool = False
+    latest_demo_command_payload_status: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)

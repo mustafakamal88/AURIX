@@ -39,6 +39,7 @@ def build_operator_status(
     strategy_agents_status: dict[str, Any] | None = None,
     demo_oms_status: dict[str, Any] | None = None,
     broker_reconciliation_status: dict[str, Any] | None = None,
+    demo_command_queue_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -122,6 +123,7 @@ def build_operator_status(
         strategy_agents=strategy_agents_status or {},
         demo_oms=demo_oms_status or {},
         broker_reconciliation=broker_reconciliation_status or {},
+        demo_command_queue=demo_command_queue_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -171,6 +173,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     latest_fast_rsi = as_dict(strategy_agents.get("latest_fast_rsi"))
     demo_oms = as_dict(status.demo_oms)
     broker_reconciliation = as_dict(status.broker_reconciliation)
+    demo_command_queue = as_dict(status.demo_command_queue)
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -275,5 +278,11 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         broker_order_count=int(broker_reconciliation.get("broker_order_count") or 0),
         broker_mismatch_count=int(broker_reconciliation.get("mismatch_count") or 0),
         broker_warning_count=int(broker_reconciliation.get("warning_count") or 0),
+        demo_command_queue_mode=demo_command_queue.get("mode"),
+        demo_command_preview_count=int(demo_command_queue.get("preview_count") or 0),
+        demo_command_payload_count=int(demo_command_queue.get("payload_count") or 0),
+        demo_command_queueing_allowed=bool(demo_command_queue.get("demo_command_queueing_allowed")),
+        mt5_command_queueing_allowed=bool(demo_command_queue.get("mt5_command_queueing_allowed")),
+        latest_demo_command_payload_status=demo_command_queue.get("latest_payload_status"),
         warnings=warnings,
     )

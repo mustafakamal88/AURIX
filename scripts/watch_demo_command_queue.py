@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+import json
+import os
+import time
+import urllib.request
+from datetime import datetime
+from dotenv import load_dotenv
+
+
+def main() -> int:
+    load_dotenv()
+    url = f"http://{os.getenv('AURIX_HOST', '127.0.0.1')}:{os.getenv('AURIX_PORT', '8765')}/demo-command-queue/status"
+    try:
+        while True:
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            print(f"time={datetime.now().isoformat(timespec='seconds')} mode={data.get('mode')} previews={data.get('preview_count')} payloads={data.get('payload_count')} latest_payload={data.get('latest_payload_status')} demo_queueing={data.get('demo_command_queueing_allowed')} mt5_queueing={data.get('mt5_command_queueing_allowed')} broker_order_created={data.get('broker_order_created')} mt5_commands_queued={data.get('mt5_commands_queued')}")
+            time.sleep(5)
+    except KeyboardInterrupt:
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

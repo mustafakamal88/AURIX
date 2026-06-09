@@ -20,6 +20,7 @@ from aurix_backtest import BacktestReplayEngine, BacktestStore, XauusdPaperV2Bac
 from aurix_broker_reconciliation import BrokerReconciler, load_broker_reconciliation_config
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
+from aurix_demo_command_queue import DemoCommandQueueAdapter, load_demo_command_queue_config
 from aurix_demo_oms import DemoOms, load_demo_oms_config
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
@@ -138,6 +139,15 @@ broker_reconciler = BrokerReconciler(
     snapshot_provider=store.latest_snapshot,
     demo_oms_store=demo_oms.store,
 )
+demo_command_queue_config = load_demo_command_queue_config()
+demo_command_queue = DemoCommandQueueAdapter(
+    DATA_DIR,
+    demo_command_queue_config,
+    event_bus=event_bus,
+    snapshot_provider=store.latest_snapshot,
+    demo_oms_store=demo_oms.store,
+    broker_reconciliation_store=broker_reconciler.store,
+)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -188,6 +198,7 @@ def root() -> dict[str, Any]:
         "strategy_agents_status": "/strategy-agents/status",
         "demo_oms_status": "/demo-oms/status",
         "broker_reconciliation_status": "/broker-reconciliation/status",
+        "demo_command_queue_status": "/demo-command-queue/status",
     }
 
 
@@ -585,6 +596,59 @@ def broker_reconciliation_run() -> dict[str, Any]:
 @app.post("/broker-reconciliation/reset")
 def broker_reconciliation_reset() -> dict[str, Any]:
     return broker_reconciler.reset()
+
+
+@app.get("/demo-command-queue/status")
+def demo_command_queue_status() -> dict[str, Any]:
+    return demo_command_queue.get_demo_command_queue_status()
+
+
+@app.get("/demo-command-queue/previews")
+def demo_command_queue_previews(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    items = demo_command_queue.load_previews()
+    return {"items": items[-limit:], "limit": limit, "count": len(items), "safety": demo_command_queue_status().get("safety")}
+
+
+@app.get("/demo-command-queue/payloads")
+def demo_command_queue_payloads(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    items = demo_command_queue.load_payloads()
+    return {"items": items[-limit:], "limit": limit, "count": len(items), "safety": demo_command_queue_status().get("safety")}
+
+
+@app.get("/demo-command-queue/history")
+def demo_command_queue_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": demo_command_queue.history(limit), "limit": limit, "safety": demo_command_queue_status().get("safety")}
+
+
+@app.post("/demo-command-queue/preview-latest")
+def demo_command_queue_preview_latest() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    results_before = len(store.list_results())
+    result = demo_command_queue.preview_latest_oms_request()
+    result["paper_trades_created"] = len(paper_ledger.list_trades()) - paper_before
+    result["commands_queued"] = len(store.list_commands()) - commands_before
+    result["broker_orders_created"] = len(store.list_results()) - results_before
+    return result
+
+
+@app.post("/demo-command-queue/dry-run-latest")
+def demo_command_queue_dry_run_latest() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    results_before = len(store.list_results())
+    result = demo_command_queue.dry_run_latest_oms_request()
+    result["paper_trades_created"] = len(paper_ledger.list_trades()) - paper_before
+    result["commands_queued"] = len(store.list_commands()) - commands_before
+    result["broker_orders_created"] = len(store.list_results()) - results_before
+    result["broker_orders_modified"] = 0
+    result["broker_orders_closed"] = 0
+    return result
+
+
+@app.post("/demo-command-queue/reset")
+def demo_command_queue_reset() -> dict[str, Any]:
+    return demo_command_queue.reset_demo_command_queue()
 
 
 @app.get("/commands")
@@ -1592,6 +1656,7 @@ def _build_operator_status(
         strategy_agents_status=strategy_agents_operator_status(),
         demo_oms_status=demo_oms_status(),
         broker_reconciliation_status=broker_reconciliation_status(),
+        demo_command_queue_status=demo_command_queue_status(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
