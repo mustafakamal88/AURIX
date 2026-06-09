@@ -38,6 +38,7 @@ def build_operator_status(
     event_bus_status: dict[str, Any] | None = None,
     strategy_agents_status: dict[str, Any] | None = None,
     demo_oms_status: dict[str, Any] | None = None,
+    broker_reconciliation_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -120,6 +121,7 @@ def build_operator_status(
         event_bus=event_bus_status or {},
         strategy_agents=strategy_agents_status or {},
         demo_oms=demo_oms_status or {},
+        broker_reconciliation=broker_reconciliation_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -168,6 +170,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     strategy_agent_signal = as_dict(strategy_agents.get("latest_signal"))
     latest_fast_rsi = as_dict(strategy_agents.get("latest_fast_rsi"))
     demo_oms = as_dict(status.demo_oms)
+    broker_reconciliation = as_dict(status.broker_reconciliation)
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -267,5 +270,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         demo_execution_allowed=bool(demo_oms.get("demo_execution_allowed")),
         live_execution_allowed=bool(demo_oms.get("live_execution_allowed")),
         command_queueing_allowed=bool(demo_oms.get("command_queueing_allowed")),
+        broker_reconciliation_status=broker_reconciliation.get("status"),
+        broker_position_count=int(broker_reconciliation.get("broker_position_count") or 0),
+        broker_order_count=int(broker_reconciliation.get("broker_order_count") or 0),
+        broker_mismatch_count=int(broker_reconciliation.get("mismatch_count") or 0),
+        broker_warning_count=int(broker_reconciliation.get("warning_count") or 0),
         warnings=warnings,
     )

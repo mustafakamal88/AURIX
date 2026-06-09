@@ -1,0 +1,31 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "RECONCILIATION_ONLY"
+account_currency: "GBP"
+
+read_broker_account: true
+read_broker_positions: true
+read_broker_orders: true
+read_broker_history: true
+
+require_event_bus_enabled: true
+require_demo_oms_available: true
+require_ea_live_trading_disabled_now: true
+
+allow_broker_order_creation: false
+allow_broker_order_modification: false
+allow_broker_order_close: false
+allow_demo_execution: false
+allow_live_execution: false
+allow_live_arming: false
+allow_command_queueing: false
+allow_mt5_command_queueing: false
+
+expected_max_broker_positions: 0
+expected_max_broker_orders: 0
+alert_on_unexpected_broker_position: true
+alert_on_unexpected_broker_order: true
+alert_on_account_currency_mismatch: true
+alert_on_symbol_mismatch: true
+write_history: true
+history_limit: 500

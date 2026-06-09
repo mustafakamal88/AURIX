@@ -1390,6 +1390,50 @@ More detail:
 docs/demo_oms_execution_agent.md
 ```
 
+## Part 31: Broker Reconciliation Engine
+
+Part 31 adds a read-only broker reconciliation layer. It compares AURIX expected dry-run state, Event Bus state, Demo OMS order requests, and MT5 bridge-reported broker state.
+
+It detects unexpected broker positions/orders, impossible OMS execution state, missing broker data, and safety drift. It does not place trades, queue MT5 commands, modify or close broker orders, create paper trades, or change EA settings.
+
+Config lives in:
+
+```text
+config/broker_reconciliation.yaml
+```
+
+Check broker reconciliation:
+
+```bash
+python3 scripts/check_broker_reconciliation.py
+```
+
+Run reconciliation:
+
+```bash
+python3 scripts/run_broker_reconciliation.py
+```
+
+Show reconciliation history:
+
+```bash
+python3 scripts/show_broker_reconciliation_history.py
+```
+
+Watch reconciliation:
+
+```bash
+python3 scripts/watch_broker_reconciliation.py
+```
+
+This comes before demo command queueing because AURIX must first prove broker account, positions, orders, and trade history are readable and that unexpected broker exposure is detected.
+
+More detail:
+
+```text
+docs/broker_reconciliation_engine.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

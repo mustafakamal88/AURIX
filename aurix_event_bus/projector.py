@@ -80,6 +80,9 @@ def project_event(state: AurixRuntimeState, event: AurixEvent) -> AurixRuntimeSt
         state.health = payload
     elif event.event_type == AurixEventType.SAFETY_STATE_EVENT:
         state.safety = _merge(state.safety, payload)
+    elif event.event_type == AurixEventType.BROKER_RECONCILIATION_EVENT:
+        state.execution["latest_broker_reconciliation"] = payload
+        state.health["broker_reconciliation_status"] = payload.get("status")
 
     return state
 

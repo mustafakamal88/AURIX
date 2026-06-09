@@ -20,7 +20,8 @@ const READ_ONLY_ENDPOINTS = {
   signalCertification: "/signal-certifier/status",
   eventBus: "/event-bus/status",
   strategyAgents: "/strategy-agents/status",
-  demoOms: "/demo-oms/status"
+  demoOms: "/demo-oms/status",
+  brokerReconciliation: "/broker-reconciliation/status"
 };
 
 function byId(id) {
@@ -146,6 +147,7 @@ function render(data) {
   const eventBus = data.eventBus || status.event_bus || {};
   const strategyAgents = data.strategyAgents || status.strategy_agents || {};
   const demoOms = data.demoOms || status.demo_oms || {};
+  const brokerReconciliation = data.brokerReconciliation || status.broker_reconciliation || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -264,6 +266,14 @@ function render(data) {
   text("demoOmsCommandQueueing", boolText(demoOms.command_queueing_allowed));
   text("demoOmsBrokerOrder", boolText(demoOms.broker_order_created));
   text("demoOmsMt5Commands", boolText(demoOms.mt5_commands_queued));
+
+  text("brokerReconStatus", brokerReconciliation.status);
+  text("brokerReconPositions", brokerReconciliation.broker_position_count);
+  text("brokerReconOrders", brokerReconciliation.broker_order_count);
+  text("brokerReconMismatches", brokerReconciliation.mismatch_count);
+  text("brokerReconWarnings", brokerReconciliation.warning_count);
+  text("brokerReconLiveExecution", boolText(brokerReconciliation.live_execution_allowed));
+  text("brokerReconCommandQueueing", boolText(brokerReconciliation.command_queueing_allowed));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);

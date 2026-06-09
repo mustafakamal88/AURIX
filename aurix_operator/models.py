@@ -33,6 +33,7 @@ class OperatorStatus(BaseModel):
     event_bus: dict[str, Any] = Field(default_factory=dict)
     strategy_agents: dict[str, Any] = Field(default_factory=dict)
     demo_oms: dict[str, Any] = Field(default_factory=dict)
+    broker_reconciliation: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -116,4 +117,9 @@ class OperatorSummary(BaseModel):
     demo_execution_allowed: bool = False
     live_execution_allowed: bool = False
     command_queueing_allowed: bool = False
+    broker_reconciliation_status: Optional[str] = None
+    broker_position_count: int = 0
+    broker_order_count: int = 0
+    broker_mismatch_count: int = 0
+    broker_warning_count: int = 0
     warnings: list[str] = Field(default_factory=list)

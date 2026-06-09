@@ -17,6 +17,7 @@ from aurix_ai_review import AIReviewStore, AIReviewTemplateReviewer, load_ai_rev
 from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
 from aurix_analytics.performance import summary_from_report
 from aurix_backtest import BacktestReplayEngine, BacktestStore, XauusdPaperV2BacktestReplayEngine, load_backtest_config
+from aurix_broker_reconciliation import BrokerReconciler, load_broker_reconciliation_config
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_demo_oms import DemoOms, load_demo_oms_config
@@ -129,6 +130,14 @@ strategy_agent_evaluator = StrategyAgentEvaluator(
 )
 demo_oms_config = load_demo_oms_config()
 demo_oms = DemoOms(DATA_DIR, demo_oms_config, event_bus=event_bus, snapshot_provider=store.latest_snapshot)
+broker_reconciliation_config = load_broker_reconciliation_config()
+broker_reconciler = BrokerReconciler(
+    DATA_DIR,
+    broker_reconciliation_config,
+    event_bus=event_bus,
+    snapshot_provider=store.latest_snapshot,
+    demo_oms_store=demo_oms.store,
+)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -178,6 +187,7 @@ def root() -> dict[str, Any]:
         "event_bus_status": "/event-bus/status",
         "strategy_agents_status": "/strategy-agents/status",
         "demo_oms_status": "/demo-oms/status",
+        "broker_reconciliation_status": "/broker-reconciliation/status",
     }
 
 
@@ -535,6 +545,46 @@ def demo_oms_process_latest_signal() -> dict[str, Any]:
 @app.post("/demo-oms/reset")
 def demo_oms_reset() -> dict[str, Any]:
     return demo_oms.reset_demo_oms()
+
+
+@app.get("/broker-reconciliation/status")
+def broker_reconciliation_status() -> dict[str, Any]:
+    return broker_reconciler.status()
+
+
+@app.get("/broker-reconciliation/latest")
+def broker_reconciliation_latest() -> dict[str, Any]:
+    latest = broker_reconciler.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No broker reconciliation report yet.")
+    return latest
+
+
+@app.get("/broker-reconciliation/history")
+def broker_reconciliation_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": broker_reconciler.history(limit), "limit": limit, "safety": broker_reconciliation_status().get("safety")}
+
+
+@app.post("/broker-reconciliation/run")
+def broker_reconciliation_run() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    results_before = len(store.list_results())
+    report = broker_reconciler.run()
+    paper_after = len(paper_ledger.list_trades())
+    commands_after = len(store.list_commands())
+    results_after = len(store.list_results())
+    report["paper_trades_created"] = paper_after - paper_before
+    report["commands_queued"] = commands_after - commands_before
+    report["broker_orders_created"] = results_after - results_before
+    report["broker_orders_modified"] = 0
+    report["broker_orders_closed"] = 0
+    return report
+
+
+@app.post("/broker-reconciliation/reset")
+def broker_reconciliation_reset() -> dict[str, Any]:
+    return broker_reconciler.reset()
 
 
 @app.get("/commands")
@@ -1541,6 +1591,7 @@ def _build_operator_status(
         event_bus_status=event_bus_operator_status(),
         strategy_agents_status=strategy_agents_operator_status(),
         demo_oms_status=demo_oms_status(),
+        broker_reconciliation_status=broker_reconciliation_status(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
