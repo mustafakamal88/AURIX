@@ -23,6 +23,7 @@ from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_long_run import LongForwardTestManager, load_long_forward_test_config
+from aurix_live_readiness import LiveReadinessStore, load_live_readiness_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
 from aurix_orchestrator import SessionOrchestrator, load_orchestrator_config
@@ -98,6 +99,8 @@ orchestrator_task: asyncio.Task[Any] | None = None
 long_forward_config = load_long_forward_test_config()
 long_forward_manager: LongForwardTestManager
 long_forward_task: asyncio.Task[Any] | None = None
+live_readiness_config = load_live_readiness_config()
+live_readiness_store = LiveReadinessStore(DATA_DIR, live_readiness_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -140,6 +143,7 @@ def root() -> dict[str, Any]:
         "forward_test_status": "/forward-test/status",
         "orchestrator_status": "/orchestrator/status",
         "long_forward_test_status": "/long-forward-test/status",
+        "live_readiness_status": "/live-readiness/status",
     }
 
 
@@ -1243,6 +1247,7 @@ def _build_operator_status(
     include_forward_test: bool = True,
     include_orchestrator: bool = True,
     include_long_forward_test: bool = True,
+    include_live_readiness: bool = True,
 ) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -1265,6 +1270,7 @@ def _build_operator_status(
         forward_test_status=forward_test_status() if include_forward_test else {},
         orchestrator_status=orchestrator_status() if include_orchestrator else {},
         long_forward_test_status=long_forward_test_status() if include_long_forward_test else {},
+        live_readiness_status=live_readiness_status() if include_live_readiness else {},
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
@@ -1285,6 +1291,43 @@ def operator_status() -> dict[str, Any]:
 def operator_summary() -> dict[str, Any]:
     status = _build_operator_status(include_evidence=True)
     return build_operator_summary(status).model_dump()
+
+
+@app.get("/live-readiness/status")
+def live_readiness_status() -> dict[str, Any]:
+    return live_readiness_store.status()
+
+
+@app.get("/live-readiness/latest")
+def live_readiness_latest() -> dict[str, Any]:
+    latest = live_readiness_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No live readiness report yet.")
+    return latest.model_dump()
+
+
+def live_readiness_latest_or_empty() -> dict[str, Any]:
+    latest = live_readiness_store.latest()
+    return latest.model_dump() if latest else {}
+
+
+@app.post("/live-readiness/evaluate")
+def live_readiness_evaluate() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=True, include_live_readiness=False)
+    summary = build_operator_summary(status).model_dump()
+    report = live_readiness_store.evaluate(live_readiness_store.read_inputs(status.model_dump(), summary))
+    return report.model_dump()
+
+
+@app.get("/live-readiness/manual-checklist")
+def live_readiness_manual_checklist() -> dict[str, Any]:
+    return live_readiness_store.manual_checklist()
+
+
+@app.post("/live-readiness/reset")
+def live_readiness_reset() -> dict[str, Any]:
+    live_readiness_store.reset()
+    return {"ok": True, "latest_exists": False}
 
 
 @app.post("/commands/open-market")

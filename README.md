@@ -19,6 +19,10 @@ Part 16 adds a deterministic evidence gate that can only return paper-only readi
 Part 17 adds a paper-only daemon that can run the local paper pipeline in the background after explicit start.
 Part 18 adds a paper forward-test campaign manager for tracking multi-day evidence collection.
 Part 19 adds a session-aware paper orchestrator for coordinating paper evidence collection during allowed sessions.
+Part 20 adds XAUUSD Paper Strategy V2 for research-backed paper testing.
+Part 21 adds a read-only local dashboard/cockpit.
+Part 22 adds long forward-test mode for explicit, non-autostarting paper evidence collection.
+Part 23 adds a live execution readiness layer for deterministic manual-review assessment only.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -459,6 +463,10 @@ GET  /evidence/latest
 GET  /daemon/status
 GET  /forward-test/status
 GET  /orchestrator/status
+GET  /long-forward-test/status
+GET  /live-readiness/status
+GET  /live-readiness/latest
+GET  /live-readiness/manual-checklist
 
 POST /commands/open-market
 POST /commands/close-position
@@ -503,6 +511,13 @@ POST /orchestrator/run-once
 POST /orchestrator/start
 POST /orchestrator/stop
 POST /orchestrator/reset
+POST /long-forward-test/run-once
+POST /long-forward-test/start
+POST /long-forward-test/stop
+POST /long-forward-test/daily-report
+POST /long-forward-test/reset
+POST /live-readiness/evaluate
+POST /live-readiness/reset
 ```
 
 ## Safety
@@ -525,6 +540,9 @@ POST /orchestrator/reset
 - The Part 17 daemon is paper-only, does not queue commands, and does not autostart on server boot.
 - The Part 18 forward-test campaign is tracking-only, does not queue commands, and does not start the daemon automatically.
 - The Part 19 orchestrator is paper-only, does not queue commands, and does not autostart on server boot.
+- The Part 21 dashboard is read-only and does not queue commands or mutate config.
+- The Part 22 long forward-test mode is paper-only, does not autostart on server boot, and does not queue commands.
+- The Part 23 live readiness layer is assessment-only, does not queue commands, does not change EA settings, and keeps arming/execution disabled by config.
 
 ## Part 2: Risk Governor
 
@@ -1015,6 +1033,46 @@ More detail:
 docs/long_forward_test_mode.md
 ```
 
+## Part 23: Live Execution Readiness Layer
+
+Live readiness settings live in:
+
+```text
+config/live_readiness.yaml
+```
+
+Run the server:
+
+```bash
+python3 scripts/run_server.py
+```
+
+Check the latest readiness status:
+
+```bash
+python3 scripts/check_live_readiness.py
+```
+
+Evaluate readiness and save `data/live_readiness_report.json`:
+
+```bash
+python3 scripts/evaluate_live_readiness.py
+```
+
+Show the manual checklist:
+
+```bash
+python3 scripts/show_live_readiness_checklist.py
+```
+
+Live readiness is assessment-only. It does not enable live trading, does not queue MT5 commands, does not modify EA settings, does not mutate strategy config, and does not call external AI APIs. Because `allow_live_arming=false` and `allow_live_execution=false`, the highest status is `READY_FOR_MANUAL_REVIEW`; micro-live mode is not built yet.
+
+More detail:
+
+```text
+docs/live_execution_readiness.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -1057,4 +1115,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 23 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1/V2, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, session orchestration, local dashboard, and long forward-test mode are stable. Do not enable live trading until every layer has been reviewed and tested.
+Future work can define a separately reviewed micro-live implementation after the readiness layer has been reviewed. Do not enable live trading until every safety layer has been intentionally changed, tested, and manually approved.

@@ -26,6 +26,7 @@ class OperatorStatus(BaseModel):
     forward_test: dict[str, Any] = Field(default_factory=dict)
     orchestrator: dict[str, Any] = Field(default_factory=dict)
     long_forward_test: dict[str, Any] = Field(default_factory=dict)
+    live_readiness: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -71,6 +72,10 @@ class OperatorSummary(BaseModel):
     long_forward_test_running: bool = False
     long_forward_test_progress: float = 0.0
     long_forward_test_evidence_status: Optional[str] = None
+    live_readiness_status: Optional[str] = None
+    live_readiness_score: float = 0.0
+    live_readiness_arming_allowed: bool = False
+    live_readiness_execution_allowed: bool = False
     v2_signal_status: Optional[str] = None
     backtest_v2_trade_count: int = 0
     backtest_v2_expectancy_r: float = 0.0

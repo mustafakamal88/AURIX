@@ -13,7 +13,8 @@ const READ_ONLY_ENDPOINTS = {
   forward: "/forward-test/status",
   orchestrator: "/orchestrator/status",
   daemon: "/daemon/status",
-  longForward: "/long-forward-test/status"
+  longForward: "/long-forward-test/status",
+  liveReadiness: "/live-readiness/status"
 };
 
 function byId(id) {
@@ -73,6 +74,8 @@ function collectWarnings(data) {
   warnings.push(...(data.status?.market?.quality?.reasons || []));
   warnings.push(...(data.evidence?.warnings || []));
   warnings.push(...(data.evidence?.blocking_reasons || []));
+  warnings.push(...(data.liveReadiness?.latest?.warnings || []));
+  warnings.push(...(data.liveReadiness?.latest?.blocking_reasons || []));
   warnings.push(...(data.status?.strategy?.latest_signal?.reasons || []));
   warnings.push(...(data.status?.strategy?.latest_signal_v2?.reasons || []));
   for (const [key, value] of Object.entries(data)) {
@@ -120,6 +123,8 @@ function render(data) {
   const daemon = data.daemon || status.daemon || {};
   const orchestrator = data.orchestrator || status.orchestrator || {};
   const longForward = data.longForward || status.long_forward_test || {};
+  const liveReadinessStatus = data.liveReadiness || status.live_readiness || {};
+  const liveReadiness = liveReadinessStatus.latest || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -179,6 +184,13 @@ function render(data) {
   text("longClosed", longForward.paper_closed_trades);
   text("longEvidence", longForward.evidence_status);
   text("longDailyReport", longForward.daily_report_generated_at);
+
+  text("liveReadinessStatus", liveReadiness.status);
+  text("liveReadinessScore", liveReadiness.score);
+  text("liveReadinessArming", boolText(liveReadiness.live_arming_allowed));
+  text("liveReadinessExecution", boolText(liveReadiness.live_execution_allowed));
+  text("liveReadinessBlocks", (liveReadiness.blocking_reasons || []).join("; "));
+  text("liveReadinessChecklist", (liveReadiness.manual_requirements || []).length || (liveReadinessStatus.config ? 10 : 0));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);
