@@ -43,6 +43,9 @@ def main() -> int:
     evidence = status.get("evidence") or {}
     evidence_latest = evidence.get("latest") or {}
     daemon = status.get("daemon") or {}
+    forward_test = status.get("forward_test") or {}
+    campaign = forward_test.get("campaign") or {}
+    campaign_progress = campaign.get("progress") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -88,6 +91,12 @@ def main() -> int:
         f"loops={daemon.get('loop_count')} "
         f"heartbeat={daemon.get('last_heartbeat_at')} "
         f"errors={'; '.join(str(error) for error in daemon.get('errors') or []) or 'none'}"
+    )
+    print(
+        "forward_test: "
+        f"status={campaign.get('status')} "
+        f"progress={campaign_progress.get('percent')} "
+        f"closed_paper={campaign.get('closed_paper_trades')}"
     )
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")

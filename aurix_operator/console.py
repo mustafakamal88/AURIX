@@ -28,6 +28,7 @@ def build_operator_status(
     research_status: dict[str, Any] | None = None,
     evidence_status: dict[str, Any] | None = None,
     daemon_status: dict[str, Any] | None = None,
+    forward_test_status: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -96,6 +97,7 @@ def build_operator_status(
         research=research_status or {},
         evidence=evidence_status or {},
         daemon=daemon_status or {},
+        forward_test=forward_test_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -125,6 +127,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     evidence = as_dict(status.evidence)
     evidence_latest = as_dict(evidence.get("latest"))
     daemon = as_dict(status.daemon)
+    forward_test = as_dict(status.forward_test)
+    campaign = as_dict(forward_test.get("campaign"))
+    campaign_progress = as_dict(campaign.get("progress"))
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -171,5 +176,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         daemon_loop_count=int(daemon.get("loop_count") or 0),
         daemon_last_heartbeat_at=daemon.get("last_heartbeat_at"),
         daemon_errors=[str(error) for error in daemon.get("errors") or []],
+        forward_test_status=campaign.get("status"),
+        forward_test_progress_percent=float(campaign_progress.get("percent") or 0.0),
+        forward_test_closed_paper_trades=int(campaign.get("closed_paper_trades") or 0),
         warnings=warnings,
     )

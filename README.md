@@ -17,6 +17,7 @@ Part 14 adds an offline backtest/replay engine for recorded M1 candles.
 Part 15 adds local backtest diagnostics and parameter sweeps over recorded candles.
 Part 16 adds a deterministic evidence gate that can only return paper-only readiness while live readiness is disabled by config.
 Part 17 adds a paper-only daemon that can run the local paper pipeline in the background after explicit start.
+Part 18 adds a paper forward-test campaign manager for tracking multi-day evidence collection.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -390,6 +391,13 @@ python3 scripts/start_daemon.py
 python3 scripts/stop_daemon.py
 ```
 
+Start or update forward test campaign:
+
+```bash
+python3 scripts/start_forward_test.py
+python3 scripts/update_forward_test.py
+```
+
 ## API Endpoints
 
 ```text
@@ -441,6 +449,7 @@ GET  /research/latest
 GET  /evidence/status
 GET  /evidence/latest
 GET  /daemon/status
+GET  /forward-test/status
 
 POST /commands/open-market
 POST /commands/close-position
@@ -477,6 +486,10 @@ POST /daemon/run-once
 POST /daemon/start
 POST /daemon/stop
 POST /daemon/reset
+POST /forward-test/start
+POST /forward-test/update
+POST /forward-test/pause
+POST /forward-test/reset
 ```
 
 ## Safety
@@ -497,6 +510,7 @@ POST /daemon/reset
 - The Part 15 research sweep is backtest-only and does not queue commands or mutate strategy config.
 - The Part 16 evidence gate is readiness-only, does not queue commands, and cannot return `live_ready=true` while `allow_live_readiness=false`.
 - The Part 17 daemon is paper-only, does not queue commands, and does not autostart on server boot.
+- The Part 18 forward-test campaign is tracking-only, does not queue commands, and does not start the daemon automatically.
 
 ## Part 2: Risk Governor
 
@@ -847,6 +861,27 @@ More detail:
 docs/paper_daemon.md
 ```
 
+## Part 18: Forward Test Campaign Manager
+
+Forward-test settings live in:
+
+```text
+config/forward_test.yaml
+```
+
+Start and update:
+
+```bash
+python3 scripts/start_forward_test.py
+python3 scripts/update_forward_test.py
+```
+
+More detail:
+
+```text
+docs/forward_test_campaign.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -889,4 +924,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 18 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, and the paper daemon are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 19 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, and forward-test campaign tracking are stable. Do not enable live trading until every layer has been reviewed and tested.

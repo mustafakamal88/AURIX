@@ -18,6 +18,7 @@ from aurix_backtest import BacktestReplayEngine, BacktestStore, load_backtest_co
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
+from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
@@ -80,6 +81,8 @@ evidence_gate_store = EvidenceGateStore(DATA_DIR, evidence_gate_config)
 daemon_config = load_daemon_config()
 daemon_runner: PaperDaemonRunner
 daemon_task: asyncio.Task[Any] | None = None
+forward_test_config = load_forward_test_config()
+forward_test_store = ForwardTestStore(DATA_DIR, forward_test_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -114,6 +117,7 @@ def root() -> dict[str, Any]:
         "research_status": "/research/status",
         "evidence_status": "/evidence/status",
         "daemon_status": "/daemon/status",
+        "forward_test_status": "/forward-test/status",
     }
 
 
@@ -884,7 +888,35 @@ def daemon_reset() -> dict[str, Any]:
     return daemon_runner.reset().model_dump()
 
 
-def _build_operator_status(*, include_evidence: bool) -> Any:
+@app.get("/forward-test/status")
+def forward_test_status() -> dict[str, Any]:
+    return forward_test_store.status()
+
+
+@app.post("/forward-test/start")
+def forward_test_start() -> dict[str, Any]:
+    return forward_test_store.start().model_dump()
+
+
+@app.post("/forward-test/update")
+def forward_test_update() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=True, include_forward_test=False)
+    summary = build_operator_summary(status).model_dump()
+    return forward_test_store.update(forward_test_store.read_inputs(summary)).model_dump()
+
+
+@app.post("/forward-test/pause")
+def forward_test_pause() -> dict[str, Any]:
+    return forward_test_store.pause().model_dump()
+
+
+@app.post("/forward-test/reset")
+def forward_test_reset() -> dict[str, Any]:
+    forward_test_store.reset()
+    return {"ok": True, "campaign": None}
+
+
+def _build_operator_status(*, include_evidence: bool, include_forward_test: bool = True) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
         terminal_id=DEFAULT_TERMINAL_ID,
@@ -903,6 +935,7 @@ def _build_operator_status(*, include_evidence: bool) -> Any:
         research_status=research_status(),
         evidence_status=evidence_status() if include_evidence else {},
         daemon_status=daemon_status(),
+        forward_test_status=forward_test_status() if include_forward_test else {},
     )
 
 

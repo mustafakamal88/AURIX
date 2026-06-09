@@ -61,6 +61,9 @@ def main() -> int:
                         f"daemon_loops={summary.get('daemon_loop_count')}",
                         f"daemon_heartbeat={summary.get('daemon_last_heartbeat_at')}",
                         f"daemon_errors={'; '.join(str(error) for error in summary.get('daemon_errors') or []) or 'none'}",
+                        f"forward_status={summary.get('forward_test_status')}",
+                        f"forward_progress={summary.get('forward_test_progress_percent')}",
+                        f"forward_closed={summary.get('forward_test_closed_paper_trades')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )

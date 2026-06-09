@@ -23,6 +23,7 @@ class OperatorStatus(BaseModel):
     research: dict[str, Any] = Field(default_factory=dict)
     evidence: dict[str, Any] = Field(default_factory=dict)
     daemon: dict[str, Any] = Field(default_factory=dict)
+    forward_test: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -57,4 +58,7 @@ class OperatorSummary(BaseModel):
     daemon_loop_count: int = 0
     daemon_last_heartbeat_at: Optional[str] = None
     daemon_errors: list[str] = Field(default_factory=list)
+    forward_test_status: Optional[str] = None
+    forward_test_progress_percent: float = 0.0
+    forward_test_closed_paper_trades: int = 0
     warnings: list[str] = Field(default_factory=list)

@@ -18,6 +18,7 @@ It combines the main system health signals into one place:
 - Latest research parameter sweep summary
 - Latest evidence gate report
 - Daemon status
+- Forward test campaign status
 - Safety status
 
 ## API
@@ -47,6 +48,7 @@ backtest
 research
 evidence
 daemon
+forward_test
 commands
 execution
 safety
@@ -80,6 +82,9 @@ daemon_running
 daemon_loop_count
 daemon_last_heartbeat_at
 daemon_errors
+forward_test_status
+forward_test_progress_percent
+forward_test_closed_paper_trades
 warnings
 ```
 

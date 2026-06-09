@@ -1,0 +1,11 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "PAPER"
+target_days: 10
+target_closed_paper_trades: 50
+target_recorded_candles: 1000
+target_sessions: ["LONDON", "NY_PRE_MARKET", "NY_OPEN", "NY_LATE"]
+minimum_sessions_covered: 3
+require_daemon_runs: true
+require_operator_ok: true
+allow_live_trading: false
