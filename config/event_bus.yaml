@@ -1,0 +1,14 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "EVENT_BUS_ONLY"
+write_event_log: true
+write_state_snapshot: true
+event_history_limit: 5000
+state_history_limit: 500
+allow_paper_trade_creation: false
+allow_demo_execution: false
+allow_live_arming: false
+allow_live_execution: false
+allow_command_queueing: false
+require_paper_mode_or_observation: true
+require_ea_live_trading_disabled_now: true

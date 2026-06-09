@@ -1215,6 +1215,64 @@ More detail:
 docs/paper_risk_audit.md
 ```
 
+## Part 27: Core Event Bus / State Engine
+
+Part 27 adds the new backend backbone:
+
+```text
+MT5 Bridge
+-> Event Bus / State Engine
+-> Strategy Agent Layer
+-> Risk Governor
+-> Execution / OMS Agent
+-> Journal + Learning Agent
+-> Dashboard / Alerts
+```
+
+The event bus is infrastructure only. It records normalized observation events and projects a runtime state snapshot. It does not enable trading, does not queue MT5 commands, does not create paper trades, does not place demo/live broker orders, and does not change EA settings.
+
+Config lives in:
+
+```text
+config/event_bus.yaml
+```
+
+Check event bus:
+
+```bash
+python3 scripts/check_event_bus.py
+```
+
+Collect current local state as observation events:
+
+```bash
+python3 scripts/collect_event_bus_snapshot.py
+```
+
+Show recent events:
+
+```bash
+python3 scripts/show_event_bus_recent.py
+```
+
+Show projected runtime state:
+
+```bash
+python3 scripts/show_runtime_state.py
+```
+
+Watch event bus:
+
+```bash
+python3 scripts/watch_event_bus.py
+```
+
+More detail:
+
+```text
+docs/event_bus_state_engine.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

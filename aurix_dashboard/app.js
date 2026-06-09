@@ -17,7 +17,8 @@ const READ_ONLY_ENDPOINTS = {
   longForward: "/long-forward-test/status",
   liveReadiness: "/live-readiness/status",
   evidenceGrowth: "/evidence-monitor/status",
-  signalCertification: "/signal-certifier/status"
+  signalCertification: "/signal-certifier/status",
+  eventBus: "/event-bus/status"
 };
 
 function byId(id) {
@@ -140,6 +141,7 @@ function render(data) {
   const evidenceGrowthTargets = evidenceGrowth.targets || {};
   const signalCertificationStatus = data.signalCertification || status.signal_certification || {};
   const signalCertification = signalCertificationStatus.latest || {};
+  const eventBus = data.eventBus || status.event_bus || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -230,6 +232,13 @@ function render(data) {
   text("signalCertTradeStatus", signalCertification.trade_status);
   text("signalCertCounts", `passed ${signalCertification.passed_checks?.length ?? 0} / failed ${signalCertification.failed_checks?.length ?? 0} / warnings ${signalCertification.warnings?.length ?? 0}`);
   text("signalCertTop", (signalCertification.failed_checks || signalCertification.warnings || [])[0]);
+
+  text("eventBusCount", eventBus.event_count);
+  text("eventBusSequence", eventBus.last_sequence);
+  text("eventBusType", eventBus.last_event_type);
+  text("eventBusStateAt", eventBus.runtime_state_generated_at);
+  text("eventBusLiveExecution", boolText(eventBus.safety?.live_execution_allowed));
+  text("eventBusCommandQueueing", boolText(eventBus.safety?.command_queueing_allowed));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);

@@ -30,6 +30,7 @@ class OperatorStatus(BaseModel):
     live_readiness: dict[str, Any] = Field(default_factory=dict)
     evidence_growth: dict[str, Any] = Field(default_factory=dict)
     signal_certification: dict[str, Any] = Field(default_factory=dict)
+    event_bus: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -96,4 +97,9 @@ class OperatorSummary(BaseModel):
     backtest_v2_trade_count: int = 0
     backtest_v2_expectancy_r: float = 0.0
     backtest_v1_v2_expectancy_delta_r: Optional[float] = None
+    event_bus_enabled: bool = False
+    event_count: int = 0
+    last_sequence: int = 0
+    last_event_type: Optional[str] = None
+    runtime_state_generated_at: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)

@@ -21,6 +21,7 @@ from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
+from aurix_event_bus import AurixEventBus, EVENT_TYPES, collect_observation_events, load_event_bus_config
 from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_long_run import LongForwardTestManager, load_long_forward_test_config
@@ -111,6 +112,8 @@ evidence_monitor_config = load_evidence_monitor_config()
 evidence_monitor_store = EvidenceMonitorStore(DATA_DIR, evidence_monitor_config)
 signal_certifier_config = load_signal_certifier_config()
 signal_certifier_store = SignalCertifierStore(DATA_DIR, signal_certifier_config)
+event_bus_config = load_event_bus_config()
+event_bus = AurixEventBus(DATA_DIR, event_bus_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -157,6 +160,7 @@ def root() -> dict[str, Any]:
         "live_readiness_status": "/live-readiness/status",
         "evidence_monitor_status": "/evidence-monitor/status",
         "signal_certifier_status": "/signal-certifier/status",
+        "event_bus_status": "/event-bus/status",
     }
 
 
@@ -337,6 +341,87 @@ def deals() -> list[dict[str, Any]]:
     if snapshot is None:
         raise HTTPException(status_code=404, detail="No snapshot received yet.")
     return snapshot.get("deals", [])
+
+
+def _current_context_observation() -> dict[str, Any] | None:
+    return context_engine.latest()
+
+
+def _event_bus_collect_payload() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    published = collect_observation_events(
+        event_bus=event_bus,
+        snapshot=store.latest_snapshot(),
+        market_quality=market_recorder.quality(),
+        context=_current_context_observation(),
+        signals=store.list_strategy_signals(),
+        paper_trades=paper_ledger.list_trades(),
+        latest_paper_risk_decision=paper_risk_audit_store.latest(),
+    )
+    event_items = [item for item in published if not item.get("collector_summary")]
+    summary = next((item for item in published if item.get("collector_summary")), {})
+    paper_after = len(paper_ledger.list_trades())
+    commands_after = len(store.list_commands())
+    status = event_bus.get_latest_status()
+    return {
+        "ok": True,
+        "published_count": len(event_items),
+        "event_types": [item.get("event_type") for item in event_items],
+        "last_sequence": status.get("last_sequence"),
+        "state_snapshot_path": status.get("state_snapshot_path"),
+        "state_exists": status.get("state_exists"),
+        "correlation_id": summary.get("correlation_id"),
+        "paper_trades_before": paper_before,
+        "paper_trades_after": paper_after,
+        "paper_trades_created": paper_after - paper_before,
+        "commands_before": commands_before,
+        "commands_after": commands_after,
+        "commands_queued": commands_after - commands_before,
+        "safety": {
+            "paper_trade_creation_attempted": False,
+            "mt5_execution_attempted": False,
+            "live_execution_allowed": False,
+            "command_queueing_allowed": False,
+        },
+    }
+
+
+@app.get("/event-bus/status")
+def event_bus_status() -> dict[str, Any]:
+    return event_bus.get_latest_status()
+
+
+@app.get("/event-bus/latest-state")
+def event_bus_latest_state() -> dict[str, Any]:
+    return event_bus.get_latest_state()
+
+
+@app.get("/event-bus/recent")
+def event_bus_recent(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": event_bus.load_recent_events(limit), "limit": limit}
+
+
+@app.get("/event-bus/recent/{event_type}")
+def event_bus_recent_by_type(event_type: str, limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    if event_type not in EVENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported event_type: {event_type}")
+    return {"items": event_bus.load_events_by_type(event_type, limit), "limit": limit, "event_type": event_type}
+
+
+@app.get("/event-bus/correlation/{correlation_id}")
+def event_bus_correlation(correlation_id: str) -> dict[str, Any]:
+    return {"items": event_bus.load_events_by_correlation_id(correlation_id), "correlation_id": correlation_id}
+
+
+@app.post("/event-bus/collect")
+def event_bus_collect() -> dict[str, Any]:
+    return _event_bus_collect_payload()
+
+
+@app.post("/event-bus/reset")
+def event_bus_reset() -> dict[str, Any]:
+    return event_bus.reset_event_bus()
 
 
 @app.get("/commands")
@@ -1340,11 +1425,27 @@ def _build_operator_status(
         live_readiness_status=live_readiness_status() if include_live_readiness else {},
         evidence_growth_status=evidence_monitor_status() if include_evidence_growth else {},
         signal_certification_status=signal_certifier_status() if include_signal_certification else {},
+        event_bus_status=event_bus_operator_status(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
         ),
     )
+
+
+def event_bus_operator_status() -> dict[str, Any]:
+    status = event_bus.get_latest_status()
+    state = event_bus.get_latest_state()
+    return {
+        **status,
+        "runtime_state_generated_at": state.get("generated_at"),
+        "runtime_state": {
+            "generated_at": state.get("generated_at"),
+            "last_sequence": state.get("last_sequence"),
+            "last_event_id": state.get("last_event_id"),
+            "safety": state.get("safety") or {},
+        },
+    }
 
 
 def operator_status_payload() -> dict[str, Any]:

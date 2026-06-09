@@ -35,6 +35,7 @@ def build_operator_status(
     live_readiness_status: dict[str, Any] | None = None,
     evidence_growth_status: dict[str, Any] | None = None,
     signal_certification_status: dict[str, Any] | None = None,
+    event_bus_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -114,6 +115,7 @@ def build_operator_status(
         live_readiness=live_readiness_status or {},
         evidence_growth=evidence_growth_status or {},
         signal_certification=signal_certification_status or {},
+        event_bus=event_bus_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -156,6 +158,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     evidence_growth_latest = as_dict(evidence_growth.get("latest"))
     signal_certification = as_dict(status.signal_certification)
     signal_certification_latest = as_dict(signal_certification.get("latest"))
+    event_bus = as_dict(status.event_bus)
+    event_bus_state = as_dict(event_bus.get("runtime_state"))
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -238,5 +242,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         backtest_v2_trade_count=int(comparison_v2.get("trades") or 0),
         backtest_v2_expectancy_r=float(comparison_v2.get("expectancy_r") or 0.0),
         backtest_v1_v2_expectancy_delta_r=as_float(comparison_delta.get("expectancy_r")),
+        event_bus_enabled=bool(event_bus.get("enabled")),
+        event_count=int(event_bus.get("event_count") or 0),
+        last_sequence=int(event_bus.get("last_sequence") or 0),
+        last_event_type=event_bus.get("last_event_type"),
+        runtime_state_generated_at=event_bus_state.get("generated_at") or event_bus.get("runtime_state_generated_at"),
         warnings=warnings,
     )
