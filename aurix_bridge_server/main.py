@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from aurix_ai_review import AIReviewStore, AIReviewTemplateReviewer, load_ai_review_config
 from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
 from aurix_analytics.performance import summary_from_report
+from aurix_backtest import BacktestReplayEngine, BacktestStore, load_backtest_config
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
@@ -65,6 +66,9 @@ journal_reviewer = JournalReviewer(journal_config)
 ai_review_config = load_ai_review_config()
 ai_review_store = AIReviewStore(DATA_DIR, ai_review_config)
 ai_review_reviewer = AIReviewTemplateReviewer(ai_review_config)
+backtest_config = load_backtest_config()
+backtest_store = BacktestStore(DATA_DIR, backtest_config)
+backtest_engine = BacktestReplayEngine(backtest_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -95,6 +99,7 @@ def root() -> dict[str, Any]:
         "paper_analytics": "/analytics/paper",
         "journal_status": "/journal/status",
         "ai_review_status": "/ai-review/status",
+        "backtest_status": "/backtest/status",
     }
 
 
@@ -670,6 +675,37 @@ def ai_review_reset() -> dict[str, Any]:
     return {"ok": True, "reports": 0}
 
 
+@app.get("/backtest/status")
+def backtest_status() -> dict[str, Any]:
+    return backtest_store.status()
+
+
+@app.get("/backtest/report")
+def backtest_report() -> dict[str, Any]:
+    report = backtest_store.latest_report()
+    if report is None:
+        raise HTTPException(status_code=404, detail="No backtest report yet.")
+    return report.model_dump()
+
+
+@app.get("/backtest/trades")
+def backtest_trades() -> list[dict[str, Any]]:
+    return backtest_store.list_trades()
+
+
+@app.post("/backtest/run")
+def backtest_run() -> dict[str, Any]:
+    report, trades = backtest_engine.run(backtest_store.load_candles())
+    backtest_store.save(report, trades)
+    return report.model_dump()
+
+
+@app.post("/backtest/reset")
+def backtest_reset() -> dict[str, Any]:
+    backtest_store.reset()
+    return {"ok": True, "trades": 0}
+
+
 def operator_status_payload() -> dict[str, Any]:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -685,6 +721,7 @@ def operator_status_payload() -> dict[str, Any]:
         analytics_summary=paper_analytics_summary(),
         journal_status=journal_status(),
         ai_review_status=ai_review_status(),
+        backtest_status=backtest_status(),
     ).model_dump()
 
 
@@ -709,6 +746,7 @@ def operator_summary() -> dict[str, Any]:
         analytics_summary=paper_analytics_summary(),
         journal_status=journal_status(),
         ai_review_status=ai_review_status(),
+        backtest_status=backtest_status(),
     )
     return build_operator_summary(status).model_dump()
 

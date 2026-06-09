@@ -1,0 +1,33 @@
+from __future__ import annotations
+
+import json
+import os
+import urllib.error
+import urllib.request
+
+from dotenv import load_dotenv
+
+
+def main() -> int:
+    load_dotenv()
+    host = os.getenv("AURIX_HOST", "127.0.0.1")
+    port = os.getenv("AURIX_PORT", "8765")
+    url = f"http://{host}:{port}/backtest/status"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        print(f"FAIL: could not read backtest status at {url}: {exc}")
+        return 1
+    latest = data.get("latest") or {}
+    print("AURIX Backtest")
+    print(f"enabled: {data.get('enabled')}")
+    print(f"symbol: {data.get('symbol')}")
+    print(f"timeframe: {data.get('timeframe')}")
+    print(f"trades_count: {data.get('trades_count')}")
+    print(f"latest_expectancy_r: {latest.get('expectancy_r')}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

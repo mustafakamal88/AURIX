@@ -24,6 +24,7 @@ def build_operator_status(
     analytics_summary: dict[str, Any] | None = None,
     journal_status: dict[str, Any] | None = None,
     ai_review_status: dict[str, Any] | None = None,
+    backtest_status: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -88,6 +89,7 @@ def build_operator_status(
         analytics=analytics_summary or {},
         journal=journal_status or {},
         ai_review=ai_review_status or {},
+        backtest=backtest_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -109,6 +111,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     analytics = as_dict(status.analytics)
     journal = as_dict(status.journal)
     ai_review = as_dict(status.ai_review)
+    backtest = as_dict(status.backtest)
+    backtest_latest = as_dict(backtest.get("latest"))
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -144,5 +148,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         journal_latest_classification=journal.get("latest_classification"),
         ai_review_latest_summary=ai_review.get("latest_summary"),
         ai_review_action_items_count=int(ai_review.get("latest_action_items_count") or 0),
+        backtest_trade_count=int(backtest_latest.get("trades") or backtest.get("trades_count") or 0),
+        backtest_expectancy_r=float(backtest_latest.get("expectancy_r") or 0.0),
         warnings=warnings,
     )

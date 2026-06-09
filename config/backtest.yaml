@@ -1,0 +1,12 @@
+enabled: true
+symbol: "XAUUSDm"
+timeframe: "M1"
+source_candles_file: "data/market_candles_m1.json"
+default_volume: 0.01
+default_stop_points: 300
+default_take_profit_points: 600
+max_spread_points: 350
+lookback_range_candles: 10
+min_candles: 20
+allowed_sessions: ["LONDON", "NY_PRE_MARKET", "NY_OPEN", "NY_LATE"]
+block_closed_session: true

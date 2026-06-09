@@ -13,6 +13,7 @@ Part 10 adds a read-only operator console and system health summary.
 Part 11 adds deterministic paper performance analytics.
 Part 12 adds deterministic paper trade and strategy signal journaling.
 Part 13 adds a safe offline-first AI-style review layer using local templates by default.
+Part 14 adds an offline backtest/replay engine for recorded M1 candles.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -319,6 +320,24 @@ Watch AI review reports:
 python3 scripts/watch_ai_review.py
 ```
 
+Check backtest status:
+
+```bash
+python3 scripts/check_backtest.py
+```
+
+Run backtest:
+
+```bash
+python3 scripts/run_backtest.py
+```
+
+Export backtest CSV:
+
+```bash
+python3 scripts/export_backtest_csv.py
+```
+
 ## API Endpoints
 
 ```text
@@ -362,6 +381,9 @@ GET  /journal/entries
 GET  /ai-review/status
 GET  /ai-review/reports
 GET  /ai-review/latest
+GET  /backtest/status
+GET  /backtest/report
+GET  /backtest/trades
 
 POST /commands/open-market
 POST /commands/close-position
@@ -388,6 +410,8 @@ POST /journal/generate-daily-summary
 POST /journal/reset
 POST /ai-review/generate
 POST /ai-review/reset
+POST /backtest/run
+POST /backtest/reset
 ```
 
 ## Safety
@@ -404,6 +428,7 @@ POST /ai-review/reset
 - The Part 11 analytics layer is report-only and does not queue commands.
 - The Part 12 journal engine is review-only and does not queue commands.
 - The Part 13 AI review layer uses local templates by default and does not call external AI APIs.
+- The Part 14 backtest engine is replay-only and does not queue commands.
 
 ## Part 2: Risk Governor
 
@@ -670,6 +695,27 @@ More detail:
 docs/ai_review_agent.md
 ```
 
+## Part 14: Backtest / Replay Engine
+
+Backtest settings live in:
+
+```text
+config/backtest.yaml
+```
+
+Run and export:
+
+```bash
+python3 scripts/run_backtest.py
+python3 scripts/export_backtest_csv.py
+```
+
+More detail:
+
+```text
+docs/backtest_replay_engine.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -712,4 +758,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 14 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, and local AI review are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 15 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, and backtest replay are stable. Do not enable live trading until every layer has been reviewed and tested.

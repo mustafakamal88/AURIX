@@ -50,6 +50,8 @@ def main() -> int:
                         f"journal_entries={summary.get('journal_entry_count')}",
                         f"journal_latest={summary.get('journal_latest_classification')}",
                         f"ai_actions={summary.get('ai_review_action_items_count')}",
+                        f"backtest_trades={summary.get('backtest_trade_count')}",
+                        f"backtest_exp_r={summary.get('backtest_expectancy_r')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )
