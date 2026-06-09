@@ -36,6 +36,7 @@ Part 33 adds the AURIX decision engine and autonomy controller.
 Part 34 adds an advanced read-only XAUUSD runtime control dashboard.
 Part 35 hardens runtime persistence so concurrent status/dashboard polling cannot collide on fixed JSON temp files.
 Part 36 adds runtime provenance, current-session counters, and evidence integrity checks.
+The Windows Forex VPS deployment pack adds local Windows setup docs, PowerShell runtime scripts, and a preflight checker for running MT5, the EA, and AURIX on the same VPS.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -223,6 +224,58 @@ GET /evidence-integrity/status
 ```
 
 It checks core evidence files, stale atomic temp files, corrupt JSON files, and basic count consistency. This layer is observability only. The dashboard remains read-only, and no live trading, demo command queueing, broker order creation, MT5 command queueing, paper trade creation, order request creation, or EA setting permission is changed.
+
+## Windows Forex VPS Deployment
+
+The recommended deployment for 24/5 MT5 + EA + AURIX runtime is a Windows Forex VPS running Exness MT5, `AurixBridgeEA`, and the local Python bridge on the same machine.
+
+Full setup guide:
+
+```text
+docs/windows_forex_vps_setup.md
+```
+
+Deployment checklist:
+
+```text
+docs/windows_forex_vps_checklist.md
+```
+
+Manual start command on the VPS:
+
+```powershell
+cd C:\AURIX
+.\scripts\windows\start_aurix_server.ps1
+```
+
+Dashboard URL inside the VPS:
+
+```text
+http://127.0.0.1:8765/dashboard
+```
+
+Server health check:
+
+```powershell
+cd C:\AURIX
+.\scripts\windows\check_aurix_server.ps1
+```
+
+Preflight check:
+
+```powershell
+cd C:\AURIX
+python scripts\check_windows_vps_preflight.py
+```
+
+Install startup task:
+
+```powershell
+cd C:\AURIX
+.\scripts\windows\install_aurix_startup_task.ps1
+```
+
+This deployment pack is packaging only. Demo execution, live execution, broker order creation, MT5 command queueing, paper trade creation, order request creation, and EA setting changes remain disabled until a later explicit safety-gated part.
 
 List open commands:
 
