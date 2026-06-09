@@ -23,6 +23,7 @@ Part 20 adds XAUUSD Paper Strategy V2 for research-backed paper testing.
 Part 21 adds a read-only local dashboard/cockpit.
 Part 22 adds long forward-test mode for explicit, non-autostarting paper evidence collection.
 Part 23 adds a live execution readiness layer for deterministic manual-review assessment only.
+Part 24 adds an evidence growth monitor for tracking progress toward future manual readiness review.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -467,6 +468,9 @@ GET  /long-forward-test/status
 GET  /live-readiness/status
 GET  /live-readiness/latest
 GET  /live-readiness/manual-checklist
+GET  /evidence-monitor/status
+GET  /evidence-monitor/latest
+GET  /evidence-monitor/history
 
 POST /commands/open-market
 POST /commands/close-position
@@ -518,6 +522,8 @@ POST /long-forward-test/daily-report
 POST /long-forward-test/reset
 POST /live-readiness/evaluate
 POST /live-readiness/reset
+POST /evidence-monitor/evaluate
+POST /evidence-monitor/reset
 ```
 
 ## Safety
@@ -543,6 +549,7 @@ POST /live-readiness/reset
 - The Part 21 dashboard is read-only and does not queue commands or mutate config.
 - The Part 22 long forward-test mode is paper-only, does not autostart on server boot, and does not queue commands.
 - The Part 23 live readiness layer is assessment-only, does not queue commands, does not change EA settings, and keeps arming/execution disabled by config.
+- The Part 24 evidence growth monitor is monitor-only, does not queue commands, and only feeds future manual readiness review.
 
 ## Part 2: Risk Governor
 
@@ -1073,6 +1080,52 @@ More detail:
 docs/live_execution_readiness.md
 ```
 
+## Part 24: Evidence Growth / Forward-Test Completion Monitor
+
+Evidence monitor settings live in:
+
+```text
+config/evidence_monitor.yaml
+```
+
+Run the server:
+
+```bash
+python3 scripts/run_server.py
+```
+
+Check evidence growth:
+
+```bash
+python3 scripts/check_evidence_growth.py
+```
+
+Evaluate evidence growth and save `data/evidence_growth_report.json`:
+
+```bash
+python3 scripts/evaluate_evidence_growth.py
+```
+
+Watch evidence growth:
+
+```bash
+python3 scripts/watch_evidence_growth.py
+```
+
+Show evidence growth history:
+
+```bash
+python3 scripts/show_evidence_growth_history.py
+```
+
+Evidence growth is monitoring only. It does not enable live trading, arm live trading, queue MT5 commands, modify EA settings, mutate strategy config, or modify Part 23 readiness config. `READY_FOR_READINESS_REVIEW` only feeds a future manual readiness review; it is not permission for live trading.
+
+More detail:
+
+```text
+docs/evidence_growth_monitor.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -1115,4 +1168,4 @@ EA attached but not polling:
 
 ## Next
 
-Future work can define a separately reviewed micro-live implementation after the readiness layer has been reviewed. Do not enable live trading until every safety layer has been intentionally changed, tested, and manually approved.
+Future work can define a separately reviewed micro-live implementation after the readiness and evidence growth layers have been reviewed. Do not enable live trading until every safety layer has been intentionally changed, tested, and manually approved.

@@ -1,0 +1,17 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "MONITOR_ONLY"
+target_closed_paper_trades: 50
+target_recorded_candles: 1000
+target_forward_days: 10
+target_evidence_gate_status: "ELIGIBLE"
+require_no_open_commands: true
+require_no_open_paper_trades_for_completion: true
+require_market_quality_ok: true
+require_operator_ok: true
+require_live_readiness_blocked_or_manual_review_only: true
+allow_live_arming: false
+allow_live_execution: false
+allow_command_queueing: false
+snapshot_history_limit: 500
+write_history: true

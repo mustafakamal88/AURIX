@@ -19,6 +19,7 @@ from aurix_analytics.performance import summary_from_report
 from aurix_backtest import BacktestReplayEngine, BacktestStore, XauusdPaperV2BacktestReplayEngine, load_backtest_config
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
+from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
@@ -101,6 +102,8 @@ long_forward_manager: LongForwardTestManager
 long_forward_task: asyncio.Task[Any] | None = None
 live_readiness_config = load_live_readiness_config()
 live_readiness_store = LiveReadinessStore(DATA_DIR, live_readiness_config)
+evidence_monitor_config = load_evidence_monitor_config()
+evidence_monitor_store = EvidenceMonitorStore(DATA_DIR, evidence_monitor_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -144,6 +147,7 @@ def root() -> dict[str, Any]:
         "orchestrator_status": "/orchestrator/status",
         "long_forward_test_status": "/long-forward-test/status",
         "live_readiness_status": "/live-readiness/status",
+        "evidence_monitor_status": "/evidence-monitor/status",
     }
 
 
@@ -1248,6 +1252,7 @@ def _build_operator_status(
     include_orchestrator: bool = True,
     include_long_forward_test: bool = True,
     include_live_readiness: bool = True,
+    include_evidence_growth: bool = True,
 ) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -1271,6 +1276,7 @@ def _build_operator_status(
         orchestrator_status=orchestrator_status() if include_orchestrator else {},
         long_forward_test_status=long_forward_test_status() if include_long_forward_test else {},
         live_readiness_status=live_readiness_status() if include_live_readiness else {},
+        evidence_growth_status=evidence_monitor_status() if include_evidence_growth else {},
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
@@ -1328,6 +1334,42 @@ def live_readiness_manual_checklist() -> dict[str, Any]:
 def live_readiness_reset() -> dict[str, Any]:
     live_readiness_store.reset()
     return {"ok": True, "latest_exists": False}
+
+
+@app.get("/evidence-monitor/status")
+def evidence_monitor_status() -> dict[str, Any]:
+    return evidence_monitor_store.status()
+
+
+@app.get("/evidence-monitor/latest")
+def evidence_monitor_latest() -> dict[str, Any]:
+    latest = evidence_monitor_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No evidence growth report yet.")
+    return latest.model_dump()
+
+
+@app.post("/evidence-monitor/evaluate")
+def evidence_monitor_evaluate() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=True, include_evidence_growth=False)
+    summary = build_operator_summary(status).model_dump()
+    report = evidence_monitor_store.evaluate(evidence_monitor_store.read_inputs(status.model_dump(), summary))
+    return report.model_dump()
+
+
+@app.get("/evidence-monitor/history")
+def evidence_monitor_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    return {
+        "items": evidence_monitor_store.history(limit),
+        "limit": limit,
+        "safety": evidence_monitor_store.status().get("safety"),
+    }
+
+
+@app.post("/evidence-monitor/reset")
+def evidence_monitor_reset() -> dict[str, Any]:
+    evidence_monitor_store.reset()
+    return {"ok": True, "latest_exists": False, "history_count": 0}
 
 
 @app.post("/commands/open-market")

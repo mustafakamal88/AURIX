@@ -14,7 +14,8 @@ const READ_ONLY_ENDPOINTS = {
   orchestrator: "/orchestrator/status",
   daemon: "/daemon/status",
   longForward: "/long-forward-test/status",
-  liveReadiness: "/live-readiness/status"
+  liveReadiness: "/live-readiness/status",
+  evidenceGrowth: "/evidence-monitor/status"
 };
 
 function byId(id) {
@@ -76,6 +77,8 @@ function collectWarnings(data) {
   warnings.push(...(data.evidence?.blocking_reasons || []));
   warnings.push(...(data.liveReadiness?.latest?.warnings || []));
   warnings.push(...(data.liveReadiness?.latest?.blocking_reasons || []));
+  warnings.push(...(data.evidenceGrowth?.latest?.warnings || []));
+  warnings.push(...(data.evidenceGrowth?.latest?.blocking_reasons || []));
   warnings.push(...(data.status?.strategy?.latest_signal?.reasons || []));
   warnings.push(...(data.status?.strategy?.latest_signal_v2?.reasons || []));
   for (const [key, value] of Object.entries(data)) {
@@ -125,6 +128,10 @@ function render(data) {
   const longForward = data.longForward || status.long_forward_test || {};
   const liveReadinessStatus = data.liveReadiness || status.live_readiness || {};
   const liveReadiness = liveReadinessStatus.latest || {};
+  const evidenceGrowthStatus = data.evidenceGrowth || status.evidence_growth || {};
+  const evidenceGrowth = evidenceGrowthStatus.latest || {};
+  const evidenceGrowthCurrent = evidenceGrowth.current || {};
+  const evidenceGrowthTargets = evidenceGrowth.targets || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -191,6 +198,14 @@ function render(data) {
   text("liveReadinessExecution", boolText(liveReadiness.live_execution_allowed));
   text("liveReadinessBlocks", (liveReadiness.blocking_reasons || []).join("; "));
   text("liveReadinessChecklist", (liveReadiness.manual_requirements || []).length || (liveReadinessStatus.config ? 10 : 0));
+
+  text("evidenceGrowthStatus", evidenceGrowth.status);
+  text("evidenceGrowthProgress", evidenceGrowth.overall_progress);
+  text("evidenceGrowthClosed", `${evidenceGrowthCurrent.closed_paper_trades ?? "--"}/${evidenceGrowthTargets.closed_paper_trades ?? "--"}`);
+  text("evidenceGrowthCandles", `${evidenceGrowthCurrent.recorded_candles ?? "--"}/${evidenceGrowthTargets.recorded_candles ?? "--"}`);
+  text("evidenceGrowthDays", `${evidenceGrowthCurrent.forward_tested_days ?? "--"}/${evidenceGrowthTargets.forward_tested_days ?? "--"}`);
+  text("evidenceGrowthMissing", (evidenceGrowth.missing_requirements || []).join("; "));
+  text("evidenceGrowthBlocks", (evidenceGrowth.blocking_reasons || []).join("; "));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);
