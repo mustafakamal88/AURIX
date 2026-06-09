@@ -32,6 +32,7 @@ class OperatorStatus(BaseModel):
     signal_certification: dict[str, Any] = Field(default_factory=dict)
     event_bus: dict[str, Any] = Field(default_factory=dict)
     strategy_agents: dict[str, Any] = Field(default_factory=dict)
+    demo_oms: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -108,4 +109,11 @@ class OperatorSummary(BaseModel):
     strategy_agents_latest_status_counts: dict[str, int] = Field(default_factory=dict)
     latest_strategy_agent_signal: Optional[str] = None
     latest_fast_rsi_status: Optional[str] = None
+    demo_oms_mode: Optional[str] = None
+    demo_oms_intent_count: int = 0
+    demo_oms_request_count: int = 0
+    demo_oms_latest_request_status: Optional[str] = None
+    demo_execution_allowed: bool = False
+    live_execution_allowed: bool = False
+    command_queueing_allowed: bool = False
     warnings: list[str] = Field(default_factory=list)

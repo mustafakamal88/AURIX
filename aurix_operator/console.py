@@ -37,6 +37,7 @@ def build_operator_status(
     signal_certification_status: dict[str, Any] | None = None,
     event_bus_status: dict[str, Any] | None = None,
     strategy_agents_status: dict[str, Any] | None = None,
+    demo_oms_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -118,6 +119,7 @@ def build_operator_status(
         signal_certification=signal_certification_status or {},
         event_bus=event_bus_status or {},
         strategy_agents=strategy_agents_status or {},
+        demo_oms=demo_oms_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -165,6 +167,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     strategy_agents = as_dict(status.strategy_agents)
     strategy_agent_signal = as_dict(strategy_agents.get("latest_signal"))
     latest_fast_rsi = as_dict(strategy_agents.get("latest_fast_rsi"))
+    demo_oms = as_dict(status.demo_oms)
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -257,5 +260,12 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         strategy_agents_latest_status_counts=as_dict(strategy_agents.get("latest_status_counts")),
         latest_strategy_agent_signal=strategy_agent_signal.get("direction") or strategy_agent_signal.get("status"),
         latest_fast_rsi_status=latest_fast_rsi.get("status"),
+        demo_oms_mode=demo_oms.get("mode"),
+        demo_oms_intent_count=int(demo_oms.get("order_intent_count") or 0),
+        demo_oms_request_count=int(demo_oms.get("order_request_count") or 0),
+        demo_oms_latest_request_status=demo_oms.get("latest_request_status"),
+        demo_execution_allowed=bool(demo_oms.get("demo_execution_allowed")),
+        live_execution_allowed=bool(demo_oms.get("live_execution_allowed")),
+        command_queueing_allowed=bool(demo_oms.get("command_queueing_allowed")),
         warnings=warnings,
     )

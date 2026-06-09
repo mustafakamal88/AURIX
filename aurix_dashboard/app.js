@@ -19,7 +19,8 @@ const READ_ONLY_ENDPOINTS = {
   evidenceGrowth: "/evidence-monitor/status",
   signalCertification: "/signal-certifier/status",
   eventBus: "/event-bus/status",
-  strategyAgents: "/strategy-agents/status"
+  strategyAgents: "/strategy-agents/status",
+  demoOms: "/demo-oms/status"
 };
 
 function byId(id) {
@@ -144,6 +145,7 @@ function render(data) {
   const signalCertification = signalCertificationStatus.latest || {};
   const eventBus = data.eventBus || status.event_bus || {};
   const strategyAgents = data.strategyAgents || status.strategy_agents || {};
+  const demoOms = data.demoOms || status.demo_oms || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -252,6 +254,16 @@ function render(data) {
   text("strategyAgentsOrderAllowed", boolText(strategyAgents.order_request_creation_allowed));
   text("strategyAgentsLiveExecution", boolText(strategyAgents.live_execution_allowed));
   text("strategyAgentsCommandQueueing", boolText(strategyAgents.command_queueing_allowed));
+
+  text("demoOmsMode", demoOms.mode);
+  text("demoOmsIntentCount", demoOms.order_intent_count);
+  text("demoOmsRequestCount", demoOms.order_request_count);
+  text("demoOmsLatestRequest", demoOms.latest_request_status);
+  text("demoOmsDemoExecution", boolText(demoOms.demo_execution_allowed));
+  text("demoOmsLiveExecution", boolText(demoOms.live_execution_allowed));
+  text("demoOmsCommandQueueing", boolText(demoOms.command_queueing_allowed));
+  text("demoOmsBrokerOrder", boolText(demoOms.broker_order_created));
+  text("demoOmsMt5Commands", boolText(demoOms.mt5_commands_queued));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);

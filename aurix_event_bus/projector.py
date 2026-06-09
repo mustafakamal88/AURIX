@@ -43,6 +43,8 @@ def project_event(state: AurixRuntimeState, event: AurixEvent) -> AurixRuntimeSt
     }:
         state.orders = {"items": payload.get("items", payload if isinstance(payload, list) else []), "latest": payload}
         state.execution["latest_order_event"] = {"event_type": event.event_type.value, "payload": payload}
+        if event.event_type == AurixEventType.ORDER_REQUEST_EVENT:
+            state.execution["latest_order_request"] = payload
     elif event.event_type == AurixEventType.TRADE_HISTORY_EVENT:
         state.trade_history = {"items": payload.get("items", []), "latest": payload}
     elif event.event_type == AurixEventType.MARKET_QUALITY_EVENT:

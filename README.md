@@ -1345,6 +1345,51 @@ More detail:
 docs/fast_rsi_first_reversal_strategy.md
 ```
 
+## Part 30: Demo-only OMS Execution Agent
+
+Part 30 adds the dry-run OMS backbone after strategy-agent signals. It converts approved event-bus `SIGNAL_EVENT`s into deterministic OMS order intents and dry-run order request events.
+
+It does not place trades yet. It does not queue MT5 commands, create broker orders, create paper trades, change EA settings, or enable live/demo execution. `mt5_command_id` and `broker_order_id` remain `null` for Part 30.
+
+Config lives in:
+
+```text
+config/demo_oms.yaml
+```
+
+Check Demo OMS:
+
+```bash
+python3 scripts/check_demo_oms.py
+```
+
+Process the latest signal into an OMS dry-run request:
+
+```bash
+python3 scripts/process_latest_signal_oms.py
+```
+
+Show OMS intents and requests:
+
+```bash
+python3 scripts/show_demo_oms_intents.py
+python3 scripts/show_demo_oms_requests.py
+```
+
+Self-check:
+
+```bash
+PYTHONPYCACHEPREFIX=.pycache python3 scripts/self_check_demo_oms.py
+```
+
+Part 30 prepares the system for broker reconciliation and a future explicit demo-execution step by adding OMS validation, state, audit history, and `ORDER_REQUEST_EVENT` projection into the event bus. Actual demo command queueing is intentionally left disabled.
+
+More detail:
+
+```text
+docs/demo_oms_execution_agent.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

@@ -19,6 +19,7 @@ from aurix_analytics.performance import summary_from_report
 from aurix_backtest import BacktestReplayEngine, BacktestStore, XauusdPaperV2BacktestReplayEngine, load_backtest_config
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
+from aurix_demo_oms import DemoOms, load_demo_oms_config
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_event_bus import AurixEventBus, EVENT_TYPES, collect_observation_events, load_event_bus_config
@@ -126,6 +127,8 @@ strategy_agent_evaluator = StrategyAgentEvaluator(
     candles=market_recorder.list_candles,
     context=context_engine.latest,
 )
+demo_oms_config = load_demo_oms_config()
+demo_oms = DemoOms(DATA_DIR, demo_oms_config, event_bus=event_bus, snapshot_provider=store.latest_snapshot)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -174,6 +177,7 @@ def root() -> dict[str, Any]:
         "signal_certifier_status": "/signal-certifier/status",
         "event_bus_status": "/event-bus/status",
         "strategy_agents_status": "/strategy-agents/status",
+        "demo_oms_status": "/demo-oms/status",
     }
 
 
@@ -482,6 +486,55 @@ def strategy_agents_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, A
 @app.post("/strategy-agents/reset")
 def strategy_agents_reset() -> dict[str, Any]:
     return strategy_agent_evaluator.reset()
+
+
+@app.get("/demo-oms/status")
+def demo_oms_status() -> dict[str, Any]:
+    return demo_oms.get_demo_oms_status()
+
+
+@app.get("/demo-oms/intents")
+def demo_oms_intents(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    items = demo_oms.load_order_intents()
+    return {"items": items[-limit:], "limit": limit, "count": len(items), "safety": demo_oms_status().get("safety")}
+
+
+@app.get("/demo-oms/requests")
+def demo_oms_requests(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    items = demo_oms.load_order_requests()
+    return {"items": items[-limit:], "limit": limit, "count": len(items), "safety": demo_oms_status().get("safety")}
+
+
+@app.get("/demo-oms/history")
+def demo_oms_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": demo_oms.history(limit), "limit": limit, "safety": demo_oms_status().get("safety")}
+
+
+@app.post("/demo-oms/process-latest-signal")
+def demo_oms_process_latest_signal() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    results_before = len(store.list_results())
+    result = demo_oms.process_latest_signal_event()
+    paper_after = len(paper_ledger.list_trades())
+    commands_after = len(store.list_commands())
+    results_after = len(store.list_results())
+    result["paper_trades_created"] = paper_after - paper_before
+    result["commands_queued"] = commands_after - commands_before
+    result["broker_orders_created"] = results_after - results_before
+    result["safety"] = {
+        **(result.get("safety") or {}),
+        "paper_trade_created": False,
+        "mt5_commands_queued": False,
+        "broker_order_created": False,
+        "ea_settings_modified": False,
+    }
+    return result
+
+
+@app.post("/demo-oms/reset")
+def demo_oms_reset() -> dict[str, Any]:
+    return demo_oms.reset_demo_oms()
 
 
 @app.get("/commands")
@@ -1487,6 +1540,7 @@ def _build_operator_status(
         signal_certification_status=signal_certifier_status() if include_signal_certification else {},
         event_bus_status=event_bus_operator_status(),
         strategy_agents_status=strategy_agents_operator_status(),
+        demo_oms_status=demo_oms_status(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
