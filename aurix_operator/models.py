@@ -31,6 +31,7 @@ class OperatorStatus(BaseModel):
     evidence_growth: dict[str, Any] = Field(default_factory=dict)
     signal_certification: dict[str, Any] = Field(default_factory=dict)
     event_bus: dict[str, Any] = Field(default_factory=dict)
+    strategy_agents: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -102,4 +103,8 @@ class OperatorSummary(BaseModel):
     last_sequence: int = 0
     last_event_type: Optional[str] = None
     runtime_state_generated_at: Optional[str] = None
+    strategy_agents_enabled: bool = False
+    strategy_agents_registered: int = 0
+    strategy_agents_latest_status_counts: dict[str, int] = Field(default_factory=dict)
+    latest_strategy_agent_signal: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)

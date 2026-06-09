@@ -1,0 +1,23 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "STRATEGY_OBSERVATION_ONLY"
+publish_to_event_bus: true
+allow_signal_generation: true
+allow_paper_trade_creation: false
+allow_order_request_creation: false
+allow_demo_execution: false
+allow_live_arming: false
+allow_live_execution: false
+allow_command_queueing: false
+require_event_bus_enabled: true
+require_paper_mode_or_observation: true
+require_command_id_null: true
+registered_agents:
+  - id: "xauusd_paper_v1_adapter"
+    enabled: true
+    source_strategy: "xauusd_paper_v1"
+    mode: "ADAPTER_ONLY"
+  - id: "xauusd_paper_v2_adapter"
+    enabled: true
+    source_strategy: "xauusd_paper_v2"
+    mode: "ADAPTER_ONLY"

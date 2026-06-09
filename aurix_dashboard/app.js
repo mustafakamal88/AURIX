@@ -18,7 +18,8 @@ const READ_ONLY_ENDPOINTS = {
   liveReadiness: "/live-readiness/status",
   evidenceGrowth: "/evidence-monitor/status",
   signalCertification: "/signal-certifier/status",
-  eventBus: "/event-bus/status"
+  eventBus: "/event-bus/status",
+  strategyAgents: "/strategy-agents/status"
 };
 
 function byId(id) {
@@ -142,6 +143,7 @@ function render(data) {
   const signalCertificationStatus = data.signalCertification || status.signal_certification || {};
   const signalCertification = signalCertificationStatus.latest || {};
   const eventBus = data.eventBus || status.event_bus || {};
+  const strategyAgents = data.strategyAgents || status.strategy_agents || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -239,6 +241,15 @@ function render(data) {
   text("eventBusStateAt", eventBus.runtime_state_generated_at);
   text("eventBusLiveExecution", boolText(eventBus.safety?.live_execution_allowed));
   text("eventBusCommandQueueing", boolText(eventBus.safety?.command_queueing_allowed));
+
+  text("strategyAgentsRegistered", strategyAgents.registered_count);
+  text("strategyAgentsEnabled", strategyAgents.enabled_count);
+  text("strategyAgentsStatuses", JSON.stringify(strategyAgents.latest_status_counts || {}));
+  text("strategyAgentsSignal", strategyAgents.latest_signal?.direction || strategyAgents.latest_signal?.status);
+  text("strategyAgentsPaperAllowed", boolText(strategyAgents.paper_trade_creation_allowed));
+  text("strategyAgentsOrderAllowed", boolText(strategyAgents.order_request_creation_allowed));
+  text("strategyAgentsLiveExecution", boolText(strategyAgents.live_execution_allowed));
+  text("strategyAgentsCommandQueueing", boolText(strategyAgents.command_queueing_allowed));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);

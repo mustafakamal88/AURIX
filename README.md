@@ -1273,6 +1273,48 @@ More detail:
 docs/event_bus_state_engine.md
 ```
 
+## Part 28: Strategy Agent Registry / Adapter Layer
+
+Part 28 adds the event-driven strategy-agent framework after the Part 27 Event Bus / State Engine.
+
+It registers read-only adapters for existing V1/V2 strategy outputs and publishes normalized `STRATEGY_EVALUATION_EVENT` and `SIGNAL_EVENT` observations to the event bus. It does not enable trading, create paper trades, create order requests, queue MT5 commands, or execute demo/live broker orders.
+
+Config lives in:
+
+```text
+config/strategy_agents.yaml
+```
+
+Check strategy agents:
+
+```bash
+python3 scripts/check_strategy_agents.py
+```
+
+Evaluate strategy agents:
+
+```bash
+python3 scripts/evaluate_strategy_agents.py
+```
+
+Show strategy-agent history:
+
+```bash
+python3 scripts/show_strategy_agent_history.py
+```
+
+Watch strategy agents:
+
+```bash
+python3 scripts/watch_strategy_agents.py
+```
+
+More detail:
+
+```text
+docs/strategy_agent_registry.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

@@ -35,6 +35,7 @@ from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
 from aurix_signal_certifier import SignalCertifierStore, load_signal_certifier_config
+from aurix_strategy_agents import StrategyAgentEvaluator, StrategyAgentRegistry, load_strategy_agent_config
 from aurix_supervisor import PaperSupervisor, load_supervisor_config
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
 from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load_xauusd_paper_v1_config
@@ -114,6 +115,17 @@ signal_certifier_config = load_signal_certifier_config()
 signal_certifier_store = SignalCertifierStore(DATA_DIR, signal_certifier_config)
 event_bus_config = load_event_bus_config()
 event_bus = AurixEventBus(DATA_DIR, event_bus_config)
+strategy_agents_config = load_strategy_agent_config()
+strategy_agent_registry = StrategyAgentRegistry(strategy_agents_config)
+strategy_agent_evaluator = StrategyAgentEvaluator(
+    data_dir=DATA_DIR,
+    config=strategy_agents_config,
+    registry=strategy_agent_registry,
+    event_bus=event_bus,
+    latest_signals=store.list_strategy_signals,
+    candles=market_recorder.list_candles,
+    context=context_engine.latest,
+)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -161,6 +173,7 @@ def root() -> dict[str, Any]:
         "evidence_monitor_status": "/evidence-monitor/status",
         "signal_certifier_status": "/signal-certifier/status",
         "event_bus_status": "/event-bus/status",
+        "strategy_agents_status": "/strategy-agents/status",
     }
 
 
@@ -422,6 +435,53 @@ def event_bus_collect() -> dict[str, Any]:
 @app.post("/event-bus/reset")
 def event_bus_reset() -> dict[str, Any]:
     return event_bus.reset_event_bus()
+
+
+@app.get("/strategy-agents/status")
+def strategy_agents_status() -> dict[str, Any]:
+    return strategy_agent_evaluator.status()
+
+
+@app.get("/strategy-agents/registry")
+def strategy_agents_registry() -> dict[str, Any]:
+    return strategy_agent_evaluator.registry_payload()
+
+
+@app.get("/strategy-agents/latest")
+def strategy_agents_latest() -> dict[str, Any]:
+    return {"items": strategy_agent_evaluator.latest()}
+
+
+@app.post("/strategy-agents/evaluate")
+def strategy_agents_evaluate() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    results = strategy_agent_evaluator.evaluate_all_agents()
+    paper_after = len(paper_ledger.list_trades())
+    commands_after = len(store.list_commands())
+    return {
+        "ok": True,
+        "items": [result.model_dump() for result in results],
+        "paper_trades_created": paper_after - paper_before,
+        "commands_queued": commands_after - commands_before,
+        "order_requests_created": 0,
+        "safety": {
+            "paper_trade_creation_allowed": False,
+            "order_request_creation_allowed": False,
+            "live_execution_allowed": False,
+            "command_queueing_allowed": False,
+        },
+    }
+
+
+@app.get("/strategy-agents/history")
+def strategy_agents_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": strategy_agent_evaluator.history(limit), "limit": limit}
+
+
+@app.post("/strategy-agents/reset")
+def strategy_agents_reset() -> dict[str, Any]:
+    return strategy_agent_evaluator.reset()
 
 
 @app.get("/commands")
@@ -1426,6 +1486,7 @@ def _build_operator_status(
         evidence_growth_status=evidence_monitor_status() if include_evidence_growth else {},
         signal_certification_status=signal_certifier_status() if include_signal_certification else {},
         event_bus_status=event_bus_operator_status(),
+        strategy_agents_status=strategy_agents_operator_status(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
@@ -1446,6 +1507,13 @@ def event_bus_operator_status() -> dict[str, Any]:
             "safety": state.get("safety") or {},
         },
     }
+
+
+def strategy_agents_operator_status() -> dict[str, Any]:
+    status = strategy_agent_evaluator.status()
+    latest = strategy_agent_evaluator.latest()
+    latest_signal = next((item for item in reversed(latest) if item.get("status") == "SIGNAL"), None)
+    return {**status, "latest": latest, "latest_signal": latest_signal}
 
 
 def operator_status_payload() -> dict[str, Any]:

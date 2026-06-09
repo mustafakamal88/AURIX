@@ -36,6 +36,7 @@ def build_operator_status(
     evidence_growth_status: dict[str, Any] | None = None,
     signal_certification_status: dict[str, Any] | None = None,
     event_bus_status: dict[str, Any] | None = None,
+    strategy_agents_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -116,6 +117,7 @@ def build_operator_status(
         evidence_growth=evidence_growth_status or {},
         signal_certification=signal_certification_status or {},
         event_bus=event_bus_status or {},
+        strategy_agents=strategy_agents_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -160,6 +162,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     signal_certification_latest = as_dict(signal_certification.get("latest"))
     event_bus = as_dict(status.event_bus)
     event_bus_state = as_dict(event_bus.get("runtime_state"))
+    strategy_agents = as_dict(status.strategy_agents)
+    strategy_agent_signal = as_dict(strategy_agents.get("latest_signal"))
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -247,5 +251,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         last_sequence=int(event_bus.get("last_sequence") or 0),
         last_event_type=event_bus.get("last_event_type"),
         runtime_state_generated_at=event_bus_state.get("generated_at") or event_bus.get("runtime_state_generated_at"),
+        strategy_agents_enabled=bool(strategy_agents.get("enabled")),
+        strategy_agents_registered=int(strategy_agents.get("registered_count") or 0),
+        strategy_agents_latest_status_counts=as_dict(strategy_agents.get("latest_status_counts")),
+        latest_strategy_agent_signal=strategy_agent_signal.get("direction") or strategy_agent_signal.get("status"),
         warnings=warnings,
     )

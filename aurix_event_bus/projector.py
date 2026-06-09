@@ -53,6 +53,10 @@ def project_event(state: AurixRuntimeState, event: AurixEvent) -> AurixRuntimeSt
         state.context = payload
     elif event.event_type == AurixEventType.SIGNAL_EVENT:
         state.strategy["latest_signal"] = payload
+    elif event.event_type == AurixEventType.STRATEGY_EVALUATION_EVENT:
+        state.strategy["latest_evaluation"] = payload
+    elif event.event_type == AurixEventType.STRATEGY_REGISTRY_EVENT:
+        state.strategy["registry"] = payload
     elif event.event_type == AurixEventType.RISK_DECISION_EVENT:
         state.risk["latest_decision"] = payload
     elif event.event_type == AurixEventType.PAPER_RISK_DECISION_EVENT:
