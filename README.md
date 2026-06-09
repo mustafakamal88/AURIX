@@ -12,6 +12,7 @@ Part 9 adds a paper-only supervisor loop that runs the local quality, context, s
 Part 10 adds a read-only operator console and system health summary.
 Part 11 adds deterministic paper performance analytics.
 Part 12 adds deterministic paper trade and strategy signal journaling.
+Part 13 adds a safe offline-first AI-style review layer using local templates by default.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -300,6 +301,24 @@ Watch journal reviews:
 python3 scripts/watch_journal.py
 ```
 
+Check AI review status:
+
+```bash
+python3 scripts/check_ai_review.py
+```
+
+Generate AI review report:
+
+```bash
+python3 scripts/generate_ai_review.py
+```
+
+Watch AI review reports:
+
+```bash
+python3 scripts/watch_ai_review.py
+```
+
 ## API Endpoints
 
 ```text
@@ -340,6 +359,9 @@ GET  /analytics/paper
 GET  /analytics/paper/summary
 GET  /journal/status
 GET  /journal/entries
+GET  /ai-review/status
+GET  /ai-review/reports
+GET  /ai-review/latest
 
 POST /commands/open-market
 POST /commands/close-position
@@ -364,6 +386,8 @@ POST /journal/review-paper-trades
 POST /journal/review-signals
 POST /journal/generate-daily-summary
 POST /journal/reset
+POST /ai-review/generate
+POST /ai-review/reset
 ```
 
 ## Safety
@@ -379,6 +403,7 @@ POST /journal/reset
 - The Part 10 operator console is read-only and does not queue commands.
 - The Part 11 analytics layer is report-only and does not queue commands.
 - The Part 12 journal engine is review-only and does not queue commands.
+- The Part 13 AI review layer uses local templates by default and does not call external AI APIs.
 
 ## Part 2: Risk Governor
 
@@ -617,6 +642,34 @@ More detail:
 docs/journal_engine.md
 ```
 
+## Part 13: AI Review Agent
+
+AI review settings live in:
+
+```text
+config/ai_review.yaml
+```
+
+Reports are stored in:
+
+```text
+data/ai_review_reports.json
+```
+
+Generate the local template review:
+
+```bash
+python3 scripts/generate_ai_review.py
+```
+
+External LLM use is disabled by default with `allow_external_llm: false`.
+
+More detail:
+
+```text
+docs/ai_review_agent.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -659,4 +712,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 13 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, and journal engine are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 14 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, and local AI review are stable. Do not enable live trading until every layer has been reviewed and tested.

@@ -49,6 +49,7 @@ def main() -> int:
                         f"expectancy_r={summary.get('paper_expectancy_r')}",
                         f"journal_entries={summary.get('journal_entry_count')}",
                         f"journal_latest={summary.get('journal_latest_classification')}",
+                        f"ai_actions={summary.get('ai_review_action_items_count')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )

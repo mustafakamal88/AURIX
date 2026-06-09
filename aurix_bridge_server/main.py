@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from aurix_ai_review import AIReviewStore, AIReviewTemplateReviewer, load_ai_review_config
 from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
 from aurix_analytics.performance import summary_from_report
 from aurix_context_engine import ContextEngine, load_context_config
@@ -61,6 +62,9 @@ performance_store = PaperPerformanceStore(DATA_DIR)
 journal_config = load_journal_config()
 journal_store = JournalStore(DATA_DIR, journal_config)
 journal_reviewer = JournalReviewer(journal_config)
+ai_review_config = load_ai_review_config()
+ai_review_store = AIReviewStore(DATA_DIR, ai_review_config)
+ai_review_reviewer = AIReviewTemplateReviewer(ai_review_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -90,6 +94,7 @@ def root() -> dict[str, Any]:
         "operator_status": "/operator/status",
         "paper_analytics": "/analytics/paper",
         "journal_status": "/journal/status",
+        "ai_review_status": "/ai-review/status",
     }
 
 
@@ -634,6 +639,37 @@ def journal_reset() -> dict[str, Any]:
     return {"ok": True, "entries": 0}
 
 
+@app.get("/ai-review/status")
+def ai_review_status() -> dict[str, Any]:
+    return ai_review_store.status()
+
+
+@app.get("/ai-review/reports")
+def ai_review_reports() -> list[dict[str, Any]]:
+    return ai_review_store.list_reports()
+
+
+@app.get("/ai-review/latest")
+def ai_review_latest() -> dict[str, Any]:
+    latest = ai_review_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No AI review reports yet.")
+    return latest
+
+
+@app.post("/ai-review/generate")
+def ai_review_generate() -> dict[str, Any]:
+    report = ai_review_reviewer.generate(ai_review_store.read_inputs())
+    ai_review_store.save(report)
+    return report.model_dump()
+
+
+@app.post("/ai-review/reset")
+def ai_review_reset() -> dict[str, Any]:
+    ai_review_store.reset()
+    return {"ok": True, "reports": 0}
+
+
 def operator_status_payload() -> dict[str, Any]:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -648,6 +684,7 @@ def operator_status_payload() -> dict[str, Any]:
         supervisor_status=supervisor_status(),
         analytics_summary=paper_analytics_summary(),
         journal_status=journal_status(),
+        ai_review_status=ai_review_status(),
     ).model_dump()
 
 
@@ -671,6 +708,7 @@ def operator_summary() -> dict[str, Any]:
         supervisor_status=supervisor_status(),
         analytics_summary=paper_analytics_summary(),
         journal_status=journal_status(),
+        ai_review_status=ai_review_status(),
     )
     return build_operator_summary(status).model_dump()
 

@@ -23,6 +23,7 @@ def build_operator_status(
     supervisor_status: dict[str, Any],
     analytics_summary: dict[str, Any] | None = None,
     journal_status: dict[str, Any] | None = None,
+    ai_review_status: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -86,6 +87,7 @@ def build_operator_status(
         supervisor=supervisor_status,
         analytics=analytics_summary or {},
         journal=journal_status or {},
+        ai_review=ai_review_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -106,6 +108,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     supervisor = as_dict(status.supervisor)
     analytics = as_dict(status.analytics)
     journal = as_dict(status.journal)
+    ai_review = as_dict(status.ai_review)
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -139,5 +142,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         supervisor_loop_count=int(supervisor.get("loop_count") or 0),
         journal_entry_count=int(journal.get("entries_count") or 0),
         journal_latest_classification=journal.get("latest_classification"),
+        ai_review_latest_summary=ai_review.get("latest_summary"),
+        ai_review_action_items_count=int(ai_review.get("latest_action_items_count") or 0),
         warnings=warnings,
     )

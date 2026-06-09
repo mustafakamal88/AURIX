@@ -1,0 +1,11 @@
+enabled: true
+mode: "LOCAL_TEMPLATE"
+allow_external_llm: false
+symbol: "XAUUSDm"
+include_journal: true
+include_analytics: true
+include_context: true
+include_market_quality: true
+max_journal_entries: 50
+max_signals: 50
+max_paper_trades: 50
