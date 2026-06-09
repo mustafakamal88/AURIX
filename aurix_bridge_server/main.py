@@ -22,6 +22,7 @@ from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
+from aurix_long_run import LongForwardTestManager, load_long_forward_test_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
 from aurix_orchestrator import SessionOrchestrator, load_orchestrator_config
@@ -94,6 +95,9 @@ forward_test_store = ForwardTestStore(DATA_DIR, forward_test_config)
 orchestrator_config = load_orchestrator_config()
 orchestrator: SessionOrchestrator
 orchestrator_task: asyncio.Task[Any] | None = None
+long_forward_config = load_long_forward_test_config()
+long_forward_manager: LongForwardTestManager
+long_forward_task: asyncio.Task[Any] | None = None
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -135,6 +139,7 @@ def root() -> dict[str, Any]:
         "daemon_status": "/daemon/status",
         "forward_test_status": "/forward-test/status",
         "orchestrator_status": "/orchestrator/status",
+        "long_forward_test_status": "/long-forward-test/status",
     }
 
 
@@ -880,6 +885,11 @@ def evidence_latest() -> dict[str, Any]:
     return latest.model_dump()
 
 
+def evidence_latest_or_empty() -> dict[str, Any]:
+    latest = evidence_gate_store.latest()
+    return latest.model_dump() if latest else {}
+
+
 @app.post("/evidence/evaluate")
 def evidence_evaluate() -> dict[str, Any]:
     status = _build_operator_status(include_evidence=False)
@@ -1060,6 +1070,27 @@ def _orchestrator_daemon_stop() -> dict[str, Any]:
     return daemon_runner.status().model_dump()
 
 
+def _long_forward_operator_status() -> dict[str, Any]:
+    return _build_operator_status(include_evidence=True, include_long_forward_test=False).model_dump()
+
+
+def _long_forward_operator_summary() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=True, include_long_forward_test=False)
+    return build_operator_summary(status).model_dump()
+
+
+def _long_forward_orchestrator_start() -> dict[str, Any]:
+    return orchestrator.mark_started().model_dump()
+
+
+def _long_forward_orchestrator_stop() -> dict[str, Any]:
+    return orchestrator.mark_stopped().model_dump()
+
+
+def _long_forward_daemon_start() -> dict[str, Any]:
+    return daemon_runner.mark_started().model_dump()
+
+
 orchestrator = SessionOrchestrator(
     DATA_DIR,
     orchestrator_config,
@@ -1076,6 +1107,33 @@ orchestrator = SessionOrchestrator(
     command_count=_daemon_command_count,
 )
 
+long_forward_manager = LongForwardTestManager(
+    DATA_DIR,
+    long_forward_config,
+    operator_status=_long_forward_operator_status,
+    operator_summary=_long_forward_operator_summary,
+    orchestrator_status=lambda: orchestrator.status().model_dump(),
+    orchestrator_start=_long_forward_orchestrator_start,
+    orchestrator_stop=_long_forward_orchestrator_stop,
+    orchestrator_run_once=lambda: orchestrator.run_once().model_dump(),
+    daemon_status=lambda: daemon_runner.status().model_dump(),
+    daemon_start=_long_forward_daemon_start,
+    forward_test_status=lambda: forward_test_store.status(),
+    update_forward_test=_orchestrator_forward_update,
+    generate_analytics=_daemon_generate_analytics,
+    analytics_summary=paper_analytics_summary,
+    generate_journal=_daemon_update_journal,
+    journal_status=journal_status,
+    generate_ai_review=_daemon_generate_ai_review,
+    ai_review_latest=lambda: ai_review_store.latest() or {},
+    evaluate_evidence=_daemon_evaluate_evidence,
+    evidence_latest=evidence_latest_or_empty,
+    market_quality=market_quality,
+    paper_status=paper_status,
+    paper_trades=paper_trades,
+    command_count=_daemon_command_count,
+)
+
 
 async def _orchestrator_loop() -> None:
     try:
@@ -1085,6 +1143,16 @@ async def _orchestrator_loop() -> None:
     finally:
         if orchestrator.is_running():
             orchestrator.mark_stopped()
+
+
+async def _long_forward_loop() -> None:
+    try:
+        while long_forward_manager.is_running():
+            long_forward_manager.run_once()
+            await asyncio.sleep(max(float(long_forward_config.orchestrator_interval_seconds), 0.1))
+    finally:
+        if long_forward_manager.is_running():
+            long_forward_manager.mark_stopped()
 
 
 @app.get("/orchestrator/status")
@@ -1126,7 +1194,56 @@ def orchestrator_reset() -> dict[str, Any]:
     return orchestrator.reset().model_dump()
 
 
-def _build_operator_status(*, include_evidence: bool, include_forward_test: bool = True, include_orchestrator: bool = True) -> Any:
+@app.get("/long-forward-test/status")
+def long_forward_test_status() -> dict[str, Any]:
+    return long_forward_manager.status().model_dump()
+
+
+@app.post("/long-forward-test/run-once")
+def long_forward_test_run_once() -> dict[str, Any]:
+    return long_forward_manager.run_once().model_dump()
+
+
+@app.post("/long-forward-test/start")
+async def long_forward_test_start() -> dict[str, Any]:
+    global long_forward_task
+    status = long_forward_manager.mark_started()
+    if long_forward_task is None or long_forward_task.done():
+        long_forward_task = asyncio.create_task(_long_forward_loop())
+    return status.model_dump()
+
+
+@app.post("/long-forward-test/stop")
+async def long_forward_test_stop() -> dict[str, Any]:
+    global long_forward_task
+    status = long_forward_manager.mark_stopped()
+    if long_forward_task is not None and not long_forward_task.done():
+        long_forward_task.cancel()
+        try:
+            await long_forward_task
+        except asyncio.CancelledError:
+            pass
+    long_forward_task = None
+    return status.model_dump()
+
+
+@app.post("/long-forward-test/daily-report")
+def long_forward_test_daily_report() -> dict[str, Any]:
+    return long_forward_manager.generate_daily_report().model_dump()
+
+
+@app.post("/long-forward-test/reset")
+def long_forward_test_reset() -> dict[str, Any]:
+    return long_forward_manager.reset().model_dump()
+
+
+def _build_operator_status(
+    *,
+    include_evidence: bool,
+    include_forward_test: bool = True,
+    include_orchestrator: bool = True,
+    include_long_forward_test: bool = True,
+) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
         terminal_id=DEFAULT_TERMINAL_ID,
@@ -1147,6 +1264,7 @@ def _build_operator_status(*, include_evidence: bool, include_forward_test: bool
         daemon_status=daemon_status(),
         forward_test_status=forward_test_status() if include_forward_test else {},
         orchestrator_status=orchestrator_status() if include_orchestrator else {},
+        long_forward_test_status=long_forward_test_status() if include_long_forward_test else {},
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,

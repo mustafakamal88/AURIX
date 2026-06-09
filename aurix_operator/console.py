@@ -30,6 +30,7 @@ def build_operator_status(
     daemon_status: dict[str, Any] | None = None,
     forward_test_status: dict[str, Any] | None = None,
     orchestrator_status: dict[str, Any] | None = None,
+    long_forward_test_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -104,6 +105,7 @@ def build_operator_status(
         daemon=daemon_status or {},
         forward_test=forward_test_status or {},
         orchestrator=orchestrator_status or {},
+        long_forward_test=long_forward_test_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -137,6 +139,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     campaign = as_dict(forward_test.get("campaign"))
     campaign_progress = as_dict(campaign.get("progress"))
     orchestrator = as_dict(status.orchestrator)
+    long_forward = as_dict(status.long_forward_test)
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -195,6 +198,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         orchestrator_session_allowed=bool(orchestrator.get("session_allowed")),
         orchestrator_forward_test_progress=float(orchestrator.get("forward_test_progress") or 0.0),
         orchestrator_evidence_status=orchestrator.get("evidence_status"),
+        long_forward_test_running=bool(long_forward.get("running")),
+        long_forward_test_progress=float(long_forward.get("forward_test_progress") or 0.0),
+        long_forward_test_evidence_status=long_forward.get("evidence_status"),
         v2_signal_status=latest_v2_signal.get("status"),
         backtest_v2_trade_count=int(comparison_v2.get("trades") or 0),
         backtest_v2_expectancy_r=float(comparison_v2.get("expectancy_r") or 0.0),

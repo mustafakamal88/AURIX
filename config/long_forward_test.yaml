@@ -1,0 +1,15 @@
+enabled: true
+mode: "PAPER"
+symbol: "XAUUSDm"
+target_days: 10
+target_sessions: ["LONDON", "NY_PRE_MARKET", "NY_OPEN", "NY_LATE"]
+orchestrator_interval_seconds: 10
+heartbeat_interval_seconds: 30
+daily_report_enabled: true
+daily_report_time_uk: "21:15"
+auto_start_orchestrator: true
+auto_start_daemon: false
+allow_command_queueing: false
+allow_live_execution: false
+allow_external_llm: false
+autostart_on_server_boot: false

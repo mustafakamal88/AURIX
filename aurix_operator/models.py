@@ -25,6 +25,7 @@ class OperatorStatus(BaseModel):
     daemon: dict[str, Any] = Field(default_factory=dict)
     forward_test: dict[str, Any] = Field(default_factory=dict)
     orchestrator: dict[str, Any] = Field(default_factory=dict)
+    long_forward_test: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -67,6 +68,9 @@ class OperatorSummary(BaseModel):
     orchestrator_session_allowed: bool = False
     orchestrator_forward_test_progress: float = 0.0
     orchestrator_evidence_status: Optional[str] = None
+    long_forward_test_running: bool = False
+    long_forward_test_progress: float = 0.0
+    long_forward_test_evidence_status: Optional[str] = None
     v2_signal_status: Optional[str] = None
     backtest_v2_trade_count: int = 0
     backtest_v2_expectancy_r: float = 0.0

@@ -12,7 +12,8 @@ const READ_ONLY_ENDPOINTS = {
   evidence: "/evidence/latest",
   forward: "/forward-test/status",
   orchestrator: "/orchestrator/status",
-  daemon: "/daemon/status"
+  daemon: "/daemon/status",
+  longForward: "/long-forward-test/status"
 };
 
 function byId(id) {
@@ -118,6 +119,7 @@ function render(data) {
   const evidence = data.evidence || status.evidence?.latest || {};
   const daemon = data.daemon || status.daemon || {};
   const orchestrator = data.orchestrator || status.orchestrator || {};
+  const longForward = data.longForward || status.long_forward_test || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -169,6 +171,14 @@ function render(data) {
   text("daemonRunning", boolText(daemon.running));
   text("daemonLoops", daemon.loop_count);
   text("daemonHeartbeat", daemon.last_heartbeat_at);
+
+  text("longRunning", boolText(longForward.running));
+  text("longSession", longForward.current_session);
+  text("longProgress", `${longForward.forward_test_progress ?? 0}%`);
+  text("longCandles", longForward.recorded_candles);
+  text("longClosed", longForward.paper_closed_trades);
+  text("longEvidence", longForward.evidence_status);
+  text("longDailyReport", longForward.daily_report_generated_at);
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);

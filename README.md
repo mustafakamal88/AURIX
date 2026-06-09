@@ -978,6 +978,43 @@ More detail:
 docs/dashboard.md
 ```
 
+## Part 22: Long Forward-Test Mode
+
+Long forward-test settings live in:
+
+```text
+config/long_forward_test.yaml
+```
+
+Run the server:
+
+```bash
+python3 scripts/run_server.py
+```
+
+Start, watch, stop, and report:
+
+```bash
+python3 scripts/start_long_forward_test.py
+python3 scripts/watch_long_forward_test.py
+python3 scripts/stop_long_forward_test.py
+python3 scripts/generate_long_forward_daily_report.py
+```
+
+Run one cycle without starting the background loop:
+
+```bash
+python3 scripts/run_long_forward_test_once.py
+```
+
+Long forward-test mode is paper-only. It does not autostart on server boot, does not call trading execution endpoints, does not queue MT5 commands, does not call external AI APIs, and does not mutate live or strategy config.
+
+More detail:
+
+```text
+docs/long_forward_test_mode.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -1020,4 +1057,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 22 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1/V2, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, session orchestration, and local dashboard are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 23 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1/V2, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, session orchestration, local dashboard, and long forward-test mode are stable. Do not enable live trading until every layer has been reviewed and tested.
