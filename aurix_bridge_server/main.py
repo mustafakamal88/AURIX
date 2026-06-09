@@ -22,6 +22,7 @@ from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
+from aurix_orchestrator import SessionOrchestrator, load_orchestrator_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
@@ -83,6 +84,9 @@ daemon_runner: PaperDaemonRunner
 daemon_task: asyncio.Task[Any] | None = None
 forward_test_config = load_forward_test_config()
 forward_test_store = ForwardTestStore(DATA_DIR, forward_test_config)
+orchestrator_config = load_orchestrator_config()
+orchestrator: SessionOrchestrator
+orchestrator_task: asyncio.Task[Any] | None = None
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -118,6 +122,7 @@ def root() -> dict[str, Any]:
         "evidence_status": "/evidence/status",
         "daemon_status": "/daemon/status",
         "forward_test_status": "/forward-test/status",
+        "orchestrator_status": "/orchestrator/status",
     }
 
 
@@ -916,7 +921,98 @@ def forward_test_reset() -> dict[str, Any]:
     return {"ok": True, "campaign": None}
 
 
-def _build_operator_status(*, include_evidence: bool, include_forward_test: bool = True) -> Any:
+def _orchestrator_evaluate_context() -> dict[str, Any]:
+    context = context_engine.evaluate(
+        snapshot=store.latest_snapshot(),
+        recorded_candles=market_recorder.list_candles(),
+        market_quality=market_recorder.quality(),
+    )
+    context_engine.store(context)
+    return context.model_dump()
+
+
+def _orchestrator_operator_summary() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=True, include_forward_test=True, include_orchestrator=False)
+    return build_operator_summary(status).model_dump()
+
+
+def _orchestrator_forward_update() -> dict[str, Any]:
+    summary = _orchestrator_operator_summary()
+    return forward_test_store.update(forward_test_store.read_inputs(summary)).model_dump()
+
+
+def _orchestrator_daemon_stop() -> dict[str, Any]:
+    daemon_runner.mark_stopped()
+    return daemon_runner.status().model_dump()
+
+
+orchestrator = SessionOrchestrator(
+    DATA_DIR,
+    orchestrator_config,
+    evaluate_context=_orchestrator_evaluate_context,
+    daemon_run_once=lambda: daemon_runner.run_once().model_dump(),
+    daemon_stop=_orchestrator_daemon_stop,
+    daemon_status=lambda: daemon_runner.status().model_dump(),
+    update_forward_test=_orchestrator_forward_update,
+    evaluate_evidence=_daemon_evaluate_evidence,
+    generate_analytics=_daemon_generate_analytics,
+    generate_journal=_daemon_update_journal,
+    generate_ai_review=_daemon_generate_ai_review,
+    operator_summary=_orchestrator_operator_summary,
+    command_count=_daemon_command_count,
+)
+
+
+async def _orchestrator_loop() -> None:
+    try:
+        while orchestrator.is_running():
+            orchestrator.run_once()
+            await asyncio.sleep(max(float(orchestrator_config.interval_seconds), 0.1))
+    finally:
+        if orchestrator.is_running():
+            orchestrator.mark_stopped()
+
+
+@app.get("/orchestrator/status")
+def orchestrator_status() -> dict[str, Any]:
+    return orchestrator.status().model_dump()
+
+
+@app.post("/orchestrator/run-once")
+def orchestrator_run_once() -> dict[str, Any]:
+    return orchestrator.run_once().model_dump()
+
+
+@app.post("/orchestrator/start")
+async def orchestrator_start() -> dict[str, Any]:
+    global orchestrator_task
+    if orchestrator_task is not None and not orchestrator_task.done():
+        return orchestrator.status().model_dump()
+    status = orchestrator.mark_started()
+    orchestrator_task = asyncio.create_task(_orchestrator_loop())
+    return status.model_dump()
+
+
+@app.post("/orchestrator/stop")
+async def orchestrator_stop() -> dict[str, Any]:
+    global orchestrator_task
+    status = orchestrator.mark_stopped()
+    if orchestrator_task is not None and not orchestrator_task.done():
+        orchestrator_task.cancel()
+        try:
+            await orchestrator_task
+        except asyncio.CancelledError:
+            pass
+    orchestrator_task = None
+    return status.model_dump()
+
+
+@app.post("/orchestrator/reset")
+def orchestrator_reset() -> dict[str, Any]:
+    return orchestrator.reset().model_dump()
+
+
+def _build_operator_status(*, include_evidence: bool, include_forward_test: bool = True, include_orchestrator: bool = True) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
         terminal_id=DEFAULT_TERMINAL_ID,
@@ -936,6 +1032,7 @@ def _build_operator_status(*, include_evidence: bool, include_forward_test: bool
         evidence_status=evidence_status() if include_evidence else {},
         daemon_status=daemon_status(),
         forward_test_status=forward_test_status() if include_forward_test else {},
+        orchestrator_status=orchestrator_status() if include_orchestrator else {},
     )
 
 

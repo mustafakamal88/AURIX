@@ -39,7 +39,7 @@ def main() -> int:
                         f"days={campaign.get('days_observed')}",
                         f"sessions={','.join(campaign.get('sessions_observed') or []) or 'none'}",
                         f"candles={campaign.get('recorded_candles')}",
-                        f"closed={campaign.get('closed_paper_trades')}",
+                        f"closed paper trades={campaign.get('closed_paper_trades')}",
                         f"daemon_loops={campaign.get('daemon_loops')}",
                         f"progress={progress.get('percent')}",
                         f"blocks={'; '.join(str(item) for item in campaign.get('blocking_reasons') or []) or 'none'}",

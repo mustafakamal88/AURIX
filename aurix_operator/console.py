@@ -29,6 +29,7 @@ def build_operator_status(
     evidence_status: dict[str, Any] | None = None,
     daemon_status: dict[str, Any] | None = None,
     forward_test_status: dict[str, Any] | None = None,
+    orchestrator_status: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -98,6 +99,7 @@ def build_operator_status(
         evidence=evidence_status or {},
         daemon=daemon_status or {},
         forward_test=forward_test_status or {},
+        orchestrator=orchestrator_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -130,6 +132,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     forward_test = as_dict(status.forward_test)
     campaign = as_dict(forward_test.get("campaign"))
     campaign_progress = as_dict(campaign.get("progress"))
+    orchestrator = as_dict(status.orchestrator)
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -179,5 +182,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         forward_test_status=campaign.get("status"),
         forward_test_progress_percent=float(campaign_progress.get("percent") or 0.0),
         forward_test_closed_paper_trades=int(campaign.get("closed_paper_trades") or 0),
+        orchestrator_running=bool(orchestrator.get("running")),
+        orchestrator_current_session=orchestrator.get("current_session"),
+        orchestrator_session_allowed=bool(orchestrator.get("session_allowed")),
+        orchestrator_forward_test_progress=float(orchestrator.get("forward_test_progress") or 0.0),
+        orchestrator_evidence_status=orchestrator.get("evidence_status"),
         warnings=warnings,
     )

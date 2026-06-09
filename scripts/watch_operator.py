@@ -64,6 +64,11 @@ def main() -> int:
                         f"forward_status={summary.get('forward_test_status')}",
                         f"forward_progress={summary.get('forward_test_progress_percent')}",
                         f"forward_closed={summary.get('forward_test_closed_paper_trades')}",
+                        f"orch_running={summary.get('orchestrator_running')}",
+                        f"orch_session={summary.get('orchestrator_current_session')}",
+                        f"orch_allowed={summary.get('orchestrator_session_allowed')}",
+                        f"orch_forward={summary.get('orchestrator_forward_test_progress')}",
+                        f"orch_evidence={summary.get('orchestrator_evidence_status')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )

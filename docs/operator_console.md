@@ -19,6 +19,7 @@ It combines the main system health signals into one place:
 - Latest evidence gate report
 - Daemon status
 - Forward test campaign status
+- Session orchestrator status
 - Safety status
 
 ## API
@@ -49,6 +50,7 @@ research
 evidence
 daemon
 forward_test
+orchestrator
 commands
 execution
 safety
@@ -85,6 +87,11 @@ daemon_errors
 forward_test_status
 forward_test_progress_percent
 forward_test_closed_paper_trades
+orchestrator_running
+orchestrator_current_session
+orchestrator_session_allowed
+orchestrator_forward_test_progress
+orchestrator_evidence_status
 warnings
 ```
 

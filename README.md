@@ -18,6 +18,7 @@ Part 15 adds local backtest diagnostics and parameter sweeps over recorded candl
 Part 16 adds a deterministic evidence gate that can only return paper-only readiness while live readiness is disabled by config.
 Part 17 adds a paper-only daemon that can run the local paper pipeline in the background after explicit start.
 Part 18 adds a paper forward-test campaign manager for tracking multi-day evidence collection.
+Part 19 adds a session-aware paper orchestrator for coordinating paper evidence collection during allowed sessions.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -398,6 +399,13 @@ python3 scripts/start_forward_test.py
 python3 scripts/update_forward_test.py
 ```
 
+Run or start orchestrator:
+
+```bash
+python3 scripts/run_orchestrator_once.py
+python3 scripts/start_orchestrator.py
+```
+
 ## API Endpoints
 
 ```text
@@ -450,6 +458,7 @@ GET  /evidence/status
 GET  /evidence/latest
 GET  /daemon/status
 GET  /forward-test/status
+GET  /orchestrator/status
 
 POST /commands/open-market
 POST /commands/close-position
@@ -490,6 +499,10 @@ POST /forward-test/start
 POST /forward-test/update
 POST /forward-test/pause
 POST /forward-test/reset
+POST /orchestrator/run-once
+POST /orchestrator/start
+POST /orchestrator/stop
+POST /orchestrator/reset
 ```
 
 ## Safety
@@ -511,6 +524,7 @@ POST /forward-test/reset
 - The Part 16 evidence gate is readiness-only, does not queue commands, and cannot return `live_ready=true` while `allow_live_readiness=false`.
 - The Part 17 daemon is paper-only, does not queue commands, and does not autostart on server boot.
 - The Part 18 forward-test campaign is tracking-only, does not queue commands, and does not start the daemon automatically.
+- The Part 19 orchestrator is paper-only, does not queue commands, and does not autostart on server boot.
 
 ## Part 2: Risk Governor
 
@@ -882,6 +896,28 @@ More detail:
 docs/forward_test_campaign.md
 ```
 
+## Part 19: Session-Aware Paper Orchestrator
+
+Orchestrator settings live in:
+
+```text
+config/orchestrator.yaml
+```
+
+Run once or start/stop:
+
+```bash
+python3 scripts/run_orchestrator_once.py
+python3 scripts/start_orchestrator.py
+python3 scripts/stop_orchestrator.py
+```
+
+More detail:
+
+```text
+docs/session_orchestrator.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -924,4 +960,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 19 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, and forward-test campaign tracking are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 20 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, and session orchestration are stable. Do not enable live trading until every layer has been reviewed and tested.

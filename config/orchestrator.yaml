@@ -1,0 +1,16 @@
+enabled: true
+mode: "PAPER"
+symbol: "XAUUSDm"
+interval_seconds: 10
+allowed_sessions: ["LONDON", "NY_PRE_MARKET", "NY_OPEN", "NY_LATE"]
+run_daemon_during_allowed_sessions: true
+update_forward_test_every_loops: 1
+evaluate_evidence_every_loops: 6
+generate_analytics_every_loops: 6
+generate_journal_every_loops: 6
+generate_ai_review_every_loops: 30
+stop_daemon_when_session_closed: true
+allow_command_queueing: false
+allow_live_execution: false
+allow_external_llm: false
+autostart_on_server_boot: false

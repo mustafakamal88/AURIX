@@ -46,6 +46,7 @@ def main() -> int:
     forward_test = status.get("forward_test") or {}
     campaign = forward_test.get("campaign") or {}
     campaign_progress = campaign.get("progress") or {}
+    orchestrator = status.get("orchestrator") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -97,6 +98,14 @@ def main() -> int:
         f"status={campaign.get('status')} "
         f"progress={campaign_progress.get('percent')} "
         f"closed_paper={campaign.get('closed_paper_trades')}"
+    )
+    print(
+        "orchestrator: "
+        f"running={orchestrator.get('running')} "
+        f"session={orchestrator.get('current_session')} "
+        f"allowed={orchestrator.get('session_allowed')} "
+        f"forward_progress={orchestrator.get('forward_test_progress')} "
+        f"evidence={orchestrator.get('evidence_status')}"
     )
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")
