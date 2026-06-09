@@ -1,0 +1,10 @@
+enabled: true
+symbol: "XAUUSDm"
+source_candles_file: "data/market_candles_m1.json"
+stop_points_values: [200, 300, 400]
+take_profit_points_values: [400, 600, 800]
+lookback_range_candles_values: [5, 10, 15]
+max_spread_points_values: [280, 350]
+min_trades_required: 5
+max_results: 100
+allow_config_mutation: false

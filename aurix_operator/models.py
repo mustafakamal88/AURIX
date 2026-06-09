@@ -20,6 +20,7 @@ class OperatorStatus(BaseModel):
     journal: dict[str, Any] = Field(default_factory=dict)
     ai_review: dict[str, Any] = Field(default_factory=dict)
     backtest: dict[str, Any] = Field(default_factory=dict)
+    research: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -45,4 +46,6 @@ class OperatorSummary(BaseModel):
     ai_review_action_items_count: int = 0
     backtest_trade_count: int = 0
     backtest_expectancy_r: float = 0.0
+    research_best_expectancy_r: float = 0.0
+    research_warning_count: int = 0
     warnings: list[str] = Field(default_factory=list)

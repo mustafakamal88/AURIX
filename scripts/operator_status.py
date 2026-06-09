@@ -37,6 +37,9 @@ def main() -> int:
     ai_review = status.get("ai_review") or {}
     backtest = status.get("backtest") or {}
     backtest_latest = backtest.get("latest") or {}
+    research = status.get("research") or {}
+    research_latest = research.get("latest") or {}
+    research_best_expectancy = research_latest.get("best_by_expectancy") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -64,6 +67,12 @@ def main() -> int:
     print(f"journal: entries={journal.get('entries_count')} latest={journal.get('latest_classification')}")
     print(f"ai_review: reports={ai_review.get('reports_count')} actions={ai_review.get('latest_action_items_count')} summary={ai_review.get('latest_summary')}")
     print(f"backtest: trades={backtest_latest.get('trades')} expectancy_r={backtest_latest.get('expectancy_r')}")
+    print(
+        "research: "
+        f"variants={research_latest.get('total_variants')} "
+        f"best_expectancy_r={research_best_expectancy.get('expectancy_r')} "
+        f"warnings={research.get('warning_count')}"
+    )
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")
     print(

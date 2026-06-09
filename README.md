@@ -14,6 +14,7 @@ Part 11 adds deterministic paper performance analytics.
 Part 12 adds deterministic paper trade and strategy signal journaling.
 Part 13 adds a safe offline-first AI-style review layer using local templates by default.
 Part 14 adds an offline backtest/replay engine for recorded M1 candles.
+Part 15 adds local backtest diagnostics and parameter sweeps over recorded candles.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -338,6 +339,24 @@ Export backtest CSV:
 python3 scripts/export_backtest_csv.py
 ```
 
+Check research status:
+
+```bash
+python3 scripts/check_research.py
+```
+
+Run parameter sweep:
+
+```bash
+python3 scripts/run_parameter_sweep.py
+```
+
+Export research CSV:
+
+```bash
+python3 scripts/export_research_csv.py
+```
+
 ## API Endpoints
 
 ```text
@@ -384,6 +403,8 @@ GET  /ai-review/latest
 GET  /backtest/status
 GET  /backtest/report
 GET  /backtest/trades
+GET  /research/status
+GET  /research/latest
 
 POST /commands/open-market
 POST /commands/close-position
@@ -412,6 +433,8 @@ POST /ai-review/generate
 POST /ai-review/reset
 POST /backtest/run
 POST /backtest/reset
+POST /research/run-sweep
+POST /research/reset
 ```
 
 ## Safety
@@ -429,6 +452,7 @@ POST /backtest/reset
 - The Part 12 journal engine is review-only and does not queue commands.
 - The Part 13 AI review layer uses local templates by default and does not call external AI APIs.
 - The Part 14 backtest engine is replay-only and does not queue commands.
+- The Part 15 research sweep is backtest-only and does not queue commands or mutate strategy config.
 
 ## Part 2: Risk Governor
 
@@ -716,6 +740,27 @@ More detail:
 docs/backtest_replay_engine.md
 ```
 
+## Part 15: Backtest Diagnostics / Parameter Sweep
+
+Research settings live in:
+
+```text
+config/research.yaml
+```
+
+Run and export:
+
+```bash
+python3 scripts/run_parameter_sweep.py
+python3 scripts/export_research_csv.py
+```
+
+More detail:
+
+```text
+docs/backtest_research_parameter_sweep.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -758,4 +803,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 15 can add reporting or replay tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, and backtest replay are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 16 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, and research sweeps are stable. Do not enable live trading until every layer has been reviewed and tested.

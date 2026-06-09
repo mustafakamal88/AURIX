@@ -52,6 +52,8 @@ def main() -> int:
                         f"ai_actions={summary.get('ai_review_action_items_count')}",
                         f"backtest_trades={summary.get('backtest_trade_count')}",
                         f"backtest_exp_r={summary.get('backtest_expectancy_r')}",
+                        f"research_best_exp_r={summary.get('research_best_expectancy_r')}",
+                        f"research_warnings={summary.get('research_warning_count')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )

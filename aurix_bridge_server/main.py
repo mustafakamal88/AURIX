@@ -19,6 +19,7 @@ from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
+from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
 from aurix_supervisor import PaperSupervisor, load_supervisor_config
@@ -69,6 +70,8 @@ ai_review_reviewer = AIReviewTemplateReviewer(ai_review_config)
 backtest_config = load_backtest_config()
 backtest_store = BacktestStore(DATA_DIR, backtest_config)
 backtest_engine = BacktestReplayEngine(backtest_config)
+research_config = load_research_config()
+research_store = ResearchStore(DATA_DIR, research_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -100,6 +103,7 @@ def root() -> dict[str, Any]:
         "journal_status": "/journal/status",
         "ai_review_status": "/ai-review/status",
         "backtest_status": "/backtest/status",
+        "research_status": "/research/status",
     }
 
 
@@ -706,6 +710,30 @@ def backtest_reset() -> dict[str, Any]:
     return {"ok": True, "trades": 0}
 
 
+@app.get("/research/status")
+def research_status() -> dict[str, Any]:
+    return research_store.status()
+
+
+@app.get("/research/latest")
+def research_latest() -> dict[str, Any]:
+    latest = research_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No research run yet.")
+    return latest.model_dump()
+
+
+@app.post("/research/run-sweep")
+def research_run_sweep() -> dict[str, Any]:
+    return research_store.run_sweep().model_dump()
+
+
+@app.post("/research/reset")
+def research_reset() -> dict[str, Any]:
+    research_store.reset()
+    return {"ok": True, "results": 0}
+
+
 def operator_status_payload() -> dict[str, Any]:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -722,6 +750,7 @@ def operator_status_payload() -> dict[str, Any]:
         journal_status=journal_status(),
         ai_review_status=ai_review_status(),
         backtest_status=backtest_status(),
+        research_status=research_status(),
     ).model_dump()
 
 
@@ -747,6 +776,7 @@ def operator_summary() -> dict[str, Any]:
         journal_status=journal_status(),
         ai_review_status=ai_review_status(),
         backtest_status=backtest_status(),
+        research_status=research_status(),
     )
     return build_operator_summary(status).model_dump()
 

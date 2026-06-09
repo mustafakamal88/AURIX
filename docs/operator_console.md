@@ -15,6 +15,7 @@ It combines the main system health signals into one place:
 - Supervisor status
 - Open commands
 - Latest execution results
+- Latest research parameter sweep summary
 - Safety status
 
 ## API
@@ -37,6 +38,11 @@ risk
 strategy
 paper
 supervisor
+analytics
+journal
+ai_review
+backtest
+research
 commands
 execution
 safety
@@ -53,7 +59,16 @@ regime
 spread_points
 market_quality_ok
 paper_open_count
+paper_closed_trades
+paper_win_rate
+paper_total_r
+paper_expectancy_r
 supervisor_loop_count
+journal_entry_count
+backtest_trade_count
+backtest_expectancy_r
+research_best_expectancy_r
+research_warning_count
 warnings
 ```
 
