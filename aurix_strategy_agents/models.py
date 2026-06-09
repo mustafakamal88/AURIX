@@ -113,6 +113,7 @@ class StrategyEvaluationResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     event_id: Optional[str] = None
     correlation_id: Optional[str] = None
+    command_id: Optional[str] = None
     safety: StrategyAgentSafety = Field(default_factory=StrategyAgentSafety)
 
 

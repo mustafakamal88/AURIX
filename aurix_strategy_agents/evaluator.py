@@ -169,6 +169,7 @@ class StrategyAgentEvaluator:
             "setup_reason": result.setup_reason,
             "rejection_reasons": [reason.model_dump() for reason in result.rejection_reasons],
             "decision_trace_available": bool(result.decision_trace),
+            "command_id": None,
         }
         evaluation_event = self.event_bus.publish_event(
             AurixEvent(
@@ -212,12 +213,17 @@ class StrategyAgentEvaluator:
     def status(self) -> dict[str, Any]:
         status = self.store.status(self.registry)
         safety = status.get("safety") or {}
+        latest = self.latest()
+        latest_signal = next((item for item in reversed(latest) if item.get("status") == "SIGNAL"), None)
+        latest_fast_rsi = next((item for item in reversed(latest) if item.get("agent_id") == "fast_rsi_first_reversal_v1"), None)
         status.update(
             {
                 "paper_trade_creation_allowed": safety.get("paper_trade_creation_allowed", False),
                 "order_request_creation_allowed": safety.get("order_request_creation_allowed", False),
                 "live_execution_allowed": safety.get("live_execution_allowed", False),
                 "command_queueing_allowed": safety.get("command_queueing_allowed", False),
+                "latest_signal": latest_signal,
+                "latest_fast_rsi": latest_fast_rsi,
             }
         )
         return status

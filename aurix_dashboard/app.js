@@ -246,6 +246,8 @@ function render(data) {
   text("strategyAgentsEnabled", strategyAgents.enabled_count);
   text("strategyAgentsStatuses", JSON.stringify(strategyAgents.latest_status_counts || {}));
   text("strategyAgentsSignal", strategyAgents.latest_signal?.direction || strategyAgents.latest_signal?.status);
+  text("fastRsiStatus", strategyAgents.latest_fast_rsi?.status);
+  text("fastRsiReason", (strategyAgents.latest_fast_rsi?.rejection_reasons || [])[0]?.message || strategyAgents.latest_fast_rsi?.setup_reason);
   text("strategyAgentsPaperAllowed", boolText(strategyAgents.paper_trade_creation_allowed));
   text("strategyAgentsOrderAllowed", boolText(strategyAgents.order_request_creation_allowed));
   text("strategyAgentsLiveExecution", boolText(strategyAgents.live_execution_allowed));

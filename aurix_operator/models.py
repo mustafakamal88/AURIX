@@ -107,4 +107,5 @@ class OperatorSummary(BaseModel):
     strategy_agents_registered: int = 0
     strategy_agents_latest_status_counts: dict[str, int] = Field(default_factory=dict)
     latest_strategy_agent_signal: Optional[str] = None
+    latest_fast_rsi_status: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)

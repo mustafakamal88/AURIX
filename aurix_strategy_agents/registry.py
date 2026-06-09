@@ -1,27 +1,46 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 
 from .adapters import XauusdPaperV1Adapter, XauusdPaperV2Adapter
 from .base import StrategyAgent
 from .config import StrategyAgentsConfig
+from .fast_rsi_reversal import FastRsiFirstReversalAgent
 from .models import StrategyAgentSafety, StrategyAgentSpec, StrategyRegistryStatus
 
 
-def _spec_for_entry(entry: Any, symbol: str) -> StrategyAgentSpec:
+def _spec_for_entry(entry: Any, symbol: str, config: StrategyAgentsConfig) -> StrategyAgentSpec:
     source = entry.source_strategy
+    fast_config = config.fast_rsi_first_reversal or {}
     if source == "xauusd_paper_v1":
         name = "XAUUSD Paper Strategy V1 Adapter"
         version = "0.1.0"
         source_module = "aurix_strategy_engine.xauusd_paper_v1"
+        strategy_type = "ADAPTER"
+        timeframe = "M15"
+        description = f"Read-only adapter for existing {source} output."
     elif source == "xauusd_paper_v2":
         name = "XAUUSD Paper Strategy V2 Adapter"
         version = "0.2.0"
         source_module = "aurix_strategy_engine.xauusd_paper_v2"
+        strategy_type = "ADAPTER"
+        timeframe = "M15"
+        description = f"Read-only adapter for existing {source} output."
+    elif source == "fast_rsi_first_reversal":
+        name = "XAUUSDm Fast RSI First-Reversal Scalper"
+        version = str(fast_config.get("strategy_version") or "1.0.0")
+        source_module = "aurix_strategy_agents.fast_rsi_reversal"
+        strategy_type = "STRATEGY_AGENT"
+        timeframe = str(fast_config.get("timeframe") or "M1")
+        description = "Observation-only Fast RSI first-reversal strategy agent."
     else:
         name = f"{source} Adapter"
         version = "0.1.0"
         source_module = "unknown"
+        strategy_type = "ADAPTER"
+        timeframe = "M15"
+        description = f"Read-only adapter for existing {source} output."
     return StrategyAgentSpec(
         id=entry.id,
         name=name,
@@ -29,30 +48,34 @@ def _spec_for_entry(entry: Any, symbol: str) -> StrategyAgentSpec:
         symbol=symbol,
         enabled=bool(entry.enabled),
         mode=entry.mode,
-        strategy_type="ADAPTER",
-        description=f"Read-only adapter for existing {source} output.",
+        timeframe=timeframe,
+        strategy_type=strategy_type,
+        description=description,
         source_module=source_module,
         safety=StrategyAgentSafety(),
     )
 
 
-def create_agent(spec: StrategyAgentSpec, source_strategy: str) -> StrategyAgent:
+def create_agent(spec: StrategyAgentSpec, source_strategy: str, config: StrategyAgentsConfig, data_dir: Union[str, Path]) -> StrategyAgent:
     if source_strategy == "xauusd_paper_v1":
         return XauusdPaperV1Adapter(spec)
     if source_strategy == "xauusd_paper_v2":
         return XauusdPaperV2Adapter(spec)
+    if source_strategy == "fast_rsi_first_reversal":
+        return FastRsiFirstReversalAgent(spec, config.fast_rsi_first_reversal, data_dir)
     raise KeyError(f"Unsupported strategy agent source_strategy: {source_strategy}")
 
 
 class StrategyAgentRegistry:
-    def __init__(self, config: StrategyAgentsConfig):
+    def __init__(self, config: StrategyAgentsConfig, data_dir: Union[str, Path] = "data"):
         self.config = config
+        self.data_dir = Path(data_dir)
         self._agents: dict[str, StrategyAgent] = {}
         self._sources: dict[str, str] = {}
         for entry in config.registered_agents:
-            spec = _spec_for_entry(entry, config.symbol)
+            spec = _spec_for_entry(entry, config.symbol, config)
             try:
-                self._agents[spec.id] = create_agent(spec, entry.source_strategy)
+                self._agents[spec.id] = create_agent(spec, entry.source_strategy, config, self.data_dir)
                 self._sources[spec.id] = entry.source_strategy
             except KeyError:
                 continue

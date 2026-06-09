@@ -116,7 +116,7 @@ signal_certifier_store = SignalCertifierStore(DATA_DIR, signal_certifier_config)
 event_bus_config = load_event_bus_config()
 event_bus = AurixEventBus(DATA_DIR, event_bus_config)
 strategy_agents_config = load_strategy_agent_config()
-strategy_agent_registry = StrategyAgentRegistry(strategy_agents_config)
+strategy_agent_registry = StrategyAgentRegistry(strategy_agents_config, DATA_DIR)
 strategy_agent_evaluator = StrategyAgentEvaluator(
     data_dir=DATA_DIR,
     config=strategy_agents_config,
@@ -1513,7 +1513,8 @@ def strategy_agents_operator_status() -> dict[str, Any]:
     status = strategy_agent_evaluator.status()
     latest = strategy_agent_evaluator.latest()
     latest_signal = next((item for item in reversed(latest) if item.get("status") == "SIGNAL"), None)
-    return {**status, "latest": latest, "latest_signal": latest_signal}
+    latest_fast_rsi = next((item for item in reversed(latest) if item.get("agent_id") == "fast_rsi_first_reversal_v1"), None)
+    return {**status, "latest": latest, "latest_signal": latest_signal, "latest_fast_rsi": latest_fast_rsi}
 
 
 def operator_status_payload() -> dict[str, Any]:

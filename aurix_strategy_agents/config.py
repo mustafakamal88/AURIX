@@ -30,12 +30,14 @@ class StrategyAgentsConfig(BaseModel):
     require_paper_mode_or_observation: bool = True
     require_command_id_null: bool = True
     registered_agents: list[StrategyAgentConfigEntry] = Field(default_factory=list)
+    fast_rsi_first_reversal: dict[str, Any] = Field(default_factory=dict)
 
 
 def default_registered_agents() -> list[StrategyAgentConfigEntry]:
     return [
         StrategyAgentConfigEntry(id="xauusd_paper_v1_adapter", enabled=True, source_strategy="xauusd_paper_v1"),
         StrategyAgentConfigEntry(id="xauusd_paper_v2_adapter", enabled=True, source_strategy="xauusd_paper_v2"),
+        StrategyAgentConfigEntry(id="fast_rsi_first_reversal_v1", enabled=True, source_strategy="fast_rsi_first_reversal", mode="OBSERVATION_ONLY"),
     ]
 
 

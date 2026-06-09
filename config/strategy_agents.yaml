@@ -21,3 +21,40 @@ registered_agents:
     enabled: true
     source_strategy: "xauusd_paper_v2"
     mode: "ADAPTER_ONLY"
+  - id: "fast_rsi_first_reversal_v1"
+    enabled: true
+    source_strategy: "fast_rsi_first_reversal"
+    mode: "OBSERVATION_ONLY"
+fast_rsi_first_reversal:
+  enabled: true
+  symbol: "XAUUSDm"
+  strategy_name: "fast_rsi_first_reversal"
+  strategy_version: "1.0.0"
+  mode: "OBSERVATION_ONLY"
+  timeframe: "M1"
+  closed_bar_only: true
+  base_lot_reference: 0.01
+  take_profit_points: 1200
+  stop_loss_points: 1800
+  max_spread_points: 250
+  rsi_period: 14
+  rsi_sma_period: 9
+  buy_extreme_level: 30.0
+  sell_extreme_level: 70.0
+  balance_low: 45.0
+  balance_high: 55.0
+  use_session_filter: false
+  london_start_hour: 8
+  london_end_hour: 11
+  ny_start_hour: 13
+  ny_end_hour: 16
+  max_margin_use_percent: 20.0
+  hmr_margin_multiplier: 3.0
+  max_slippage_points: 50
+  allow_signal_generation: true
+  allow_paper_trade_creation: false
+  allow_order_request_creation: false
+  allow_demo_execution: false
+  allow_live_arming: false
+  allow_live_execution: false
+  allow_command_queueing: false

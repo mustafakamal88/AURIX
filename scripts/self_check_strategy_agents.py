@@ -52,7 +52,7 @@ def v2_skipped() -> dict[str, Any]:
 
 def make_evaluator(tmpdir: str, config: StrategyAgentsConfig, signals: list[dict[str, Any]]) -> StrategyAgentEvaluator:
     event_bus = AurixEventBus(tmpdir, load_event_bus_config())
-    registry = StrategyAgentRegistry(config)
+    registry = StrategyAgentRegistry(config, tmpdir)
     return StrategyAgentEvaluator(
         data_dir=tmpdir,
         config=config,
@@ -61,6 +61,88 @@ def make_evaluator(tmpdir: str, config: StrategyAgentsConfig, signals: list[dict
         latest_signals=lambda: signals,
         candles=lambda: [],
         context=lambda: {"session_name": "TEST", "session_allowed": False},
+    )
+
+
+def candle_series(closes: list[float], spread: int = 10) -> list[dict[str, Any]]:
+    return [
+        {
+            "symbol": "XAUUSDm",
+            "time": 1000 + index * 60,
+            "open": close,
+            "high": close + 0.1,
+            "low": close - 0.1,
+            "close": close,
+            "spread": spread,
+        }
+        for index, close in enumerate(closes)
+    ]
+
+
+def fast_config(max_spread_points: int = 999) -> StrategyAgentsConfig:
+    return StrategyAgentsConfig(
+        registered_agents=[StrategyAgentConfigEntry(id="fast_rsi_first_reversal_v1", enabled=True, source_strategy="fast_rsi_first_reversal", mode="OBSERVATION_ONLY")],
+        fast_rsi_first_reversal={
+            "enabled": True,
+            "symbol": "XAUUSDm",
+            "strategy_name": "fast_rsi_first_reversal",
+            "strategy_version": "1.0.0",
+            "mode": "OBSERVATION_ONLY",
+            "timeframe": "M1",
+            "closed_bar_only": True,
+            "take_profit_points": 1200,
+            "stop_loss_points": 1800,
+            "max_spread_points": max_spread_points,
+            "rsi_period": 3,
+            "rsi_sma_period": 2,
+            "buy_extreme_level": 30.0,
+            "sell_extreme_level": 70.0,
+            "balance_low": 45.0,
+            "balance_high": 55.0,
+            "use_session_filter": False,
+            "max_margin_use_percent": 20.0,
+            "hmr_margin_multiplier": 3.0,
+            "allow_signal_generation": True,
+            "allow_paper_trade_creation": False,
+            "allow_order_request_creation": False,
+            "allow_demo_execution": False,
+            "allow_live_arming": False,
+            "allow_live_execution": False,
+            "allow_command_queueing": False,
+        },
+    )
+
+
+def make_fast_evaluator(tmpdir: str, closes_ref: dict[str, Any], max_spread_points: int = 999) -> StrategyAgentEvaluator:
+    event_bus = AurixEventBus(tmpdir, load_event_bus_config())
+    config = fast_config(max_spread_points)
+    registry = StrategyAgentRegistry(config, tmpdir)
+
+    def runtime_state() -> dict[str, Any]:
+        candles = candle_series(closes_ref["closes"], closes_ref.get("spread", 10))
+        latest = candles[-1] if candles else {}
+        return {
+            "market": {
+                "latest_tick": {
+                    "symbol": "XAUUSDm",
+                    "bid": latest.get("close"),
+                    "ask": (latest.get("close") or 0) + 0.2,
+                    "point": 0.01,
+                    "spread_points": closes_ref.get("spread", 10),
+                }
+            },
+            "account": {"currency": "GBP", "balance": 100.0, "equity": 100.0, "margin_free": 100.0, "margin": 0.0},
+        }
+
+    event_bus.get_latest_state = runtime_state  # type: ignore[method-assign]
+    return StrategyAgentEvaluator(
+        data_dir=tmpdir,
+        config=config,
+        registry=registry,
+        event_bus=event_bus,
+        latest_signals=lambda: [],
+        candles=lambda: candle_series(closes_ref["closes"], closes_ref.get("spread", 10)),
+        context=lambda: {},
     )
 
 
@@ -83,6 +165,8 @@ def main() -> int:
     agent_ids = [agent.id for agent in registry.list_registered_agents()]
     if "xauusd_paper_v1_adapter" not in agent_ids or "xauusd_paper_v2_adapter" not in agent_ids:
         raise AssertionError(f"registry missing V1/V2 adapters: {agent_ids}")
+    if "fast_rsi_first_reversal_v1" not in agent_ids:
+        raise AssertionError(f"registry missing Fast RSI agent: {agent_ids}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         disabled_config = StrategyAgentsConfig(
@@ -136,6 +220,71 @@ def main() -> int:
         result = evaluator.evaluate_agent("xauusd_paper_v1_adapter")
         if result.status != "SIGNAL" or result.decision_trace is not None:
             raise AssertionError(f"V1 legacy signal adaptation failed: {result}")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trades_file = Path(tmpdir) / "paper_trades.json"
+        commands_file = Path(tmpdir) / "commands.json"
+        trades_file.write_text("[]", encoding="utf-8")
+        commands_file.write_text("[]", encoding="utf-8")
+        ref = {"closes": [100, 99, 98]}
+        evaluator = make_fast_evaluator(tmpdir, ref)
+        insufficient = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        if insufficient.status != "SKIPPED" or insufficient.rejection_reasons[0].code != "insufficient_m1_candles_for_rsi":
+            raise AssertionError(f"insufficient candles failed: {insufficient}")
+
+        ref["closes"] = [100, 99, 98, 97, 96, 95, 94]
+        below = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        state = json.loads((Path(tmpdir) / "strategy_agents" / "fast_rsi_first_reversal_state.json").read_text(encoding="utf-8"))
+        if state.get("rsi_was_below_buy_extreme") is not True:
+            raise AssertionError(f"below-extreme state was not set: {below} {state}")
+
+        ref["closes"] = [100, 99, 98, 97, 96, 95, 94, 94.5, 95]
+        balance = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        state = json.loads((Path(tmpdir) / "strategy_agents" / "fast_rsi_first_reversal_state.json").read_text(encoding="utf-8"))
+        if balance.status != "NO_SIGNAL" or state.get("rsi_was_below_buy_extreme") is not False:
+            raise AssertionError(f"balance reset failed: {balance} {state}")
+
+        ref["closes"] = [100, 99, 98, 97, 96, 95, 94]
+        evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        ref["closes"] = [100, 99, 98, 97, 96, 95, 94, 93, 94]
+        buy = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        if buy.status != "SIGNAL" or buy.direction != "BUY" or buy.command_id is not None or not buy.decision_trace:
+            raise AssertionError(f"BUY signal failed: {buy}")
+        duplicate = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        if duplicate.status != "SKIPPED" or duplicate.rejection_reasons[0].code != "one_signal_per_bar":
+            raise AssertionError(f"one signal per bar failed: {duplicate}")
+
+        events = evaluator.event_bus.load_recent_events(20)
+        if not any(event.get("event_type") == AurixEventType.STRATEGY_EVALUATION_EVENT.value for event in events):
+            raise AssertionError("Fast RSI evaluation event was not published")
+        signal_events = [event for event in events if event.get("event_type") == AurixEventType.SIGNAL_EVENT.value]
+        if not signal_events or signal_events[-1].get("payload", {}).get("command_id") is not None:
+            raise AssertionError(f"Fast RSI signal event missing or unsafe: {signal_events[-1] if signal_events else None}")
+        if json.loads(trades_file.read_text(encoding="utf-8")):
+            raise AssertionError("Fast RSI evaluation created paper trades")
+        if json.loads(commands_file.read_text(encoding="utf-8")):
+            raise AssertionError("Fast RSI evaluation queued commands or order requests")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ref = {"closes": [100, 98.24, 95.88, 93.54, 91.38, 93.44, 95.18, 94.69]}
+        evaluator = make_fast_evaluator(tmpdir, ref)
+        above = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        state = json.loads((Path(tmpdir) / "strategy_agents" / "fast_rsi_first_reversal_state.json").read_text(encoding="utf-8"))
+        if state.get("rsi_was_above_sell_extreme") is not True:
+            raise AssertionError(f"above-extreme state was not set: {above} {state}")
+        ref["closes"] = [100, 98.24, 95.88, 93.54, 91.38, 93.44, 95.18, 94.69, 96.03]
+        sell = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        if sell.status != "SIGNAL" or sell.direction != "SELL" or sell.command_id is not None or not sell.decision_trace:
+            raise AssertionError(f"SELL signal failed: {sell}")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ref = {"closes": [100, 99, 98, 97, 96, 95, 94], "spread": 999}
+        evaluator = make_fast_evaluator(tmpdir, ref, max_spread_points=10)
+        evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        ref["closes"] = [100, 99, 98, 97, 96, 95, 94, 93, 94]
+        blocked = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
+        if blocked.status != "SKIPPED" or blocked.rejection_reasons[0].code != "spread_above_max":
+            raise AssertionError(f"spread block failed: {blocked}")
 
     for path in (PROJECT_ROOT / "aurix_strategy_agents").rglob("*.py"):
         if "/commands/open-market" in path.read_text(encoding="utf-8"):

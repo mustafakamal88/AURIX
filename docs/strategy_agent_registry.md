@@ -88,3 +88,11 @@ python3 scripts/watch_strategy_agents.py
 ```
 
 Part 28 prepares the architecture for Part 29, where the Fast RSI First-Reversal Scalper can be added as a proper Strategy Agent.
+
+## Fast RSI Agent
+
+Part 29 adds `fast_rsi_first_reversal_v1`, a native Python Strategy Agent for `XAUUSDm`.
+
+It evaluates M1 candle data in observation mode, persists RSI extreme-state memory, and publishes normalized strategy evaluation events. If a valid setup exists, it publishes a signal event with `command_id: null`.
+
+It remains signal-only. It does not create paper trades, order requests, MT5 commands, demo orders, or live orders.

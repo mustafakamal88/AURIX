@@ -1315,6 +1315,36 @@ More detail:
 docs/strategy_agent_registry.md
 ```
 
+## Part 29: Fast RSI First-Reversal Scalper Strategy Agent
+
+Part 29 adds `fast_rsi_first_reversal_v1` as a native Python Strategy Agent after the Part 28 registry.
+
+It evaluates local/event-bus market data, persists RSI extreme-state memory, and publishes `STRATEGY_EVALUATION_EVENT` plus `SIGNAL_EVENT` observations to the event bus. It does not enable trading, create paper trades, create order requests, queue MT5 commands, or execute demo/live broker orders.
+
+Evaluate all strategy agents:
+
+```bash
+python3 scripts/evaluate_strategy_agents.py
+```
+
+Check Fast RSI agent:
+
+```bash
+python3 scripts/check_fast_rsi_agent.py
+```
+
+Show strategy-agent history:
+
+```bash
+python3 scripts/show_strategy_agent_history.py
+```
+
+More detail:
+
+```text
+docs/fast_rsi_first_reversal_strategy.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

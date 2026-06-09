@@ -164,6 +164,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     event_bus_state = as_dict(event_bus.get("runtime_state"))
     strategy_agents = as_dict(status.strategy_agents)
     strategy_agent_signal = as_dict(strategy_agents.get("latest_signal"))
+    latest_fast_rsi = as_dict(strategy_agents.get("latest_fast_rsi"))
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -255,5 +256,6 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         strategy_agents_registered=int(strategy_agents.get("registered_count") or 0),
         strategy_agents_latest_status_counts=as_dict(strategy_agents.get("latest_status_counts")),
         latest_strategy_agent_signal=strategy_agent_signal.get("direction") or strategy_agent_signal.get("status"),
+        latest_fast_rsi_status=latest_fast_rsi.get("status"),
         warnings=warnings,
     )
