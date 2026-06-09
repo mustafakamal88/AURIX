@@ -1479,6 +1479,43 @@ More detail:
 docs/demo_command_queue_adapter.md
 ```
 
+## Part 33: AURIX Decision Engine / Autonomy Controller
+
+Part 33 adds the central decision layer after Event Bus, Strategy Agents, Demo OMS, Broker Reconciliation, and Demo Command Queue safety.
+
+It reads current local state and emits one deterministic AURIX decision such as `WAIT`, `TRADE_LONG`, `TRADE_SHORT`, or a blocked state. `TRADE_LONG` and `TRADE_SHORT` are advisory decision candidates only; Part 33 does not enable trading, create order requests, queue MT5 commands, create broker orders, or change EA settings.
+
+Config lives in:
+
+```text
+config/decision_engine.yaml
+```
+
+Check decision engine:
+
+```bash
+python3 scripts/check_decision_engine.py
+```
+
+Evaluate decision:
+
+```bash
+python3 scripts/evaluate_decision_engine.py
+```
+
+Show and watch decisions:
+
+```bash
+python3 scripts/show_decision_history.py
+python3 scripts/watch_decision_engine.py
+```
+
+More detail:
+
+```text
+docs/decision_engine_autonomy_controller.md
+```
+
 ## Troubleshooting
 
 No snapshot received:

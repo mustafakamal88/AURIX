@@ -22,6 +22,7 @@ from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_demo_command_queue import DemoCommandQueueAdapter, load_demo_command_queue_config
 from aurix_demo_oms import DemoOms, load_demo_oms_config
+from aurix_decision_engine import AurixDecisionEngine, load_decision_engine_config
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_event_bus import AurixEventBus, EVENT_TYPES, collect_observation_events, load_event_bus_config
@@ -148,6 +149,18 @@ demo_command_queue = DemoCommandQueueAdapter(
     demo_oms_store=demo_oms.store,
     broker_reconciliation_store=broker_reconciler.store,
 )
+decision_engine_config = load_decision_engine_config()
+decision_engine = AurixDecisionEngine(
+    DATA_DIR,
+    decision_engine_config,
+    event_bus=event_bus,
+    snapshot_provider=store.latest_snapshot,
+    strategy_agent_store=strategy_agent_evaluator.store,
+    demo_oms_store=demo_oms.store,
+    broker_reconciliation_store=broker_reconciler.store,
+    demo_command_queue_store=demo_command_queue.store,
+    risk_status_provider=lambda: risk_status(),
+)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -199,6 +212,7 @@ def root() -> dict[str, Any]:
         "demo_oms_status": "/demo-oms/status",
         "broker_reconciliation_status": "/broker-reconciliation/status",
         "demo_command_queue_status": "/demo-command-queue/status",
+        "decision_engine_status": "/decision-engine/status",
     }
 
 
@@ -649,6 +663,45 @@ def demo_command_queue_dry_run_latest() -> dict[str, Any]:
 @app.post("/demo-command-queue/reset")
 def demo_command_queue_reset() -> dict[str, Any]:
     return demo_command_queue.reset_demo_command_queue()
+
+
+@app.get("/decision-engine/status")
+def decision_engine_status() -> dict[str, Any]:
+    return decision_engine.status()
+
+
+@app.get("/decision-engine/latest")
+def decision_engine_latest() -> dict[str, Any]:
+    latest = decision_engine.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No decision report yet.")
+    return latest
+
+
+@app.get("/decision-engine/history")
+def decision_engine_history(limit: int = Query(50, ge=1, le=1000)) -> dict[str, Any]:
+    return {"items": decision_engine.history(limit), "limit": limit, "safety": decision_engine_status().get("safety")}
+
+
+@app.post("/decision-engine/evaluate")
+def decision_engine_evaluate() -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    results_before = len(store.list_results())
+    oms_before = len(demo_oms.load_order_requests())
+    report = decision_engine.evaluate()
+    report["paper_trades_created"] = len(paper_ledger.list_trades()) - paper_before
+    report["commands_queued"] = len(store.list_commands()) - commands_before
+    report["broker_orders_created"] = len(store.list_results()) - results_before
+    report["order_requests_created"] = len(demo_oms.load_order_requests()) - oms_before
+    report["broker_orders_modified"] = 0
+    report["broker_orders_closed"] = 0
+    return report
+
+
+@app.post("/decision-engine/reset")
+def decision_engine_reset() -> dict[str, Any]:
+    return decision_engine.reset()
 
 
 @app.get("/commands")
@@ -1657,6 +1710,7 @@ def _build_operator_status(
         demo_oms_status=demo_oms_status(),
         broker_reconciliation_status=broker_reconciliation_status(),
         demo_command_queue_status=demo_command_queue_status(),
+        decision_engine_status=decision_engine_status(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,

@@ -40,6 +40,7 @@ def build_operator_status(
     demo_oms_status: dict[str, Any] | None = None,
     broker_reconciliation_status: dict[str, Any] | None = None,
     demo_command_queue_status: dict[str, Any] | None = None,
+    decision_engine_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -124,6 +125,7 @@ def build_operator_status(
         demo_oms=demo_oms_status or {},
         broker_reconciliation=broker_reconciliation_status or {},
         demo_command_queue=demo_command_queue_status or {},
+        decision_engine=decision_engine_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -174,6 +176,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     demo_oms = as_dict(status.demo_oms)
     broker_reconciliation = as_dict(status.broker_reconciliation)
     demo_command_queue = as_dict(status.demo_command_queue)
+    decision_engine = as_dict(status.decision_engine)
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -284,5 +287,12 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         demo_command_queueing_allowed=bool(demo_command_queue.get("demo_command_queueing_allowed")),
         mt5_command_queueing_allowed=bool(demo_command_queue.get("mt5_command_queueing_allowed")),
         latest_demo_command_payload_status=demo_command_queue.get("latest_payload_status"),
+        decision_engine_action=decision_engine.get("latest_action"),
+        decision_engine_direction=decision_engine.get("latest_direction"),
+        decision_engine_score=float(decision_engine.get("score") or 0.0),
+        decision_engine_strategy=decision_engine.get("strategy"),
+        decision_engine_blocking_reason_count=int(decision_engine.get("blocking_reason_count") or 0),
+        decision_engine_warning_count=int(decision_engine.get("warning_count") or 0),
+        autonomy_level=decision_engine.get("autonomy_level"),
         warnings=warnings,
     )

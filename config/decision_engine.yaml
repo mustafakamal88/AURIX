@@ -1,0 +1,48 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "DECISION_ONLY"
+account_currency: "GBP"
+
+autonomy_level: "ADVISORY_ONLY"
+allowed_autonomy_levels:
+  - "OBSERVE_ONLY"
+  - "ADVISORY_ONLY"
+  - "DEMO_DRY_RUN_ONLY"
+  - "DEMO_AUTONOMY_DISABLED"
+  - "MICRO_LIVE_DISABLED"
+
+allow_trade_decision: true
+allow_order_request_creation: false
+allow_demo_command_queueing: false
+allow_mt5_command_queueing: false
+allow_demo_execution: false
+allow_live_execution: false
+allow_live_arming: false
+allow_real_account_execution: false
+allow_paper_trade_creation: false
+
+require_event_bus_state: true
+require_strategy_agent_status: true
+require_broker_reconciliation_clean: true
+require_demo_oms_safe: true
+require_demo_command_queue_safe: true
+require_ea_live_trading_disabled_now: true
+require_account_currency_match: true
+require_symbol_match: true
+
+min_signal_confidence: 0.60
+max_spread_points: 250
+max_broker_positions: 0
+max_broker_orders: 0
+max_daily_loss_amount: 1.0
+max_trades_per_day: 1
+block_when_command_queue_disabled: false
+block_when_execution_disabled: false
+
+strategy_priority:
+  - "fast_rsi_first_reversal"
+  - "xauusd_paper_v1"
+  - "xauusd_paper_v2"
+
+write_history: true
+history_limit: 1000

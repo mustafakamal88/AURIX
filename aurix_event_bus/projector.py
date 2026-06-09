@@ -87,6 +87,11 @@ def project_event(state: AurixRuntimeState, event: AurixEvent) -> AurixRuntimeSt
         state.execution["latest_demo_command_preview"] = payload
     elif event.event_type == AurixEventType.DEMO_COMMAND_QUEUE_EVENT:
         state.execution["latest_demo_command_queue_event"] = payload
+    elif event.event_type == AurixEventType.AURIX_DECISION_EVENT:
+        state.strategy["latest_aurix_decision"] = payload
+        state.health["decision_engine_status"] = payload.get("status")
+    elif event.event_type == AurixEventType.AUTONOMY_STATE_EVENT:
+        state.health["autonomy_state"] = payload
 
     return state
 

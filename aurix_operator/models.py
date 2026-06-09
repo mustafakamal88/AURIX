@@ -35,6 +35,7 @@ class OperatorStatus(BaseModel):
     demo_oms: dict[str, Any] = Field(default_factory=dict)
     broker_reconciliation: dict[str, Any] = Field(default_factory=dict)
     demo_command_queue: dict[str, Any] = Field(default_factory=dict)
+    decision_engine: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -129,4 +130,11 @@ class OperatorSummary(BaseModel):
     demo_command_queueing_allowed: bool = False
     mt5_command_queueing_allowed: bool = False
     latest_demo_command_payload_status: Optional[str] = None
+    decision_engine_action: Optional[str] = None
+    decision_engine_direction: Optional[str] = None
+    decision_engine_score: float = 0.0
+    decision_engine_strategy: Optional[str] = None
+    decision_engine_blocking_reason_count: int = 0
+    decision_engine_warning_count: int = 0
+    autonomy_level: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)

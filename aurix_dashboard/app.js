@@ -22,7 +22,8 @@ const READ_ONLY_ENDPOINTS = {
   strategyAgents: "/strategy-agents/status",
   demoOms: "/demo-oms/status",
   brokerReconciliation: "/broker-reconciliation/status",
-  demoCommandQueue: "/demo-command-queue/status"
+  demoCommandQueue: "/demo-command-queue/status",
+  decisionEngine: "/decision-engine/status"
 };
 
 function byId(id) {
@@ -150,6 +151,7 @@ function render(data) {
   const demoOms = data.demoOms || status.demo_oms || {};
   const brokerReconciliation = data.brokerReconciliation || status.broker_reconciliation || {};
   const demoCommandQueue = data.demoCommandQueue || status.demo_command_queue || {};
+  const decisionEngine = data.decisionEngine || status.decision_engine || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -286,6 +288,19 @@ function render(data) {
   text("demoCommandQueueMt5Allowed", boolText(demoCommandQueue.mt5_command_queueing_allowed));
   text("demoCommandQueueBrokerOrder", boolText(demoCommandQueue.broker_order_created));
   text("demoCommandQueueMt5Commands", boolText(demoCommandQueue.mt5_commands_queued));
+
+  text("decisionAction", decisionEngine.latest_action);
+  text("decisionDirection", decisionEngine.latest_direction);
+  text("decisionScore", decisionEngine.score);
+  text("decisionConfidence", decisionEngine.confidence);
+  text("decisionStrategy", decisionEngine.strategy);
+  text("decisionSetup", decisionEngine.setup_reason);
+  text("decisionTopBlock", decisionEngine.top_blocking_reason);
+  text("decisionTopWarning", decisionEngine.top_warning);
+  text("decisionAutonomy", decisionEngine.autonomy_level);
+  text("decisionDemoExecution", boolText(decisionEngine.demo_execution_allowed));
+  text("decisionLiveExecution", boolText(decisionEngine.live_execution_allowed));
+  text("decisionCommandQueueing", boolText(decisionEngine.command_queueing_allowed));
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);
