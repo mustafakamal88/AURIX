@@ -1,15 +1,30 @@
 :root {
   color-scheme: dark;
-  --bg: #101214;
-  --panel: #181c20;
-  --panel-2: #20262b;
-  --text: #f0f4f8;
-  --muted: #9aa8b5;
-  --line: #303941;
-  --good: #46c27c;
-  --warn: #f0b84f;
-  --danger: #e06464;
-  --accent: #6db8ff;
+  --bg: #0d0f11;
+  --panel: #13171a;
+  --panel-2: #181d21;
+  --panel-3: #1d2328;
+  --text: #dce3ea;
+  --text-dim: #a8b5c0;
+  --muted: #5e6e7a;
+  --line: #232c34;
+  --line-2: #1c2530;
+  --good: #27ae60;
+  --good-bg: #0e2419;
+  --good-fg: #2ecc71;
+  --warn: #d68910;
+  --warn-bg: #261e07;
+  --warn-fg: #f39c12;
+  --danger: #c0392b;
+  --danger-bg: #250c0c;
+  --danger-fg: #e74c3c;
+  --blue: #1a6fa8;
+  --blue-bg: #081927;
+  --blue-fg: #5dade2;
+  --amber: #b7770d;
+  --accent: #4a8fc7;
+  --accent-dim: #2e6a9e;
+  --mono: "Cascadia Code", "SF Mono", "Consolas", "Fira Mono", "DejaVu Sans Mono", monospace;
 }
 
 * {
@@ -20,166 +35,529 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
 }
+
+/* ── Disconnect Banner ─────────────────────────────────────────── */
+
+#disconnect-banner {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 8px 20px;
+  background: var(--danger-bg);
+  border-bottom: 2px solid var(--danger);
+  color: var(--danger-fg);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+#disconnect-banner.visible {
+  display: block;
+}
+
+/* ── Top Bar ────────────────────────────────────────────────────── */
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 18px 24px;
+  gap: 16px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--line);
-  background: #14181c;
+  background: #0f1316;
 }
 
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-h1 {
-  font-size: 24px;
-  font-weight: 700;
-}
-
-h2 {
-  margin-bottom: 14px;
-  font-size: 15px;
-  color: var(--accent);
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.badges {
+.topbar-left {
   display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.topbar-logo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.topbar-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   flex-wrap: wrap;
-  gap: 8px;
   justify-content: flex-end;
 }
 
-.badge {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 6px 9px;
+.topbar-meta {
+  display: flex;
+  gap: 16px;
   font-size: 12px;
+  color: var(--text-dim);
+}
+
+.topbar-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.topbar-meta .label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Status Badges ──────────────────────────────────────────────── */
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
 }
 
-.badge.good {
-  color: var(--good);
+.pill.good {
+  background: var(--good-bg);
+  color: var(--good-fg);
+  border-color: var(--good);
 }
 
-.badge.danger {
-  color: var(--danger);
+.pill.warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-color: var(--warn);
 }
 
-.badge.neutral {
+.pill.danger {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border-color: var(--danger);
+}
+
+.pill.blue {
+  background: var(--blue-bg);
+  color: var(--blue-fg);
+  border-color: var(--blue);
+}
+
+.pill.neutral {
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border-color: var(--line);
+}
+
+.pill.lock {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border-color: var(--danger);
+}
+
+.pill.safe {
+  background: var(--good-bg);
+  color: var(--good-fg);
+  border-color: var(--good);
+}
+
+/* header security pills */
+.topbar-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ── Decision Strip ─────────────────────────────────────────────── */
+
+.decision-strip {
+  display: grid;
+  grid-template-columns: 2fr 3fr 1.5fr 1.5fr 2fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-top: none;
+}
+
+.ds-cell {
+  padding: 10px 14px;
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ds-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ds-value {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
 }
+
+/* ── Main Layout ────────────────────────────────────────────────── */
 
 main {
-  padding: 20px 24px 28px;
-}
-
-.status-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--line);
-}
-
-.status-strip div {
-  padding: 12px;
-  background: var(--panel);
-}
-
-.status-strip span,
-dt {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.status-strip strong,
-dd {
-  color: var(--text);
-  font-size: 15px;
-  overflow-wrap: anywhere;
+  padding: 16px 20px 32px;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(260px, 1fr));
-  gap: 14px;
-  margin-top: 16px;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 12px;
 }
 
+/* ── Cards ──────────────────────────────────────────────────────── */
+
 .card {
-  min-height: 190px;
-  padding: 16px;
+  padding: 14px 16px 16px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .card.wide {
   grid-column: span 2;
 }
 
-dl {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 12px;
-  margin: 0;
+.card.full {
+  grid-column: span 3;
 }
 
-dd {
-  margin: 0;
+.card h2 {
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid var(--line-2);
+  padding-bottom: 7px;
 }
 
-.ok {
-  color: var(--good);
+/* ── Row Tables ─────────────────────────────────────────────────── */
+
+.row-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-.bad {
-  color: var(--danger);
+.rt-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-2);
 }
 
-.warn {
-  color: var(--warn);
+.rt-row:last-child {
+  border-bottom: none;
 }
 
-.warnings {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--warn);
-}
-
-footer {
-  padding: 12px 24px 18px;
+.rt-label {
+  font-size: 12px;
   color: var(--muted);
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.rt-value {
+  font-size: 12px;
+  color: var(--text);
+  text-align: right;
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+/* ── Section Dividers Within Cards ─────────────────────────────── */
+
+.card-section {
+  margin-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--line);
 }
 
-@media (max-width: 980px) {
-  .topbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+.card-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
 
-  .status-strip,
+/* ── Provenance Counter Table ───────────────────────────────────── */
+
+.counter-grid {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0;
+  font-size: 12px;
+}
+
+.counter-grid > div {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.counter-grid > div:nth-last-child(-n+3) {
+  border-bottom: none;
+}
+
+.counter-grid .col-label {
+  color: var(--muted);
+}
+
+.counter-grid .col-lifetime {
+  text-align: right;
+  padding-right: 16px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  min-width: 52px;
+}
+
+.counter-grid .col-session {
+  text-align: right;
+  color: var(--blue-fg);
+  font-family: var(--mono);
+  font-weight: 600;
+  min-width: 52px;
+}
+
+.counter-grid .col-header {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line) !important;
+  padding-bottom: 5px;
+  margin-bottom: 2px;
+}
+
+.counter-grid .col-header.session-hdr {
+  color: var(--blue-fg);
+}
+
+/* ── Numbers & Mono Values ──────────────────────────────────────── */
+
+.mono {
+  font-family: var(--mono);
+}
+
+.num-big {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.num-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Market prices inline */
+.price-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.price-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.price-val {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+/* ── Why No Trade Card ──────────────────────────────────────────── */
+
+.why-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.why-block {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+
+.why-block-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.why-block-value {
+  font-size: 12px;
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+/* ── Warnings List ──────────────────────────────────────────────── */
+
+.warnings-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.warnings-list li {
+  font-size: 12px;
+  color: var(--warn-fg);
+  padding: 4px 8px;
+  background: var(--warn-bg);
+  border-left: 2px solid var(--warn);
+  border-radius: 2px;
+  font-family: var(--mono);
+}
+
+.warnings-list li.ok {
+  color: var(--good-fg);
+  background: var(--good-bg);
+  border-color: var(--good);
+}
+
+/* ── VPS Card ───────────────────────────────────────────────────── */
+
+.vps-card-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  border-top: 1px solid var(--line);
+  background: #0f1316;
+}
+
+footer .footer-left {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+footer .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+footer .dot.err {
+  background: var(--danger);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Strategy Agent Status Rows ─────────────────────────────────── */
+
+.agent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 12px;
+}
+
+.agent-row:last-child {
+  border-bottom: none;
+}
+
+.agent-name {
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .card.full {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .decision-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
   .grid {
     grid-template-columns: 1fr;
   }
-
-  .card.wide {
+  .card.wide, .card.full {
     grid-column: span 1;
+  }
+  .why-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -3,239 +3,344 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AURIX Runtime Control Cockpit</title>
+    <title>AURIX · XAUUSDm Runtime</title>
     <link rel="stylesheet" href="/dashboard/static/styles.css">
   </head>
   <body>
+
+    <div id="disconnect-banner">
+      ⚠ RUNTIME UNREACHABLE — polling /dashboard/runtime-summary failed — <span id="disconnectReason"></span>
+    </div>
+
+    <!-- ── Top Bar ──────────────────────────────────────────── -->
     <header class="topbar">
-      <div>
-        <h1>AURIX Runtime Control Cockpit</h1>
-        <p class="muted">Read-only advanced XAUUSD runtime dashboard</p>
+      <div class="topbar-left">
+        <span class="topbar-logo">AURIX</span>
+        <span class="topbar-subtitle">XAUUSDm Autonomous Runtime</span>
       </div>
-      <div class="badges">
-        <span class="badge danger">LIVE TRADING DISABLED</span>
-        <span class="badge good">READ-ONLY DASHBOARD</span>
-        <span class="badge neutral">NO MT5 COMMAND QUEUEING FROM DASHBOARD</span>
+
+      <div class="topbar-meta">
+        <span><span class="label">Symbol</span> <span id="hdrSymbol" class="mono">--</span></span>
+        <span><span class="label">Health</span> <span id="hdrHealth">--</span></span>
+        <span><span class="label">Session</span> <span id="hdrSession" class="mono">--</span></span>
+        <span><span class="label">Uptime</span> <span id="hdrUptime" class="mono">--</span></span>
+      </div>
+
+      <div class="topbar-pills">
+        <span class="pill lock">LIVE TRADING DISABLED</span>
+        <span class="pill lock">NO MT5 COMMAND QUEUEING FROM DASHBOARD</span>
+        <span class="pill safe">READ-ONLY DASHBOARD</span>
       </div>
     </header>
 
+    <!-- ── Decision Strip ───────────────────────────────────── -->
+    <section class="decision-strip">
+      <div class="ds-cell">
+        <span class="ds-label">Current Action</span>
+        <span class="ds-value" id="dsAction">--</span>
+      </div>
+      <div class="ds-cell">
+        <span class="ds-label">Primary Block / Reason</span>
+        <span class="ds-value" id="dsReason">--</span>
+      </div>
+      <div class="ds-cell">
+        <span class="ds-label">Spread</span>
+        <span class="ds-value" id="dsSpread">--</span>
+      </div>
+      <div class="ds-cell">
+        <span class="ds-label">Safety State</span>
+        <span class="ds-value" id="dsSafety">--</span>
+      </div>
+      <div class="ds-cell">
+        <span class="ds-label">Next Expected</span>
+        <span class="ds-value" id="dsNext">--</span>
+      </div>
+    </section>
+
+    <!-- ── Main Grid ─────────────────────────────────────────── -->
     <main>
-      <section class="status-strip">
-        <div><span>Service</span><strong id="service">--</strong></div>
-        <div><span>Mode</span><strong id="mode">--</strong></div>
-        <div><span>Symbol</span><strong id="symbol">--</strong></div>
-        <div><span>Health</span><strong id="health">--</strong></div>
-        <div><span>Live Trading</span><strong id="liveTrading">DISABLED</strong></div>
-        <div><span>Paper Only</span><strong id="paperOnly">--</strong></div>
-      </section>
+      <div class="grid">
 
-      <section class="grid">
+        <!-- Market / XAUUSDm Feed -->
         <article class="card">
-          <h2>AURIX Decision</h2>
-          <dl>
-            <dt>Action</dt><dd id="decisionAction">--</dd>
-            <dt>Direction</dt><dd id="decisionDirection">--</dd>
-            <dt>Score</dt><dd id="decisionScore">--</dd>
-            <dt>Confidence</dt><dd id="decisionConfidence">--</dd>
-            <dt>Strategy</dt><dd id="decisionStrategy">--</dd>
-            <dt>Setup Reason</dt><dd id="decisionSetup">--</dd>
-            <dt>Top Blocking Reason</dt><dd id="decisionTopBlock">--</dd>
-            <dt>Top Warning</dt><dd id="decisionTopWarning">--</dd>
-            <dt>Autonomy Level</dt><dd id="decisionAutonomy">--</dd>
-            <dt>Mode</dt><dd id="decisionMode">--</dd>
-          </dl>
+          <h2>Market · XAUUSDm</h2>
+          <div class="price-row">
+            <span class="price-label">Bid</span>
+            <span class="price-val" id="bid">--</span>
+            <span class="price-label">Ask</span>
+            <span class="price-val" id="ask">--</span>
+          </div>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Spread (pts)</span><span class="rt-value" id="spread">--</span></div>
+            <div class="rt-row"><span class="rt-label">Max Threshold</span><span class="rt-value" id="maxSpread">--</span></div>
+            <div class="rt-row"><span class="rt-label">Spread Status</span><span class="rt-value" id="spreadStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Tick</span><span class="rt-value" id="latestTick">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Candle</span><span class="rt-value" id="latestCandle">--</span></div>
+          </div>
         </article>
 
+        <!-- Account / MT5 -->
         <article class="card">
-          <h2>Market / XAUUSDm Feed</h2>
-          <dl>
-            <dt>Symbol</dt><dd id="marketSymbol">--</dd>
-            <dt>Bid</dt><dd id="bid">--</dd>
-            <dt>Ask</dt><dd id="ask">--</dd>
-            <dt>Spread Points</dt><dd id="spread">--</dd>
-            <dt>Max Spread Threshold</dt><dd id="maxSpread">--</dd>
-            <dt>Spread Status</dt><dd id="spreadStatus">--</dd>
-            <dt>Latest Tick Time</dt><dd id="latestTick">--</dd>
-            <dt>Latest Candle Time</dt><dd id="latestCandle">--</dd>
-          </dl>
+          <h2>Account · MT5 Snapshot</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Currency</span><span class="rt-value" id="currency">--</span></div>
+            <div class="rt-row"><span class="rt-label">Balance</span><span class="rt-value" id="balance">--</span></div>
+            <div class="rt-row"><span class="rt-label">Equity</span><span class="rt-value" id="equity">--</span></div>
+            <div class="rt-row"><span class="rt-label">Free Margin</span><span class="rt-value" id="freeMargin">--</span></div>
+            <div class="rt-row"><span class="rt-label">Margin Level</span><span class="rt-value" id="marginLevel">--</span></div>
+            <div class="rt-row"><span class="rt-label">Account Type</span><span class="rt-value" id="accountHint">--</span></div>
+          </div>
         </article>
 
+        <!-- AURIX Decision -->
         <article class="card">
-          <h2>Account</h2>
-          <dl>
-            <dt>Account Currency</dt><dd id="currency">--</dd>
-            <dt>Balance</dt><dd id="balance">--</dd>
-            <dt>Equity</dt><dd id="equity">--</dd>
-            <dt>Free Margin</dt><dd id="freeMargin">--</dd>
-            <dt>Margin Level</dt><dd id="marginLevel">--</dd>
-            <dt>Demo/Real Hint</dt><dd id="accountHint">--</dd>
-          </dl>
+          <h2>AURIX Decision Engine</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Action</span><span class="rt-value" id="decisionAction">--</span></div>
+            <div class="rt-row"><span class="rt-label">Direction</span><span class="rt-value" id="decisionDirection">--</span></div>
+            <div class="rt-row"><span class="rt-label">Score</span><span class="rt-value" id="decisionScore">--</span></div>
+            <div class="rt-row"><span class="rt-label">Confidence</span><span class="rt-value" id="decisionConfidence">--</span></div>
+            <div class="rt-row"><span class="rt-label">Strategy</span><span class="rt-value" id="decisionStrategy">--</span></div>
+            <div class="rt-row"><span class="rt-label">Setup Reason</span><span class="rt-value" id="decisionSetup">--</span></div>
+            <div class="rt-row"><span class="rt-label">Top Block</span><span class="rt-value" id="decisionTopBlock">--</span></div>
+            <div class="rt-row"><span class="rt-label">Top Warning</span><span class="rt-value" id="decisionTopWarning">--</span></div>
+            <div class="rt-row"><span class="rt-label">Autonomy Level</span><span class="rt-value" id="decisionAutonomy">--</span></div>
+            <div class="rt-row"><span class="rt-label">Mode</span><span class="rt-value" id="decisionMode">--</span></div>
+          </div>
         </article>
 
+        <!-- Fast RSI Strategy -->
         <article class="card">
           <h2>Fast RSI Strategy</h2>
-          <dl>
-            <dt>Status</dt><dd id="fastRsiStatus">--</dd>
-            <dt>Direction If Signal</dt><dd id="fastRsiDirection">--</dd>
-            <dt>RSI Current</dt><dd id="fastRsiRsi">--</dd>
-            <dt>RSI SMA Current</dt><dd id="fastRsiSma">--</dd>
-            <dt>Buy Extreme State</dt><dd id="fastRsiBuyExtreme">--</dd>
-            <dt>Sell Extreme State</dt><dd id="fastRsiSellExtreme">--</dd>
-            <dt>Rejection Reasons</dt><dd id="fastRsiRejections">--</dd>
-            <dt>Last Evaluated Bar</dt><dd id="fastRsiLastBar">--</dd>
-            <dt>Decision Trace Available</dt><dd id="fastRsiTrace">--</dd>
-          </dl>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Status</span><span class="rt-value" id="fastRsiStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Direction</span><span class="rt-value" id="fastRsiDirection">--</span></div>
+            <div class="rt-row"><span class="rt-label">RSI Current</span><span class="rt-value" id="fastRsiRsi">--</span></div>
+            <div class="rt-row"><span class="rt-label">RSI SMA</span><span class="rt-value" id="fastRsiSma">--</span></div>
+            <div class="rt-row"><span class="rt-label">Buy Extreme</span><span class="rt-value" id="fastRsiBuyExtreme">--</span></div>
+            <div class="rt-row"><span class="rt-label">Sell Extreme</span><span class="rt-value" id="fastRsiSellExtreme">--</span></div>
+            <div class="rt-row"><span class="rt-label">Rejections</span><span class="rt-value" id="fastRsiRejections">--</span></div>
+            <div class="rt-row"><span class="rt-label">Last Bar</span><span class="rt-value" id="fastRsiLastBar">--</span></div>
+            <div class="rt-row"><span class="rt-label">Trace Available</span><span class="rt-value" id="fastRsiTrace">--</span></div>
+          </div>
         </article>
 
+        <!-- Strategy Agents -->
         <article class="card">
           <h2>Strategy Agents</h2>
-          <dl>
-            <dt>Registered Count</dt><dd id="strategyAgentsRegistered">--</dd>
-            <dt>Enabled Count</dt><dd id="strategyAgentsEnabled">--</dd>
-            <dt>Latest Statuses</dt><dd id="strategyAgentsStatuses">--</dd>
-            <dt>Latest Signal Strategy</dt><dd id="strategyAgentsLatestStrategy">--</dd>
-            <dt>Latest Signal Direction</dt><dd id="strategyAgentsSignal">--</dd>
-            <dt>Paper Trade Creation Allowed</dt><dd id="strategyAgentsPaperAllowed">false</dd>
-            <dt>Order Request Creation Allowed</dt><dd id="strategyAgentsOrderAllowed">false</dd>
-          </dl>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Registered</span><span class="rt-value" id="strategyAgentsRegistered">--</span></div>
+            <div class="rt-row"><span class="rt-label">Enabled</span><span class="rt-value" id="strategyAgentsEnabled">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Strategy</span><span class="rt-value" id="strategyAgentsLatestStrategy">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Signal</span><span class="rt-value" id="strategyAgentsSignal">--</span></div>
+            <div class="rt-row"><span class="rt-label">Paper Trade Allowed</span><span class="rt-value" id="strategyAgentsPaperAllowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">Order Request Allowed</span><span class="rt-value" id="strategyAgentsOrderAllowed">--</span></div>
+          </div>
+          <div id="strategyAgentRows" class="card-section"></div>
         </article>
 
+        <!-- Broker Reconciliation -->
         <article class="card">
           <h2>Broker Reconciliation</h2>
-          <dl>
-            <dt>Status</dt><dd id="brokerReconStatus">--</dd>
-            <dt>Broker Positions</dt><dd id="brokerReconPositions">--</dd>
-            <dt>Broker Orders</dt><dd id="brokerReconOrders">--</dd>
-            <dt>Mismatches</dt><dd id="brokerReconMismatches">--</dd>
-            <dt>Warnings</dt><dd id="brokerReconWarnings">--</dd>
-            <dt>Unexpected Exposure</dt><dd id="brokerReconExposure">--</dd>
-          </dl>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Status</span><span class="rt-value" id="brokerReconStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Positions</span><span class="rt-value" id="brokerReconPositions">--</span></div>
+            <div class="rt-row"><span class="rt-label">Orders</span><span class="rt-value" id="brokerReconOrders">--</span></div>
+            <div class="rt-row"><span class="rt-label">Mismatches</span><span class="rt-value" id="brokerReconMismatches">--</span></div>
+            <div class="rt-row"><span class="rt-label">Warnings</span><span class="rt-value" id="brokerReconWarnings">--</span></div>
+            <div class="rt-row"><span class="rt-label">Unexpected Exposure</span><span class="rt-value" id="brokerReconExposure">--</span></div>
+          </div>
         </article>
 
-        <article class="card">
-          <h2>Demo OMS</h2>
-          <dl>
-            <dt>Mode</dt><dd id="demoOmsMode">--</dd>
-            <dt>Intent Count</dt><dd id="demoOmsIntentCount">--</dd>
-            <dt>Request Count</dt><dd id="demoOmsRequestCount">--</dd>
-            <dt>Latest Request Status</dt><dd id="demoOmsLatestRequest">--</dd>
-            <dt>Demo Execution Allowed</dt><dd id="demoOmsDemoExecution">false</dd>
-            <dt>Live Execution Allowed</dt><dd id="demoOmsLiveExecution">false</dd>
-            <dt>Command Queueing Allowed</dt><dd id="demoOmsCommandQueueing">false</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Demo Command Queue</h2>
-          <dl>
-            <dt>Mode</dt><dd id="demoCommandQueueMode">--</dd>
-            <dt>Preview Count</dt><dd id="demoCommandQueuePreviews">--</dd>
-            <dt>Payload Count</dt><dd id="demoCommandQueuePayloads">--</dd>
-            <dt>Latest Preview Status</dt><dd id="demoCommandQueueLatestPreview">--</dd>
-            <dt>Latest Payload Status</dt><dd id="demoCommandQueueLatestPayload">--</dd>
-            <dt>Manual Demo Arm</dt><dd id="demoCommandQueueManualArm">false</dd>
-            <dt>Demo Command Queueing Allowed</dt><dd id="demoCommandQueueDemoAllowed">false</dd>
-            <dt>MT5 Command Queueing Allowed</dt><dd id="demoCommandQueueMt5Allowed">false</dd>
-            <dt>MT5 Command ID</dt><dd id="demoCommandQueueMt5CommandId">--</dd>
-            <dt>Broker Order ID</dt><dd id="demoCommandQueueBrokerOrderId">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Event Bus / Runtime State</h2>
-          <dl>
-            <dt>Event Count</dt><dd id="eventBusCount">--</dd>
-            <dt>Last Sequence</dt><dd id="eventBusSequence">--</dd>
-            <dt>Last Event Type</dt><dd id="eventBusType">--</dd>
-            <dt>Runtime State Generated At</dt><dd id="eventBusStateAt">--</dd>
-            <dt>Latest Decision Event</dt><dd id="eventBusDecisionEvent">--</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Safety Locks</h2>
-          <dl>
-            <dt>EA AllowLiveTrading Reported</dt><dd id="eaAllowLiveTrading">false/unknown</dd>
-            <dt>Live Execution Allowed</dt><dd id="safetyLiveExecution">false</dd>
-            <dt>Live Arming Allowed</dt><dd id="safetyLiveArming">false</dd>
-            <dt>Demo Execution Allowed</dt><dd id="safetyDemoExecution">false</dd>
-            <dt>Command Queueing Allowed</dt><dd id="safetyCommandQueueing">false</dd>
-            <dt>Broker Order Created</dt><dd id="safetyBrokerOrder">false</dd>
-            <dt>MT5 Commands Queued</dt><dd id="safetyMt5Commands">false</dd>
-            <dt>Paper Trade Created</dt><dd id="safetyPaperTrade">false</dd>
-            <dt>Order Request Created</dt><dd id="safetyOrderRequest">false</dd>
-            <dt>Current Session Created Paper Trade</dt><dd id="sessionCreatedPaperTrade">false</dd>
-            <dt>Current Session Created Order Request</dt><dd id="sessionCreatedOrderRequest">false</dd>
-            <dt>Current Session Queued MT5 Command</dt><dd id="sessionQueuedMt5Command">false</dd>
-            <dt>Current Session Created Broker Order</dt><dd id="sessionCreatedBrokerOrder">false</dd>
-            <dt>Overall Session Safe</dt><dd id="sessionOverallSafe">--</dd>
-            <dt>Read Only Dashboard</dt><dd id="safetyReadOnly">true</dd>
-          </dl>
-        </article>
-
+        <!-- Runtime Provenance -->
         <article class="card">
           <h2>Runtime Provenance</h2>
-          <dl>
-            <dt>Runtime Session ID</dt><dd id="runtimeSessionId">--</dd>
-            <dt>Started At</dt><dd id="runtimeStartedAt">--</dd>
-            <dt>Uptime</dt><dd id="runtimeUptime">--</dd>
-            <dt>Lifetime Paper Trades</dt><dd id="lifetimePaperTrades">--</dd>
-            <dt>Paper Trades This Session</dt><dd id="sessionPaperTrades">--</dd>
-            <dt>Lifetime Commands</dt><dd id="lifetimeCommands">--</dd>
-            <dt>Commands This Session</dt><dd id="sessionCommands">--</dd>
-            <dt>Lifetime OMS Requests</dt><dd id="lifetimeOmsRequests">--</dd>
-            <dt>OMS Requests This Session</dt><dd id="sessionOmsRequests">--</dd>
-            <dt>Safety Assertion</dt><dd id="runtimeSafetyAssertion">--</dd>
-            <dt>Latest Provenance Event</dt><dd id="latestProvenanceEvent">--</dd>
-          </dl>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Session ID</span><span class="rt-value mono" id="runtimeSessionId">--</span></div>
+            <div class="rt-row"><span class="rt-label">Started At</span><span class="rt-value" id="runtimeStartedAt">--</span></div>
+            <div class="rt-row"><span class="rt-label">Uptime</span><span class="rt-value" id="runtimeUptime">--</span></div>
+            <div class="rt-row"><span class="rt-label">Safety Assertion</span><span class="rt-value" id="runtimeSafetyAssertion">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Event</span><span class="rt-value" id="latestProvenanceEvent">--</span></div>
+          </div>
+
+          <div class="card-section">
+            <div class="card-section-label">Activity Counters</div>
+            <div class="counter-grid">
+              <div class="col-header col-label"></div>
+              <div class="col-header col-lifetime">Lifetime</div>
+              <div class="col-header col-session session-hdr">Session ↑</div>
+              <div class="col-label">Paper Trades</div>
+              <div class="col-lifetime" id="lifetimePaperTrades">--</div>
+              <div class="col-session" id="sessionPaperTrades">--</div>
+              <div class="col-label">Commands</div>
+              <div class="col-lifetime" id="lifetimeCommands">--</div>
+              <div class="col-session" id="sessionCommands">--</div>
+              <div class="col-label">OMS Requests</div>
+              <div class="col-lifetime" id="lifetimeOmsRequests">--</div>
+              <div class="col-session" id="sessionOmsRequests">--</div>
+            </div>
+          </div>
         </article>
 
+        <!-- Safety Locks -->
+        <article class="card">
+          <h2>Safety Locks</h2>
+
+          <div class="card-section-label">Execution Permissions</div>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Live Trading</span><span class="rt-value" id="safetyLiveExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Arming</span><span class="rt-value" id="safetyLiveArming">--</span></div>
+            <div class="rt-row"><span class="rt-label">Demo Execution</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Command Queueing</span><span class="rt-value" id="safetyCommandQueueing">--</span></div>
+            <div class="rt-row"><span class="rt-label">MT5 Commands Queued</span><span class="rt-value" id="safetyMt5Commands">--</span></div>
+            <div class="rt-row"><span class="rt-label">Broker Order Created</span><span class="rt-value" id="safetyBrokerOrder">--</span></div>
+            <div class="rt-row"><span class="rt-label">Paper Trade Created</span><span class="rt-value" id="safetyPaperTrade">--</span></div>
+            <div class="rt-row"><span class="rt-label">Order Request Allowed</span><span class="rt-value" id="safetyOrderRequest">--</span></div>
+            <div class="rt-row"><span class="rt-label">Read-Only Dashboard</span><span class="rt-value" id="safetyReadOnly">--</span></div>
+          </div>
+
+          <div class="card-section">
+            <div class="card-section-label">Current Session Activity (must all be false)</div>
+            <div class="row-table">
+              <div class="rt-row"><span class="rt-label">Paper Trade Created</span><span class="rt-value" id="sessionCreatedPaperTrade">--</span></div>
+              <div class="rt-row"><span class="rt-label">Order Request Created</span><span class="rt-value" id="sessionCreatedOrderRequest">--</span></div>
+              <div class="rt-row"><span class="rt-label">MT5 Command Queued</span><span class="rt-value" id="sessionQueuedMt5Command">--</span></div>
+              <div class="rt-row"><span class="rt-label">Broker Order Created</span><span class="rt-value" id="sessionCreatedBrokerOrder">--</span></div>
+              <div class="rt-row"><span class="rt-label">Overall Session Safe</span><span class="rt-value" id="sessionOverallSafe">--</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Evidence Integrity -->
         <article class="card">
           <h2>Evidence Integrity</h2>
-          <dl>
-            <dt>Status</dt><dd id="evidenceIntegrityStatus">--</dd>
-            <dt>Paper Ledger</dt><dd id="evidencePaperLedger">--</dd>
-            <dt>Journal Ledger</dt><dd id="evidenceJournalLedger">--</dd>
-            <dt>Evidence Monitor</dt><dd id="evidenceMonitorIntegrity">--</dd>
-            <dt>Live Readiness</dt><dd id="evidenceLiveReadiness">--</dd>
-            <dt>Signal Certification</dt><dd id="evidenceSignalCertification">--</dd>
-            <dt>Stale Temp Files</dt><dd id="evidenceStaleTempFiles">--</dd>
-            <dt>Corrupt JSON Files</dt><dd id="evidenceCorruptJsonFiles">--</dd>
-            <dt>Notes</dt><dd id="evidenceIntegrityNotes">--</dd>
-          </dl>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Status</span><span class="rt-value" id="evidenceIntegrityStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Paper Ledger</span><span class="rt-value" id="evidencePaperLedger">--</span></div>
+            <div class="rt-row"><span class="rt-label">Journal Ledger</span><span class="rt-value" id="evidenceJournalLedger">--</span></div>
+            <div class="rt-row"><span class="rt-label">Evidence Monitor</span><span class="rt-value" id="evidenceMonitorIntegrity">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Readiness</span><span class="rt-value" id="evidenceLiveReadiness">--</span></div>
+            <div class="rt-row"><span class="rt-label">Signal Certification</span><span class="rt-value" id="evidenceSignalCertification">--</span></div>
+            <div class="rt-row"><span class="rt-label">Stale Temp Files</span><span class="rt-value" id="evidenceStaleTempFiles">--</span></div>
+            <div class="rt-row"><span class="rt-label">Corrupt JSON Files</span><span class="rt-value" id="evidenceCorruptJsonFiles">--</span></div>
+            <div class="rt-row"><span class="rt-label">Notes</span><span class="rt-value" id="evidenceIntegrityNotes">--</span></div>
+          </div>
         </article>
 
-        <article class="card wide">
-          <h2>Why No Trade?</h2>
-          <dl>
-            <dt>Primary Block</dt><dd id="whyPrimary">--</dd>
-            <dt>Secondary Blocks</dt><dd id="whySecondary">--</dd>
-            <dt>Warnings</dt><dd id="whyWarnings">--</dd>
-            <dt>Recommended Next Action</dt><dd id="whyNext">--</dd>
-          </dl>
-        </article>
-
+        <!-- Readiness / Evidence Growth -->
         <article class="card">
-          <h2>Readiness / Evidence</h2>
-          <dl>
-            <dt>Live Readiness</dt><dd id="liveReadinessStatus">--</dd>
-            <dt>Evidence Growth</dt><dd id="evidenceGrowthStatus">--</dd>
-            <dt>Signal Certification</dt><dd id="signalCertStatus">--</dd>
-            <dt>Paper Risk Audit</dt><dd id="paperRiskStatus">--</dd>
-            <dt>Session</dt><dd id="session">--</dd>
-          </dl>
+          <h2>Readiness · Evidence Growth</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Live Readiness</span><span class="rt-value" id="liveReadinessStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Evidence Growth</span><span class="rt-value" id="evidenceGrowthStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Signal Certification</span><span class="rt-value" id="signalCertStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Paper Risk Audit</span><span class="rt-value" id="paperRiskStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Session</span><span class="rt-value" id="session">--</span></div>
+          </div>
         </article>
 
-        <article class="card wide">
-          <h2>Warnings</h2>
-          <ul id="warnings" class="warnings"><li>Loading...</li></ul>
+        <!-- Demo OMS -->
+        <article class="card">
+          <h2>Demo OMS</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Mode</span><span class="rt-value" id="demoOmsMode">--</span></div>
+            <div class="rt-row"><span class="rt-label">Intent Count</span><span class="rt-value" id="demoOmsIntentCount">--</span></div>
+            <div class="rt-row"><span class="rt-label">Request Count</span><span class="rt-value" id="demoOmsRequestCount">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Request</span><span class="rt-value" id="demoOmsLatestRequest">--</span></div>
+            <div class="rt-row"><span class="rt-label">Demo Execution</span><span class="rt-value" id="demoOmsDemoExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Execution</span><span class="rt-value" id="demoOmsLiveExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Command Queueing</span><span class="rt-value" id="demoOmsCommandQueueing">--</span></div>
+          </div>
         </article>
-      </section>
+
+        <!-- Demo Command Queue -->
+        <article class="card">
+          <h2>Demo Command Queue</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Mode</span><span class="rt-value" id="demoCommandQueueMode">--</span></div>
+            <div class="rt-row"><span class="rt-label">Preview Count</span><span class="rt-value" id="demoCommandQueuePreviews">--</span></div>
+            <div class="rt-row"><span class="rt-label">Payload Count</span><span class="rt-value" id="demoCommandQueuePayloads">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Preview</span><span class="rt-value" id="demoCommandQueueLatestPreview">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Payload</span><span class="rt-value" id="demoCommandQueueLatestPayload">--</span></div>
+            <div class="rt-row"><span class="rt-label">Manual Arm</span><span class="rt-value" id="demoCommandQueueManualArm">--</span></div>
+            <div class="rt-row"><span class="rt-label">Demo CMD Queueing</span><span class="rt-value" id="demoCommandQueueDemoAllowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">MT5 CMD Queueing</span><span class="rt-value" id="demoCommandQueueMt5Allowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">MT5 Command ID</span><span class="rt-value" id="demoCommandQueueMt5CommandId">--</span></div>
+            <div class="rt-row"><span class="rt-label">Broker Order ID</span><span class="rt-value" id="demoCommandQueueBrokerOrderId">--</span></div>
+          </div>
+        </article>
+
+        <!-- Event Bus / Runtime State -->
+        <article class="card">
+          <h2>Event Bus · Runtime State</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Event Count</span><span class="rt-value" id="eventBusCount">--</span></div>
+            <div class="rt-row"><span class="rt-label">Last Sequence</span><span class="rt-value" id="eventBusSequence">--</span></div>
+            <div class="rt-row"><span class="rt-label">Last Event Type</span><span class="rt-value" id="eventBusType">--</span></div>
+            <div class="rt-row"><span class="rt-label">State Generated At</span><span class="rt-value" id="eventBusStateAt">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Decision Event</span><span class="rt-value" id="eventBusDecisionEvent">--</span></div>
+          </div>
+        </article>
+
+        <!-- Why No Trade — wide -->
+        <article class="card wide">
+          <h2>Why No Trade</h2>
+          <div class="why-grid">
+            <div class="why-block">
+              <div class="why-block-label">Primary Block</div>
+              <div class="why-block-value" id="whyPrimary">--</div>
+            </div>
+            <div class="why-block">
+              <div class="why-block-label">Secondary Blocks</div>
+              <div class="why-block-value" id="whySecondary">--</div>
+            </div>
+            <div class="why-block">
+              <div class="why-block-label">Warnings</div>
+              <div class="why-block-value" id="whyWarnings">--</div>
+            </div>
+            <div class="why-block">
+              <div class="why-block-label">Recommended Next</div>
+              <div class="why-block-value" id="whyNext">--</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Warnings — wide -->
+        <article class="card wide">
+          <h2>Active Warnings</h2>
+          <ul class="warnings-list" id="warnings">
+            <li class="ok">Loading…</li>
+          </ul>
+        </article>
+
+        <!-- VPS Runtime -->
+        <article class="card">
+          <h2>VPS Runtime Profile</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Profile</span><span class="rt-value" id="vpsProfile">--</span></div>
+            <div class="rt-row"><span class="rt-label">Host / Port</span><span class="rt-value" id="vpsHostPort">--</span></div>
+            <div class="rt-row"><span class="rt-label">Dashboard</span><span class="rt-value"><span class="pill safe">READ-ONLY</span></span></div>
+            <div class="rt-row"><span class="rt-label">MT5 Snapshot Age</span><span class="rt-value" id="vpsMt5Age">--</span></div>
+            <div class="rt-row"><span class="rt-label">Terminal ID</span><span class="rt-value" id="vpsTerminalId">--</span></div>
+            <div class="rt-row"><span class="rt-label">Symbol</span><span class="rt-value" id="vpsSymbol">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Execution</span><span class="rt-value"><span class="pill lock">LOCKED</span></span></div>
+            <div class="rt-row"><span class="rt-label">Demo Broker Exec</span><span class="rt-value"><span class="pill lock">DISABLED</span></span></div>
+            <div class="rt-row"><span class="rt-label">Command Queue</span><span class="rt-value"><span class="pill lock">DISABLED</span></span></div>
+          </div>
+          <div class="vps-card-note">VPS execution fields are populated from runtime-summary when available.</div>
+        </article>
+
+      </div><!-- /.grid -->
     </main>
 
     <footer>
-      <span id="updatedAt">Waiting for first refresh...</span>
+      <div class="footer-left">
+        <span class="dot" id="footerDot"></span>
+        <span id="updatedAt">Connecting…</span>
+      </div>
+      <span>AURIX · Read-Only Dashboard · No execution capability</span>
     </footer>
+
     <script src="/dashboard/static/app.js"></script>
   </body>
 </html>
