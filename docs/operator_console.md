@@ -16,6 +16,7 @@ It combines the main system health signals into one place:
 - Open commands
 - Latest execution results
 - Latest research parameter sweep summary
+- Latest evidence gate report
 - Safety status
 
 ## API
@@ -43,6 +44,7 @@ journal
 ai_review
 backtest
 research
+evidence
 commands
 execution
 safety
@@ -69,6 +71,9 @@ backtest_trade_count
 backtest_expectancy_r
 research_best_expectancy_r
 research_warning_count
+evidence_status
+evidence_live_ready
+evidence_blocking_reasons_count
 warnings
 ```
 

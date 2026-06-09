@@ -15,6 +15,7 @@ Part 12 adds deterministic paper trade and strategy signal journaling.
 Part 13 adds a safe offline-first AI-style review layer using local templates by default.
 Part 14 adds an offline backtest/replay engine for recorded M1 candles.
 Part 15 adds local backtest diagnostics and parameter sweeps over recorded candles.
+Part 16 adds a deterministic evidence gate that can only return paper-only readiness while live readiness is disabled by config.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -357,6 +358,18 @@ Export research CSV:
 python3 scripts/export_research_csv.py
 ```
 
+Check evidence status:
+
+```bash
+python3 scripts/check_evidence.py
+```
+
+Evaluate evidence gate:
+
+```bash
+python3 scripts/evaluate_evidence_gate.py
+```
+
 ## API Endpoints
 
 ```text
@@ -405,6 +418,8 @@ GET  /backtest/report
 GET  /backtest/trades
 GET  /research/status
 GET  /research/latest
+GET  /evidence/status
+GET  /evidence/latest
 
 POST /commands/open-market
 POST /commands/close-position
@@ -435,6 +450,8 @@ POST /backtest/run
 POST /backtest/reset
 POST /research/run-sweep
 POST /research/reset
+POST /evidence/evaluate
+POST /evidence/reset
 ```
 
 ## Safety
@@ -453,6 +470,7 @@ POST /research/reset
 - The Part 13 AI review layer uses local templates by default and does not call external AI APIs.
 - The Part 14 backtest engine is replay-only and does not queue commands.
 - The Part 15 research sweep is backtest-only and does not queue commands or mutate strategy config.
+- The Part 16 evidence gate is readiness-only, does not queue commands, and cannot return `live_ready=true` while `allow_live_readiness=false`.
 
 ## Part 2: Risk Governor
 
@@ -761,6 +779,26 @@ More detail:
 docs/backtest_research_parameter_sweep.md
 ```
 
+## Part 16: Evidence Gate / Live Readiness Guard
+
+Evidence gate settings live in:
+
+```text
+config/evidence_gate.yaml
+```
+
+Evaluate:
+
+```bash
+python3 scripts/evaluate_evidence_gate.py
+```
+
+More detail:
+
+```text
+docs/evidence_gate.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -803,4 +841,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 16 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, and research sweeps are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 17 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, and evidence gating are stable. Do not enable live trading until every layer has been reviewed and tested.

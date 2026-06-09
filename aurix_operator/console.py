@@ -26,6 +26,7 @@ def build_operator_status(
     ai_review_status: dict[str, Any] | None = None,
     backtest_status: dict[str, Any] | None = None,
     research_status: dict[str, Any] | None = None,
+    evidence_status: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -92,6 +93,7 @@ def build_operator_status(
         ai_review=ai_review_status or {},
         backtest=backtest_status or {},
         research=research_status or {},
+        evidence=evidence_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -118,6 +120,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     research = as_dict(status.research)
     research_latest = as_dict(research.get("latest"))
     research_best_expectancy = as_dict(research_latest.get("best_by_expectancy"))
+    evidence = as_dict(status.evidence)
+    evidence_latest = as_dict(evidence.get("latest"))
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -157,5 +161,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         backtest_expectancy_r=float(backtest_latest.get("expectancy_r") or 0.0),
         research_best_expectancy_r=float(research_best_expectancy.get("expectancy_r") or 0.0),
         research_warning_count=int(research.get("warning_count") or 0),
+        evidence_status=evidence_latest.get("status"),
+        evidence_live_ready=bool(evidence_latest.get("live_ready")),
+        evidence_blocking_reasons_count=len(evidence_latest.get("blocking_reasons") or []),
         warnings=warnings,
     )

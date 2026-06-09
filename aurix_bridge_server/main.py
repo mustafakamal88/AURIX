@@ -15,6 +15,7 @@ from aurix_analytics import PaperPerformanceStore, generate_paper_performance_re
 from aurix_analytics.performance import summary_from_report
 from aurix_backtest import BacktestReplayEngine, BacktestStore, load_backtest_config
 from aurix_context_engine import ContextEngine, load_context_config
+from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
@@ -72,6 +73,8 @@ backtest_store = BacktestStore(DATA_DIR, backtest_config)
 backtest_engine = BacktestReplayEngine(backtest_config)
 research_config = load_research_config()
 research_store = ResearchStore(DATA_DIR, research_config)
+evidence_gate_config = load_evidence_gate_config()
+evidence_gate_store = EvidenceGateStore(DATA_DIR, evidence_gate_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -104,6 +107,7 @@ def root() -> dict[str, Any]:
         "ai_review_status": "/ai-review/status",
         "backtest_status": "/backtest/status",
         "research_status": "/research/status",
+        "evidence_status": "/evidence/status",
     }
 
 
@@ -734,7 +738,34 @@ def research_reset() -> dict[str, Any]:
     return {"ok": True, "results": 0}
 
 
-def operator_status_payload() -> dict[str, Any]:
+@app.get("/evidence/status")
+def evidence_status() -> dict[str, Any]:
+    return evidence_gate_store.status()
+
+
+@app.get("/evidence/latest")
+def evidence_latest() -> dict[str, Any]:
+    latest = evidence_gate_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No evidence gate report yet.")
+    return latest.model_dump()
+
+
+@app.post("/evidence/evaluate")
+def evidence_evaluate() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=False)
+    summary = build_operator_summary(status).model_dump()
+    report = evidence_gate_store.evaluate(evidence_gate_store.read_inputs(status.model_dump(), summary))
+    return report.model_dump()
+
+
+@app.post("/evidence/reset")
+def evidence_reset() -> dict[str, Any]:
+    evidence_gate_store.reset()
+    return {"ok": True, "report": None}
+
+
+def _build_operator_status(*, include_evidence: bool) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
         terminal_id=DEFAULT_TERMINAL_ID,
@@ -751,7 +782,12 @@ def operator_status_payload() -> dict[str, Any]:
         ai_review_status=ai_review_status(),
         backtest_status=backtest_status(),
         research_status=research_status(),
-    ).model_dump()
+        evidence_status=evidence_status() if include_evidence else {},
+    )
+
+
+def operator_status_payload() -> dict[str, Any]:
+    return _build_operator_status(include_evidence=True).model_dump()
 
 
 @app.get("/operator/status")
@@ -761,23 +797,7 @@ def operator_status() -> dict[str, Any]:
 
 @app.get("/operator/summary")
 def operator_summary() -> dict[str, Any]:
-    status = build_operator_status(
-        service="aurix-mac-wine-bridge",
-        terminal_id=DEFAULT_TERMINAL_ID,
-        store=store,
-        market_recorder=market_recorder,
-        market_config=market_config,
-        context_engine=context_engine,
-        risk_status=risk_status(),
-        strategy_status=strategy_status(),
-        paper_status=paper_status(),
-        supervisor_status=supervisor_status(),
-        analytics_summary=paper_analytics_summary(),
-        journal_status=journal_status(),
-        ai_review_status=ai_review_status(),
-        backtest_status=backtest_status(),
-        research_status=research_status(),
-    )
+    status = _build_operator_status(include_evidence=True)
     return build_operator_summary(status).model_dump()
 
 

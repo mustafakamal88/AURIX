@@ -1,0 +1,15 @@
+enabled: true
+symbol: "XAUUSDm"
+minimum_closed_paper_trades: 50
+minimum_backtest_trades: 50
+minimum_recorded_candles: 1000
+minimum_profitable_sessions: 3
+minimum_expectancy_r: 0.10
+minimum_profit_factor: 1.20
+maximum_consecutive_losses: 5
+minimum_days_forward_tested: 10
+require_operator_ok: true
+require_market_quality_ok: true
+require_no_open_commands: true
+require_live_trading_disabled: true
+allow_live_readiness: false

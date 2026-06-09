@@ -40,6 +40,8 @@ def main() -> int:
     research = status.get("research") or {}
     research_latest = research.get("latest") or {}
     research_best_expectancy = research_latest.get("best_by_expectancy") or {}
+    evidence = status.get("evidence") or {}
+    evidence_latest = evidence.get("latest") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -72,6 +74,12 @@ def main() -> int:
         f"variants={research_latest.get('total_variants')} "
         f"best_expectancy_r={research_best_expectancy.get('expectancy_r')} "
         f"warnings={research.get('warning_count')}"
+    )
+    print(
+        "evidence: "
+        f"status={evidence_latest.get('status')} "
+        f"live_ready={evidence_latest.get('live_ready')} "
+        f"blocks={len(evidence_latest.get('blocking_reasons') or [])}"
     )
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")

@@ -54,6 +54,9 @@ def main() -> int:
                         f"backtest_exp_r={summary.get('backtest_expectancy_r')}",
                         f"research_best_exp_r={summary.get('research_best_expectancy_r')}",
                         f"research_warnings={summary.get('research_warning_count')}",
+                        f"evidence_status={summary.get('evidence_status')}",
+                        f"evidence_live_ready={summary.get('evidence_live_ready')}",
+                        f"evidence_blocks={summary.get('evidence_blocking_reasons_count')}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )
