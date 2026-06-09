@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -59,6 +59,7 @@ class DemoCommandPreview(BaseModel):
     correlation_id: Optional[str] = None
     causation_id: Optional[str] = None
     safety: DemoCommandQueueSafety = Field(default_factory=DemoCommandQueueSafety)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class DemoCommandValidationResult(BaseModel):
@@ -93,6 +94,7 @@ class DemoMt5CommandPayload(BaseModel):
     correlation_id: Optional[str] = None
     causation_id: Optional[str] = None
     safety: DemoCommandQueueSafety = Field(default_factory=DemoCommandQueueSafety)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class DemoCommandAuditRecord(BaseModel):

@@ -49,6 +49,11 @@ def main() -> int:
         "command_queueing_allowed": bool(value(summary, "safety", "demo_command_queueing_allowed") or value(summary, "safety", "mt5_command_queueing_allowed")),
         "top_block": (summary.get("top_blocks") or [None])[0],
         "top_warning": (summary.get("top_warnings") or [None])[0],
+        "runtime_session_id": value(summary, "runtime_provenance", "runtime_session_id"),
+        "paper_trades_this_session": value(summary, "runtime_provenance", "session_counters", "paper_trades"),
+        "commands_this_session": value(summary, "runtime_provenance", "session_counters", "commands"),
+        "evidence_integrity_status": value(summary, "evidence_integrity", "status"),
+        "session_overall_safe": value(summary, "runtime_provenance", "safety_assertion", "overall_safe"),
     }
     for key, item in lines.items():
         print(f"{key}: {item if item is not None else '--'}")

@@ -85,3 +85,33 @@ This part keeps the existing dashboard style simple and stable. The goal is back
 Part 35 fixes the runtime status persistence race observed when several read-only dashboard and operator endpoints are polled concurrently. Stores no longer share fixed temp files such as `status.json.tmp`; JSON and JSONL rewrites use unique temp names and atomic replacement.
 
 The cockpit remains read-only. No trade, order, command queueing, live arming, broker execution, or EA setting permission is changed by this hardening.
+
+## Part 36 Runtime Provenance
+
+Part 36 adds runtime session identity and counter provenance to the cockpit. The dashboard now separates lifetime records from current server-session activity so cumulative historical values such as commands, paper trades, OMS requests, and execution results are not confused with actions created by the current run.
+
+The runtime summary includes:
+
+- `runtime_session_id`
+- process id
+- server start time
+- uptime
+- startup baseline counters
+- lifetime counters
+- current-session deltas
+- current-session safety assertion
+- latest provenance event
+
+The current-session safety assertion reports whether this server run created a paper trade, order request, OMS request, MT5 command, broker order, broker modification, broker close, or EA setting change. In the current read-only/advisory runtime, `overall_safe` should remain `true`.
+
+## Part 36 Evidence Integrity
+
+Part 36 also adds:
+
+```text
+GET /evidence-integrity/status
+```
+
+The endpoint checks whether core evidence files are readable, whether corrupt JSON files exist in the data tree, whether stale atomic temp files remain after Part 35, and whether basic evidence counts are internally sane.
+
+The dashboard shows this in the Evidence Integrity card. This is an observability layer only; it does not execute trades, create paper trades, queue MT5 commands, create order requests, modify broker state, or change EA settings.

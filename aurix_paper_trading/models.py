@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -32,3 +32,4 @@ class PaperTrade(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     snapshot_opened_at: Optional[str] = None
     snapshot_closed_at: Optional[str] = None
+    provenance: dict[str, Any] = Field(default_factory=dict)

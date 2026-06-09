@@ -36,6 +36,8 @@ class OperatorStatus(BaseModel):
     broker_reconciliation: dict[str, Any] = Field(default_factory=dict)
     demo_command_queue: dict[str, Any] = Field(default_factory=dict)
     decision_engine: dict[str, Any] = Field(default_factory=dict)
+    runtime_provenance: dict[str, Any] = Field(default_factory=dict)
+    evidence_integrity: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -137,4 +139,9 @@ class OperatorSummary(BaseModel):
     decision_engine_blocking_reason_count: int = 0
     decision_engine_warning_count: int = 0
     autonomy_level: Optional[str] = None
+    runtime_session_id: Optional[str] = None
+    runtime_started_at: Optional[str] = None
+    runtime_uptime_seconds: Optional[float] = None
+    runtime_session_safe: bool = True
+    evidence_integrity_status: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)

@@ -66,10 +66,16 @@ function render(summary) {
   const evidenceGrowth = summary.evidence_growth || {};
   const signalCertification = summary.signal_certification || {};
   const paperRiskAudit = summary.paper_risk_audit || {};
+  const provenance = summary.runtime_provenance || {};
+  const lifetime = provenance.lifetime_counters || {};
+  const sessionCounters = provenance.session_counters || {};
+  const assertion = provenance.safety_assertion || {};
+  const evidenceIntegrity = summary.evidence_integrity || {};
 
   text("service", "aurix-mac-wine-bridge");
   text("mode", decision.mode || queue.mode || demoOms.mode);
   text("symbol", summary.symbol || market.symbol);
+  text("marketSymbol", summary.symbol || market.symbol);
   text("health", summary.health);
   text("liveTrading", safety.live_execution_allowed ? "ENABLED" : "DISABLED");
   text("paperOnly", boolText(!safety.real_account_execution_allowed));
@@ -162,7 +168,34 @@ function render(summary) {
   text("safetyMt5Commands", boolText(safety.mt5_commands_queued));
   text("safetyPaperTrade", boolText(safety.paper_trade_created));
   text("safetyOrderRequest", boolText(safety.order_request_creation_allowed));
+  text("sessionCreatedPaperTrade", boolText(assertion.created_paper_trade));
+  text("sessionCreatedOrderRequest", boolText(assertion.created_order_request));
+  text("sessionQueuedMt5Command", boolText(assertion.queued_mt5_command));
+  text("sessionCreatedBrokerOrder", boolText(assertion.created_broker_order));
+  text("sessionOverallSafe", boolText(assertion.overall_safe));
   text("safetyReadOnly", boolText(safety.read_only_dashboard));
+
+  text("runtimeSessionId", provenance.runtime_session_id);
+  text("runtimeStartedAt", provenance.started_at);
+  text("runtimeUptime", provenance.uptime_seconds === undefined || provenance.uptime_seconds === null ? "--" : `${Math.round(Number(provenance.uptime_seconds))}s`);
+  text("lifetimePaperTrades", lifetime.paper_trades);
+  text("sessionPaperTrades", sessionCounters.paper_trades);
+  text("lifetimeCommands", lifetime.commands);
+  text("sessionCommands", sessionCounters.commands);
+  text("lifetimeOmsRequests", lifetime.oms_requests);
+  text("sessionOmsRequests", sessionCounters.oms_requests);
+  text("runtimeSafetyAssertion", boolText(assertion.overall_safe));
+  text("latestProvenanceEvent", provenance.latest_provenance_event?.component || provenance.latest_provenance_event?.runtime_session_id);
+
+  text("evidenceIntegrityStatus", evidenceIntegrity.status);
+  text("evidencePaperLedger", evidenceIntegrity.paper_ledger?.status);
+  text("evidenceJournalLedger", evidenceIntegrity.journal_ledger?.status);
+  text("evidenceMonitorIntegrity", evidenceIntegrity.evidence_monitor?.status);
+  text("evidenceLiveReadiness", evidenceIntegrity.live_readiness?.status);
+  text("evidenceSignalCertification", evidenceIntegrity.signal_certification?.status);
+  text("evidenceStaleTempFiles", evidenceIntegrity.stale_temp_file_count);
+  text("evidenceCorruptJsonFiles", evidenceIntegrity.corrupt_json_file_count);
+  text("evidenceIntegrityNotes", joinItems(evidenceIntegrity.notes || []));
 
   text("whyPrimary", summary.top_blocks?.[0]);
   text("whySecondary", joinItems((summary.top_blocks || []).slice(1)));

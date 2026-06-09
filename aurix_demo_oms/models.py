@@ -65,6 +65,7 @@ class OmsOrderIntent(BaseModel):
     rejection_reasons: list[OmsRejectionReason] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     safety: DemoOmsSafety = Field(default_factory=DemoOmsSafety)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class OmsValidationResult(BaseModel):
@@ -102,6 +103,7 @@ class OmsOrderRequest(BaseModel):
     correlation_id: Optional[str] = None
     causation_id: Optional[str] = None
     safety: DemoOmsSafety = Field(default_factory=DemoOmsSafety)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class OmsExecutionPlan(BaseModel):

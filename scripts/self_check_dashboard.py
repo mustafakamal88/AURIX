@@ -38,6 +38,8 @@ def main() -> int:
         DASHBOARD / "styles.css",
         DASHBOARD / "app.js",
         ROOT / "scripts" / "stress_runtime_status_endpoints.py",
+        ROOT / "scripts" / "check_runtime_provenance.py",
+        ROOT / "scripts" / "check_evidence_integrity.py",
     ]
     for file in files:
         require(file.exists(), f"missing dashboard file: {file}")
@@ -61,7 +63,7 @@ def main() -> int:
     require("read-only" in combined.lower(), "dashboard should identify itself as read-only")
     require("Runtime summary failed" in app_js, "dashboard should handle missing data gracefully")
     stress = (ROOT / "scripts" / "stress_runtime_status_endpoints.py").read_text(encoding="utf-8")
-    for endpoint in ["/event-bus/status", "/operator/status", "/operator/summary", "/dashboard/runtime-summary", "/demo-command-queue/status"]:
+    for endpoint in ["/event-bus/status", "/operator/status", "/operator/summary", "/dashboard/runtime-summary", "/evidence-integrity/status", "/demo-command-queue/status"]:
         require(endpoint in stress, f"stress script missing endpoint: {endpoint}")
     require("ThreadPoolExecutor" in stress, "stress script should call endpoints concurrently")
 
@@ -80,6 +82,12 @@ def main() -> int:
         "safetyMt5Commands",
         "whyPrimary",
         "whyNext",
+        "runtimeSessionId",
+        "sessionPaperTrades",
+        "sessionCommands",
+        "runtimeSafetyAssertion",
+        "evidenceIntegrityStatus",
+        "evidenceCorruptJsonFiles",
     ]
     for field in required_fields:
         require(f'id="{field}"' in index or f"text(\"{field}\"" in app_js, f"missing dashboard field: {field}")
@@ -91,6 +99,7 @@ def main() -> int:
     require("/dashboard" in routes, "FastAPI /dashboard route missing")
     require("/dashboard/" in routes, "FastAPI /dashboard/ route missing")
     require("/dashboard/runtime-summary" in routes, "runtime summary endpoint missing")
+    require("/evidence-integrity/status" in routes, "evidence integrity endpoint missing")
 
     from aurix_dashboard_runtime import build_runtime_dashboard_summary
 
@@ -103,6 +112,10 @@ def main() -> int:
     require(safety["broker_order_created"] is False, "broker orders must not be created")
     require(safety["broker_order_modified"] is False, "broker orders must not be modified")
     require(safety["broker_order_closed"] is False, "broker orders must not be closed")
+    require(summary.get("runtime_provenance"), "runtime summary missing runtime provenance")
+    require(summary.get("evidence_integrity"), "runtime summary missing evidence integrity")
+    assertion = summary["runtime_provenance"].get("safety_assertion") or {}
+    require(assertion.get("overall_safe") is True, "runtime provenance safety assertion is not safe")
 
     print("OK: dashboard self-checks passed.")
     return 0

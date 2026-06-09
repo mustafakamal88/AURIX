@@ -46,6 +46,7 @@ class Command(BaseModel):
     dispatch_count: int = 0
     last_error: Optional[str] = None
     execution_result_id: Optional[str] = None
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class Snapshot(BaseModel):
@@ -75,3 +76,4 @@ class ExecutionResult(BaseModel):
     price: Optional[float] = None
     received_at: str = Field(default_factory=utc_now_iso)
     raw: dict[str, Any] = Field(default_factory=dict)
+    provenance: dict[str, Any] = Field(default_factory=dict)

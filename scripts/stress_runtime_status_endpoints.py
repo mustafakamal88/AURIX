@@ -20,6 +20,7 @@ ENDPOINTS = [
     "/operator/status",
     "/operator/summary",
     "/dashboard/runtime-summary",
+    "/evidence-integrity/status",
     "/demo-command-queue/status",
     "/strategy-agents/status",
     "/broker-reconciliation/status",
@@ -50,6 +51,15 @@ def main() -> int:
             endpoint, status, error = future.result()
             if status >= 500 or status == 0:
                 failures.append((endpoint, status, error))
+            elif endpoint == "/dashboard/runtime-summary":
+                try:
+                    summary = get_summary_for_validation()
+                    if not (summary.get("runtime_provenance") or {}).get("runtime_session_id"):
+                        failures.append((endpoint, status, "runtime provenance missing"))
+                    if not summary.get("evidence_integrity"):
+                        failures.append((endpoint, status, "evidence integrity missing"))
+                except Exception as exc:
+                    failures.append((endpoint, status, str(exc)))
 
     print(f"base_url: {BASE_URL}")
     print(f"iterations: {ITERATIONS}")
@@ -62,6 +72,12 @@ def main() -> int:
         return 1
     print("OK: runtime status endpoint stress test passed.")
     return 0
+
+
+def get_summary_for_validation() -> dict:
+    request = Request(f"{BASE_URL}/dashboard/runtime-summary", method="GET")
+    with urlopen(request, timeout=10) as response:
+        return json.loads(response.read().decode("utf-8"))
 
 
 if __name__ == "__main__":

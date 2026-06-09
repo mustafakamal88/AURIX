@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aurix_common import legacy_runtime_provenance
+
+from .evidence_integrity import build_evidence_integrity_status
 from .models import AurixRuntimeDashboardSummary, RuntimeDashboardSafety
 from .store import RuntimeDashboardStore
 
@@ -117,7 +120,12 @@ def _health(decision: dict[str, Any], event_bus: dict[str, Any], snapshot: dict[
     return "HEALTHY"
 
 
-def build_runtime_dashboard_summary(data_dir: str | Path = "data") -> AurixRuntimeDashboardSummary:
+def build_runtime_dashboard_summary(
+    data_dir: str | Path = "data",
+    *,
+    runtime_provenance: dict[str, Any] | None = None,
+    evidence_integrity: dict[str, Any] | None = None,
+) -> AurixRuntimeDashboardSummary:
     store = RuntimeDashboardStore(data_dir)
     snapshot = store.latest_snapshot()
     account_raw = _dict(_dict(snapshot).get("account"))
@@ -172,7 +180,13 @@ def build_runtime_dashboard_summary(data_dir: str | Path = "data") -> AurixRunti
     latest_request = _dict(demo_oms_requests[-1]) if demo_oms_requests else {}
     latest_decision_event = next((event for event in reversed(recent_events) if event.get("event_type") == "AURIX_DECISION_EVENT"), None)
     safety = RuntimeDashboardSafety()
+    runtime_provenance = runtime_provenance or legacy_runtime_provenance(data_dir, mode=str(decision.get("mode") or "UNKNOWN"), symbol=str(market.get("symbol") or "XAUUSDm"))
+    evidence_integrity = evidence_integrity or build_evidence_integrity_status(data_dir)
     health = _health(decision, event_bus_status, snapshot, warnings)
+    if evidence_integrity.get("status") == "ERROR":
+        health = "ERROR"
+    elif evidence_integrity.get("status") == "WARNING" and health == "HEALTHY":
+        health = "WARNING"
     primary = blocks[0] if blocks else None
     next_action = "Wait for spread to normalize and a valid Fast RSI signal." if primary else "Continue monitoring; no dashboard action is available."
 
@@ -235,6 +249,8 @@ def build_runtime_dashboard_summary(data_dir: str | Path = "data") -> AurixRunti
         evidence_growth=evidence_growth,
         signal_certification=signal_cert,
         paper_risk_audit=_dict(paper_risk[-1]) if paper_risk else {},
+        runtime_provenance=runtime_provenance,
+        evidence_integrity=evidence_integrity,
         safety=safety,
         health=health,
         top_blocks=blocks[:5],

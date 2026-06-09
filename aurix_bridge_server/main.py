@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from aurix_common import RuntimeSession
 from aurix_ai_review import AIReviewStore, AIReviewTemplateReviewer, load_ai_review_config
 from aurix_analytics import PaperPerformanceStore, generate_paper_performance_report
 from aurix_analytics.performance import summary_from_report
@@ -25,6 +26,7 @@ from aurix_demo_command_queue import DemoCommandQueueAdapter, load_demo_command_
 from aurix_demo_oms import DemoOms, load_demo_oms_config
 from aurix_decision_engine import AurixDecisionEngine, load_decision_engine_config
 from aurix_dashboard_runtime import build_runtime_dashboard_summary
+from aurix_dashboard_runtime.evidence_integrity import build_evidence_integrity_status
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_event_bus import AurixEventBus, EVENT_TYPES, collect_observation_events, load_event_bus_config
@@ -164,6 +166,27 @@ decision_engine = AurixDecisionEngine(
     demo_command_queue_store=demo_command_queue.store,
     risk_status_provider=lambda: risk_status(),
 )
+runtime_session = RuntimeSession(
+    data_dir=DATA_DIR,
+    mode=decision_engine_config.mode,
+    symbol=decision_engine_config.symbol,
+)
+
+
+def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
+    return {
+        "runtime_session_id": runtime_session.runtime_session_id,
+        "component": component,
+        "created_at": utc_now_iso(),
+        "source_module": source,
+        "safety_mode": runtime_session.mode,
+        "live_enabled": False,
+        "command_queue_enabled": False,
+    }
+
+
+demo_oms.provenance_provider = runtime_provenance_metadata
+demo_command_queue.provenance_provider = runtime_provenance_metadata
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -216,6 +239,7 @@ def root() -> dict[str, Any]:
         "broker_reconciliation_status": "/broker-reconciliation/status",
         "demo_command_queue_status": "/demo-command-queue/status",
         "decision_engine_status": "/decision-engine/status",
+        "evidence_integrity_status": "/evidence-integrity/status",
     }
 
 
@@ -228,7 +252,11 @@ def dashboard() -> FileResponse:
 @app.get("/dashboard/runtime-summary")
 def dashboard_runtime_summary() -> dict[str, Any]:
     try:
-        return build_runtime_dashboard_summary(DATA_DIR).model_dump(mode="json")
+        return build_runtime_dashboard_summary(
+            DATA_DIR,
+            runtime_provenance=runtime_session.payload(),
+            evidence_integrity=evidence_integrity_payload(),
+        ).model_dump(mode="json")
     except Exception as exc:
         logger.exception("dashboard runtime summary degraded after unexpected runtime read failure")
         return {
@@ -248,6 +276,8 @@ def dashboard_runtime_summary() -> dict[str, Any]:
             "evidence_growth": {},
             "signal_certification": {},
             "paper_risk_audit": {},
+            "runtime_provenance": runtime_session.payload(),
+            "evidence_integrity": {"status": "ERROR", "notes": [str(exc)]},
             "safety": {
                 "read_only_dashboard": True,
                 "paper_trade_creation_allowed": False,
@@ -1026,6 +1056,7 @@ def paper_evaluate_signal() -> dict[str, Any]:
     )
     persist_paper_risk_result(signal, trade, result)
     if trade is not None:
+        trade.provenance = runtime_provenance_metadata("paper_trading", "aurix_bridge_server.main.paper_evaluate_signal")
         paper_ledger.add_trade(trade)
     return result
 
@@ -1044,6 +1075,7 @@ def paper_evaluate_paper_v1() -> dict[str, Any]:
     )
     persist_paper_risk_result(signal, trade, result)
     if trade is not None:
+        trade.provenance = runtime_provenance_metadata("paper_trading", "aurix_bridge_server.main.paper_evaluate_paper_v1")
         paper_ledger.add_trade(trade)
     return result
 
@@ -1062,6 +1094,7 @@ def paper_evaluate_paper_v2() -> dict[str, Any]:
     )
     persist_paper_risk_result(signal, trade, result)
     if trade is not None:
+        trade.provenance = runtime_provenance_metadata("paper_trading", "aurix_bridge_server.main.paper_evaluate_paper_v2")
         paper_ledger.add_trade(trade)
     return result
 
@@ -1781,6 +1814,8 @@ def _build_operator_status(
         broker_reconciliation_status=broker_reconciliation_status(),
         demo_command_queue_status=demo_command_queue_status(),
         decision_engine_status=decision_engine_status(),
+        runtime_provenance=runtime_session.payload(),
+        evidence_integrity_status=evidence_integrity_payload(),
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
@@ -1815,13 +1850,42 @@ def operator_status_payload() -> dict[str, Any]:
     return _build_operator_status(include_evidence=True).model_dump()
 
 
+def evidence_integrity_payload() -> dict[str, Any]:
+    try:
+        return build_evidence_integrity_status(DATA_DIR)
+    except Exception as exc:
+        logger.exception("evidence integrity status degraded after unexpected read failure")
+        return {
+            "generated_at": utc_now_iso(),
+            "status": "ERROR",
+            "paper_ledger": {"status": "ERROR", "note": str(exc)},
+            "journal_ledger": {"status": "ERROR", "note": str(exc)},
+            "evidence_monitor": {"status": "ERROR", "note": str(exc)},
+            "live_readiness": {"status": "ERROR", "note": str(exc)},
+            "signal_certification": {"status": "ERROR", "note": str(exc)},
+            "stale_temp_files": [],
+            "stale_temp_file_count": 0,
+            "corrupt_json_files": [],
+            "corrupt_json_file_count": 0,
+            "counts_consistent": False,
+            "notes": [str(exc)],
+            "safety": {
+                "read_only_check": True,
+                "paper_trade_created": False,
+                "order_request_created": False,
+                "mt5_command_queued": False,
+                "broker_order_created": False,
+            },
+        }
+
+
 @app.get("/operator/status")
 def operator_status() -> dict[str, Any]:
     try:
         return operator_status_payload()
     except Exception as exc:
         logger.exception("operator status degraded after unexpected runtime status failure")
-        summary = build_runtime_dashboard_summary(DATA_DIR).model_dump(mode="json")
+        summary = build_runtime_dashboard_summary(DATA_DIR, runtime_provenance=runtime_session.payload(), evidence_integrity=evidence_integrity_payload()).model_dump(mode="json")
         return {"degraded": True, "error": str(exc), "runtime_summary": summary, "safety": summary.get("safety", {})}
 
 
@@ -1832,7 +1896,7 @@ def operator_summary() -> dict[str, Any]:
         return build_operator_summary(status).model_dump()
     except Exception as exc:
         logger.exception("operator summary degraded after unexpected runtime status failure")
-        summary = build_runtime_dashboard_summary(DATA_DIR).model_dump(mode="json")
+        summary = build_runtime_dashboard_summary(DATA_DIR, runtime_provenance=runtime_session.payload(), evidence_integrity=evidence_integrity_payload()).model_dump(mode="json")
         return {
             "degraded": True,
             "error": str(exc),
@@ -1843,6 +1907,11 @@ def operator_summary() -> dict[str, Any]:
             "blocking_reasons": summary.get("top_blocks", []),
             "safety": summary.get("safety", {}),
         }
+
+
+@app.get("/evidence-integrity/status")
+def evidence_integrity_status() -> dict[str, Any]:
+    return evidence_integrity_payload()
 
 
 @app.get("/live-readiness/status")
@@ -1966,6 +2035,7 @@ def open_market(req: OpenMarketRequest) -> Command:
         tp=req.tp,
         comment=req.comment,
         live_confirm=req.live_confirm,
+        provenance=runtime_provenance_metadata("bridge_command", "aurix_bridge_server.main.open_market"),
     )
 
     decision = risk_governor.evaluate_open_market(
@@ -1991,6 +2061,7 @@ def close_position(req: ClosePositionRequest) -> Command:
         volume=req.volume,
         comment=req.comment,
         live_confirm=req.live_confirm,
+        provenance=runtime_provenance_metadata("bridge_command", "aurix_bridge_server.main.close_position"),
     )
     return store.add_command(cmd)
 
@@ -2002,6 +2073,7 @@ def kill_switch(terminal_id: str = DEFAULT_TERMINAL_ID, live_confirm: Optional[s
         terminal_id=terminal_id,
         comment="AURIX-KILL",
         live_confirm=live_confirm,
+        provenance=runtime_provenance_metadata("bridge_command", "aurix_bridge_server.main.kill_switch"),
     )
     return store.add_command(cmd)
 

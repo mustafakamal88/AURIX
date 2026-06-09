@@ -41,6 +41,8 @@ def build_operator_status(
     broker_reconciliation_status: dict[str, Any] | None = None,
     demo_command_queue_status: dict[str, Any] | None = None,
     decision_engine_status: dict[str, Any] | None = None,
+    runtime_provenance: dict[str, Any] | None = None,
+    evidence_integrity_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -126,6 +128,8 @@ def build_operator_status(
         broker_reconciliation=broker_reconciliation_status or {},
         demo_command_queue=demo_command_queue_status or {},
         decision_engine=decision_engine_status or {},
+        runtime_provenance=runtime_provenance or {},
+        evidence_integrity=evidence_integrity_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -177,6 +181,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     broker_reconciliation = as_dict(status.broker_reconciliation)
     demo_command_queue = as_dict(status.demo_command_queue)
     decision_engine = as_dict(status.decision_engine)
+    runtime_provenance = as_dict(status.runtime_provenance)
+    runtime_safety = as_dict(runtime_provenance.get("safety_assertion"))
+    evidence_integrity = as_dict(status.evidence_integrity)
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -197,6 +204,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         warnings.append("supervisor command queueing is enabled")
     if status.safety.get("strategy_command_id_present"):
         warnings.append("latest strategy signal has command_id")
+    if runtime_safety.get("overall_safe") is False:
+        warnings.append("current runtime session created trade/order/command activity")
+    if evidence_integrity.get("status") in {"WARNING", "ERROR"}:
+        warnings.append(f"evidence integrity {evidence_integrity.get('status')}")
 
     return OperatorSummary(
         ok=len(warnings) == 0,
@@ -294,5 +305,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         decision_engine_blocking_reason_count=int(decision_engine.get("blocking_reason_count") or 0),
         decision_engine_warning_count=int(decision_engine.get("warning_count") or 0),
         autonomy_level=decision_engine.get("autonomy_level"),
+        runtime_session_id=runtime_provenance.get("runtime_session_id"),
+        runtime_started_at=runtime_provenance.get("started_at"),
+        runtime_uptime_seconds=runtime_provenance.get("uptime_seconds"),
+        runtime_session_safe=runtime_safety.get("overall_safe") is not False,
+        evidence_integrity_status=evidence_integrity.get("status"),
         warnings=warnings,
     )

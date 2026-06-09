@@ -35,6 +35,7 @@ Part 32 adds the dormant demo command queue adapter.
 Part 33 adds the AURIX decision engine and autonomy controller.
 Part 34 adds an advanced read-only XAUUSD runtime control dashboard.
 Part 35 hardens runtime persistence so concurrent status/dashboard polling cannot collide on fixed JSON temp files.
+Part 36 adds runtime provenance, current-session counters, and evidence integrity checks.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -198,6 +199,30 @@ python3 scripts/stress_runtime_status_endpoints.py
 ```
 
 This hardening only improves backend persistence stability. It does not enable live trading, demo command queueing, broker order creation, MT5 command queueing, paper trade creation, order request creation, or EA setting changes.
+
+## Part 36 Runtime Provenance and Evidence Integrity
+
+Part 36 separates lifetime/cumulative records from activity created by the current server process. The server now exposes a runtime session id, process id, start time, uptime, startup baseline counters, lifetime counters, current-session deltas, and a safety assertion that answers whether this server run created any paper trade, order request, OMS request, MT5 command, or broker action.
+
+Check runtime provenance:
+
+```bash
+python3 scripts/check_runtime_provenance.py
+```
+
+Check evidence integrity:
+
+```bash
+python3 scripts/check_evidence_integrity.py
+```
+
+The evidence integrity endpoint is:
+
+```text
+GET /evidence-integrity/status
+```
+
+It checks core evidence files, stale atomic temp files, corrupt JSON files, and basic count consistency. This layer is observability only. The dashboard remains read-only, and no live trading, demo command queueing, broker order creation, MT5 command queueing, paper trade creation, order request creation, or EA setting permission is changed.
 
 List open commands:
 

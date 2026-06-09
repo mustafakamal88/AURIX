@@ -23,6 +23,7 @@ class DemoOms:
         self.store = DemoOmsStore(data_dir, self.config)
         self.event_bus = event_bus
         self.snapshot_provider = snapshot_provider
+        self.provenance_provider = lambda component, source: {}
 
     def get_demo_oms_status(self) -> dict[str, Any]:
         return self.store.status()
@@ -114,6 +115,7 @@ class DemoOms:
             causation_id=signal_event.get("event_id"),
             status=OmsOrderState.CREATED,
             safety=DemoOmsSafety(),
+            provenance=self.provenance_provider("demo_oms", "aurix_demo_oms.oms.create_order_intent"),
         )
         if self.config.require_strategy_signal_event and signal_event.get("event_type") != AurixEventType.SIGNAL_EVENT.value:
             intent.rejection_reasons.append(OmsRejectionReason(code="not_strategy_signal_event", message="OMS requires a SIGNAL_EVENT"))
@@ -170,6 +172,7 @@ class DemoOms:
             correlation_id=intent.correlation_id,
             causation_id=intent.id,
             safety=DemoOmsSafety(),
+            provenance=self.provenance_provider("demo_oms", "aurix_demo_oms.oms.create_order_request_dry_run"),
         )
         intent.status = OmsOrderState.DRY_RUN_READY if status == "DRY_RUN_ONLY" else OmsOrderState.BLOCKED
         self.store.update_intent(intent)

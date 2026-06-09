@@ -30,6 +30,7 @@ class DemoCommandQueueAdapter:
         self.snapshot_provider = snapshot_provider
         self.demo_oms_store = demo_oms_store or DemoOmsStore(data_dir)
         self.broker_reconciliation_store = broker_reconciliation_store or BrokerReconciliationStore(data_dir)
+        self.provenance_provider = lambda component, source: {}
 
     def get_demo_command_queue_status(self) -> dict[str, Any]:
         return self.store.status()
@@ -99,6 +100,7 @@ class DemoCommandQueueAdapter:
             ttl_seconds=self.config.command_ttl_seconds,
             correlation_id=request.get("correlation_id"),
             causation_id=request.get("id"),
+            provenance=self.provenance_provider("demo_command_queue", "aurix_demo_command_queue.adapter._build_preview"),
         )
 
     def validate_command_preview(self, preview: DemoCommandPreview, oms_request: dict[str, Any] | None = None):
@@ -128,6 +130,7 @@ class DemoCommandQueueAdapter:
             broker_order_id=None,
             correlation_id=preview.correlation_id,
             causation_id=preview.id,
+            provenance=self.provenance_provider("demo_command_queue", "aurix_demo_command_queue.adapter.build_mt5_command_payload"),
         )
 
     def dry_run_latest_oms_request(self) -> dict[str, Any]:
