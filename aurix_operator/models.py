@@ -28,6 +28,7 @@ class OperatorStatus(BaseModel):
     long_forward_test: dict[str, Any] = Field(default_factory=dict)
     live_readiness: dict[str, Any] = Field(default_factory=dict)
     evidence_growth: dict[str, Any] = Field(default_factory=dict)
+    signal_certification: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -79,6 +80,13 @@ class OperatorSummary(BaseModel):
     live_readiness_execution_allowed: bool = False
     evidence_growth_status: Optional[str] = None
     evidence_growth_overall_progress: float = 0.0
+    signal_certification_status: Optional[str] = None
+    signal_certification_trade_id: Optional[str] = None
+    signal_certification_strategy: Optional[str] = None
+    signal_certification_direction: Optional[str] = None
+    signal_certification_trade_status: Optional[str] = None
+    signal_certification_warning_count: int = 0
+    signal_certification_failed_count: int = 0
     v2_signal_status: Optional[str] = None
     backtest_v2_trade_count: int = 0
     backtest_v2_expectancy_r: float = 0.0

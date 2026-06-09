@@ -1,0 +1,17 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "CERTIFICATION_ONLY"
+certify_latest_open_trade: true
+certify_latest_closed_trade: true
+certify_latest_signal: true
+require_command_id_null_for_paper: true
+require_no_mt5_command_for_paper: true
+require_paper_mode: true
+require_live_execution_disabled: true
+require_live_arming_disabled: true
+require_ea_live_trading_disabled_now: true
+allow_live_arming: false
+allow_live_execution: false
+allow_command_queueing: false
+write_history: true
+history_limit: 500

@@ -32,6 +32,7 @@ from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trad
 from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
+from aurix_signal_certifier import SignalCertifierStore, load_signal_certifier_config
 from aurix_supervisor import PaperSupervisor, load_supervisor_config
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
 from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load_xauusd_paper_v1_config
@@ -104,6 +105,8 @@ live_readiness_config = load_live_readiness_config()
 live_readiness_store = LiveReadinessStore(DATA_DIR, live_readiness_config)
 evidence_monitor_config = load_evidence_monitor_config()
 evidence_monitor_store = EvidenceMonitorStore(DATA_DIR, evidence_monitor_config)
+signal_certifier_config = load_signal_certifier_config()
+signal_certifier_store = SignalCertifierStore(DATA_DIR, signal_certifier_config)
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -148,6 +151,7 @@ def root() -> dict[str, Any]:
         "long_forward_test_status": "/long-forward-test/status",
         "live_readiness_status": "/live-readiness/status",
         "evidence_monitor_status": "/evidence-monitor/status",
+        "signal_certifier_status": "/signal-certifier/status",
     }
 
 
@@ -1253,6 +1257,7 @@ def _build_operator_status(
     include_long_forward_test: bool = True,
     include_live_readiness: bool = True,
     include_evidence_growth: bool = True,
+    include_signal_certification: bool = True,
 ) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -1277,6 +1282,7 @@ def _build_operator_status(
         long_forward_test_status=long_forward_test_status() if include_long_forward_test else {},
         live_readiness_status=live_readiness_status() if include_live_readiness else {},
         evidence_growth_status=evidence_monitor_status() if include_evidence_growth else {},
+        signal_certification_status=signal_certifier_status() if include_signal_certification else {},
         backtest_compare_v1_v2=build_backtest_compare(
             backtest_store.latest_report().model_dump() if backtest_store.latest_report() else None,
             backtest_v2_store.latest_report().model_dump() if backtest_v2_store.latest_report() else None,
@@ -1369,6 +1375,38 @@ def evidence_monitor_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, 
 @app.post("/evidence-monitor/reset")
 def evidence_monitor_reset() -> dict[str, Any]:
     evidence_monitor_store.reset()
+    return {"ok": True, "latest_exists": False, "history_count": 0}
+
+
+@app.get("/signal-certifier/status")
+def signal_certifier_status() -> dict[str, Any]:
+    return signal_certifier_store.status()
+
+
+@app.get("/signal-certifier/latest")
+def signal_certifier_latest() -> dict[str, Any]:
+    latest = signal_certifier_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No signal path certification report yet.")
+    return latest.model_dump()
+
+
+@app.post("/signal-certifier/certify")
+def signal_certifier_certify() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=True, include_signal_certification=False)
+    summary = build_operator_summary(status).model_dump()
+    report = signal_certifier_store.certify(signal_certifier_store.read_inputs(status.model_dump(), summary))
+    return report.model_dump()
+
+
+@app.get("/signal-certifier/history")
+def signal_certifier_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": signal_certifier_store.history(limit), "limit": limit, "safety": signal_certifier_store.status().get("safety")}
+
+
+@app.post("/signal-certifier/reset")
+def signal_certifier_reset() -> dict[str, Any]:
+    signal_certifier_store.reset()
     return {"ok": True, "latest_exists": False, "history_count": 0}
 
 

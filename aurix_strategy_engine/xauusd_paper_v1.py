@@ -54,6 +54,7 @@ def make_signal(
     take_profit_reference: Optional[float] = None,
     range_high: Optional[float] = None,
     range_low: Optional[float] = None,
+    decision_trace: Optional[dict[str, Any]] = None,
 ) -> StrategySignal:
     return StrategySignal(
         strategy_name=STRATEGY_NAME,
@@ -75,6 +76,7 @@ def make_signal(
         context_bias=context.get("directional_bias") if context else None,
         range_high=range_high,
         range_low=range_low,
+        decision_trace=decision_trace,
     )
 
 
@@ -147,6 +149,29 @@ def evaluate_xauusd_paper_v1(
 
     if config.allow_buy and previous_low < range_low and current_close > range_low and bullish:  # type: ignore[operator]
         entry = ask
+        decision_trace = build_decision_trace(
+            config=config,
+            snapshot=snapshot,
+            context=context,
+            direction="BUY",
+            previous=previous,
+            current=current,
+            range_high=range_high,
+            range_low=range_low,
+            spread_points=spread_points,
+            rule_name="range_low_sweep_reclaim_buy",
+            rule_checks={
+                "allow_buy": config.allow_buy,
+                "symbol_matched": symbol == config.symbol,
+                "session_allowed": not session or session in config.allowed_sessions,
+                "spread_ok": spread_points <= config.max_spread_points and regime != "HIGH_SPREAD",
+                "enough_candles": len(source_candles) >= config.min_candles,
+                "cooldown_ok": True,
+                "previous_low_lt_range_low": previous_low < range_low,
+                "current_close_gt_range_low": current_close > range_low,
+                "current_candle_bullish": bullish,
+            },
+        )
         return make_signal(
             config,
             snapshot,
@@ -160,10 +185,34 @@ def evaluate_xauusd_paper_v1(
             take_profit_reference=entry + take_profit_distance,  # type: ignore[operator]
             range_high=range_high,
             range_low=range_low,
+            decision_trace=decision_trace,
         )
 
     if config.allow_sell and previous_high > range_high and current_close < range_high and bearish:  # type: ignore[operator]
         entry = bid
+        decision_trace = build_decision_trace(
+            config=config,
+            snapshot=snapshot,
+            context=context,
+            direction="SELL",
+            previous=previous,
+            current=current,
+            range_high=range_high,
+            range_low=range_low,
+            spread_points=spread_points,
+            rule_name="range_high_sweep_reclaim_sell",
+            rule_checks={
+                "allow_sell": config.allow_sell,
+                "symbol_matched": symbol == config.symbol,
+                "session_allowed": not session or session in config.allowed_sessions,
+                "spread_ok": spread_points <= config.max_spread_points and regime != "HIGH_SPREAD",
+                "enough_candles": len(source_candles) >= config.min_candles,
+                "cooldown_ok": True,
+                "previous_high_gt_range_high": previous_high > range_high,
+                "current_close_lt_range_high": current_close < range_high,
+                "current_candle_bearish": bearish,
+            },
+        )
         return make_signal(
             config,
             snapshot,
@@ -177,6 +226,7 @@ def evaluate_xauusd_paper_v1(
             take_profit_reference=entry - take_profit_distance,  # type: ignore[operator]
             range_high=range_high,
             range_low=range_low,
+            decision_trace=decision_trace,
         )
 
     return make_signal(
@@ -193,3 +243,49 @@ def evaluate_xauusd_paper_v1(
 def in_paper_cooldown(config: XauusdPaperV1Config, previous_signals: list[dict[str, Any]]) -> bool:
     shim = type("CooldownConfig", (), {"symbol": config.symbol, "signal_cooldown_seconds": config.signal_cooldown_seconds})()
     return in_cooldown(shim, previous_signals)
+
+
+def build_decision_trace(
+    *,
+    config: XauusdPaperV1Config,
+    snapshot: dict[str, Any],
+    context: Optional[dict[str, Any]],
+    direction: str,
+    previous: dict[str, Any],
+    current: dict[str, Any],
+    range_high: float,
+    range_low: float,
+    spread_points: float,
+    rule_name: str,
+    rule_checks: dict[str, bool],
+) -> dict[str, Any]:
+    return {
+        "trace_version": "1.0",
+        "strategy": STRATEGY_NAME,
+        "strategy_version": STRATEGY_VERSION,
+        "created_at": snapshot.get("received_at"),
+        "snapshot_updated_at": snapshot.get("received_at"),
+        "symbol": config.symbol,
+        "direction": direction,
+        "session": context.get("session_name") if context else None,
+        "regime": context.get("regime") if context else None,
+        "bias": context.get("directional_bias") if context else None,
+        "range_high": range_high,
+        "range_low": range_low,
+        "spread_points": spread_points,
+        "max_spread_points": config.max_spread_points,
+        "previous_candle": candle_trace(previous),
+        "current_candle": candle_trace(current),
+        "rule_name": rule_name,
+        "rule_checks": rule_checks,
+    }
+
+
+def candle_trace(candle: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "time": candle.get("time"),
+        "open": candle.get("open"),
+        "high": candle.get("high"),
+        "low": candle.get("low"),
+        "close": candle.get("close"),
+    }

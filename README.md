@@ -24,6 +24,7 @@ Part 21 adds a read-only local dashboard/cockpit.
 Part 22 adds long forward-test mode for explicit, non-autostarting paper evidence collection.
 Part 23 adds a live execution readiness layer for deterministic manual-review assessment only.
 Part 24 adds an evidence growth monitor for tracking progress toward future manual readiness review.
+Part 25 adds signal path certification for proving paper signal pipeline integrity.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -471,6 +472,9 @@ GET  /live-readiness/manual-checklist
 GET  /evidence-monitor/status
 GET  /evidence-monitor/latest
 GET  /evidence-monitor/history
+GET  /signal-certifier/status
+GET  /signal-certifier/latest
+GET  /signal-certifier/history
 
 POST /commands/open-market
 POST /commands/close-position
@@ -524,6 +528,8 @@ POST /live-readiness/evaluate
 POST /live-readiness/reset
 POST /evidence-monitor/evaluate
 POST /evidence-monitor/reset
+POST /signal-certifier/certify
+POST /signal-certifier/reset
 ```
 
 ## Safety
@@ -550,6 +556,7 @@ POST /evidence-monitor/reset
 - The Part 22 long forward-test mode is paper-only, does not autostart on server boot, and does not queue commands.
 - The Part 23 live readiness layer is assessment-only, does not queue commands, does not change EA settings, and keeps arming/execution disabled by config.
 - The Part 24 evidence growth monitor is monitor-only, does not queue commands, and only feeds future manual readiness review.
+- The Part 25 signal path certifier is observability-only, does not queue commands, and does not place demo or live broker orders.
 
 ## Part 2: Risk Governor
 
@@ -1124,6 +1131,54 @@ More detail:
 
 ```text
 docs/evidence_growth_monitor.md
+```
+
+## Part 25: End-to-End Signal Path Certification
+
+Signal certifier settings live in:
+
+```text
+config/signal_certifier.yaml
+```
+
+Run the server:
+
+```bash
+python3 scripts/run_server.py
+```
+
+Check signal path certification:
+
+```bash
+python3 scripts/check_signal_path.py
+```
+
+Certify the latest configured paper trade/signal:
+
+```bash
+python3 scripts/certify_signal_path.py
+```
+
+Watch certification:
+
+```bash
+python3 scripts/watch_signal_path.py
+```
+
+Show certification history:
+
+```bash
+python3 scripts/show_signal_path_history.py
+```
+
+Signal path certification is observability only. It does not enable live trading, arm live trading, queue MT5 commands, place broker orders, modify EA settings, or change readiness/evidence configs. It only proves whether the paper signal path worked.
+
+New V1 paper signals include `decision_trace` with decision-time OHLC and rule checks for deterministic certification. Legacy signals from before Part 25.1 may lack that trace; the certifier treats missing legacy trace as an observability warning and skips V1 rule predicates instead of reconstructing from latest candles.
+
+More detail:
+
+```text
+docs/signal_path_certification.md
 ```
 
 ## Troubleshooting

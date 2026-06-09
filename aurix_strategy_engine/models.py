@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from typing import Literal, Optional
 from uuid import uuid4
 
@@ -46,3 +47,4 @@ class StrategySignal(BaseModel):
     context_bias: Optional[str] = None
     range_high: Optional[float] = None
     range_low: Optional[float] = None
+    decision_trace: Optional[dict[str, Any]] = None

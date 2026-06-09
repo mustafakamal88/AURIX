@@ -33,6 +33,7 @@ def build_operator_status(
     long_forward_test_status: dict[str, Any] | None = None,
     live_readiness_status: dict[str, Any] | None = None,
     evidence_growth_status: dict[str, Any] | None = None,
+    signal_certification_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
@@ -110,6 +111,7 @@ def build_operator_status(
         long_forward_test=long_forward_test_status or {},
         live_readiness=live_readiness_status or {},
         evidence_growth=evidence_growth_status or {},
+        signal_certification=signal_certification_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -148,6 +150,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     live_readiness_latest = as_dict(live_readiness.get("latest"))
     evidence_growth = as_dict(status.evidence_growth)
     evidence_growth_latest = as_dict(evidence_growth.get("latest"))
+    signal_certification = as_dict(status.signal_certification)
+    signal_certification_latest = as_dict(signal_certification.get("latest"))
     latest_v2_signal = as_dict(status.strategy.get("latest_signal_v2"))
     comparison = as_dict(as_dict(status.backtest).get("compare_v1_v2"))
     comparison_v2 = as_dict(comparison.get("v2"))
@@ -215,6 +219,13 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         live_readiness_execution_allowed=bool(live_readiness_latest.get("live_execution_allowed")),
         evidence_growth_status=evidence_growth_latest.get("status"),
         evidence_growth_overall_progress=float(evidence_growth_latest.get("overall_progress") or 0.0),
+        signal_certification_status=signal_certification_latest.get("status"),
+        signal_certification_trade_id=signal_certification_latest.get("certified_trade_id"),
+        signal_certification_strategy=signal_certification_latest.get("strategy"),
+        signal_certification_direction=signal_certification_latest.get("direction"),
+        signal_certification_trade_status=signal_certification_latest.get("trade_status"),
+        signal_certification_warning_count=len(signal_certification_latest.get("warnings") or []),
+        signal_certification_failed_count=len(signal_certification_latest.get("failed_checks") or []),
         v2_signal_status=latest_v2_signal.get("status"),
         backtest_v2_trade_count=int(comparison_v2.get("trades") or 0),
         backtest_v2_expectancy_r=float(comparison_v2.get("expectancy_r") or 0.0),

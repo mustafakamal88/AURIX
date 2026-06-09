@@ -15,7 +15,8 @@ const READ_ONLY_ENDPOINTS = {
   daemon: "/daemon/status",
   longForward: "/long-forward-test/status",
   liveReadiness: "/live-readiness/status",
-  evidenceGrowth: "/evidence-monitor/status"
+  evidenceGrowth: "/evidence-monitor/status",
+  signalCertification: "/signal-certifier/status"
 };
 
 function byId(id) {
@@ -79,6 +80,8 @@ function collectWarnings(data) {
   warnings.push(...(data.liveReadiness?.latest?.blocking_reasons || []));
   warnings.push(...(data.evidenceGrowth?.latest?.warnings || []));
   warnings.push(...(data.evidenceGrowth?.latest?.blocking_reasons || []));
+  warnings.push(...(data.signalCertification?.latest?.warnings || []));
+  warnings.push(...(data.signalCertification?.latest?.failed_checks || []));
   warnings.push(...(data.status?.strategy?.latest_signal?.reasons || []));
   warnings.push(...(data.status?.strategy?.latest_signal_v2?.reasons || []));
   for (const [key, value] of Object.entries(data)) {
@@ -132,6 +135,8 @@ function render(data) {
   const evidenceGrowth = evidenceGrowthStatus.latest || {};
   const evidenceGrowthCurrent = evidenceGrowth.current || {};
   const evidenceGrowthTargets = evidenceGrowth.targets || {};
+  const signalCertificationStatus = data.signalCertification || status.signal_certification || {};
+  const signalCertification = signalCertificationStatus.latest || {};
   const aiReview = data.aiReview || {};
 
   text("service", status.service || "aurix-mac-wine-bridge");
@@ -206,6 +211,15 @@ function render(data) {
   text("evidenceGrowthDays", `${evidenceGrowthCurrent.forward_tested_days ?? "--"}/${evidenceGrowthTargets.forward_tested_days ?? "--"}`);
   text("evidenceGrowthMissing", (evidenceGrowth.missing_requirements || []).join("; "));
   text("evidenceGrowthBlocks", (evidenceGrowth.blocking_reasons || []).join("; "));
+
+  text("signalCertStatus", signalCertification.status);
+  text("signalCertTrade", signalCertification.certified_trade_id);
+  text("signalCertSignal", signalCertification.certified_signal_id);
+  text("signalCertStrategy", signalCertification.strategy);
+  text("signalCertDirection", signalCertification.direction);
+  text("signalCertTradeStatus", signalCertification.trade_status);
+  text("signalCertCounts", `passed ${signalCertification.passed_checks?.length ?? 0} / failed ${signalCertification.failed_checks?.length ?? 0} / warnings ${signalCertification.warnings?.length ?? 0}`);
+  text("signalCertTop", (signalCertification.failed_checks || signalCertification.warnings || [])[0]);
 
   text("aiSummary", aiReview.summary || status.ai_review?.latest_summary);
   text("aiActions", aiReview.action_items_count || status.ai_review?.latest_action_items_count || 0);
