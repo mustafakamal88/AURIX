@@ -27,6 +27,7 @@ def build_operator_status(
     backtest_status: dict[str, Any] | None = None,
     research_status: dict[str, Any] | None = None,
     evidence_status: dict[str, Any] | None = None,
+    daemon_status: dict[str, Any] | None = None,
 ) -> OperatorStatus:
     snapshot = store.latest_snapshot()
     account = as_dict(snapshot.get("account")) if snapshot else {}
@@ -94,6 +95,7 @@ def build_operator_status(
         backtest=backtest_status or {},
         research=research_status or {},
         evidence=evidence_status or {},
+        daemon=daemon_status or {},
         commands={
             "open_count": len(open_commands),
             "total_count": len(commands),
@@ -122,6 +124,7 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     research_best_expectancy = as_dict(research_latest.get("best_by_expectancy"))
     evidence = as_dict(status.evidence)
     evidence_latest = as_dict(evidence.get("latest"))
+    daemon = as_dict(status.daemon)
     warnings: list[str] = []
 
     if not status.bridge.get("snapshot_received"):
@@ -164,5 +167,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         evidence_status=evidence_latest.get("status"),
         evidence_live_ready=bool(evidence_latest.get("live_ready")),
         evidence_blocking_reasons_count=len(evidence_latest.get("blocking_reasons") or []),
+        daemon_running=bool(daemon.get("running")),
+        daemon_loop_count=int(daemon.get("loop_count") or 0),
+        daemon_last_heartbeat_at=daemon.get("last_heartbeat_at"),
+        daemon_errors=[str(error) for error in daemon.get("errors") or []],
         warnings=warnings,
     )

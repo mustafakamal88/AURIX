@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import json
 from json import JSONDecodeError
@@ -15,6 +16,7 @@ from aurix_analytics import PaperPerformanceStore, generate_paper_performance_re
 from aurix_analytics.performance import summary_from_report
 from aurix_backtest import BacktestReplayEngine, BacktestStore, load_backtest_config
 from aurix_context_engine import ContextEngine, load_context_config
+from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_market_data import MarketDataRecorder, load_market_data_config
@@ -75,6 +77,9 @@ research_config = load_research_config()
 research_store = ResearchStore(DATA_DIR, research_config)
 evidence_gate_config = load_evidence_gate_config()
 evidence_gate_store = EvidenceGateStore(DATA_DIR, evidence_gate_config)
+daemon_config = load_daemon_config()
+daemon_runner: PaperDaemonRunner
+daemon_task: asyncio.Task[Any] | None = None
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -108,6 +113,7 @@ def root() -> dict[str, Any]:
         "backtest_status": "/backtest/status",
         "research_status": "/research/status",
         "evidence_status": "/evidence/status",
+        "daemon_status": "/daemon/status",
     }
 
 
@@ -765,6 +771,119 @@ def evidence_reset() -> dict[str, Any]:
     return {"ok": True, "report": None}
 
 
+def _daemon_supervisor_run_once() -> dict[str, Any]:
+    old_config = paper_supervisor.config
+    paper_supervisor.config = old_config.model_copy(
+        update={
+            "run_context": daemon_config.run_context,
+            "run_strategy": daemon_config.run_paper_strategy,
+            "run_paper_trading": daemon_config.run_paper_update,
+            "allow_command_queueing": daemon_config.allow_command_queueing,
+            "mode": daemon_config.mode,
+        }
+    )
+    try:
+        return paper_supervisor.run_once().model_dump()
+    finally:
+        paper_supervisor.config = old_config
+
+
+def _daemon_generate_analytics() -> dict[str, Any]:
+    trades, signals, contexts, quality = performance_store.read_inputs()
+    report = generate_paper_performance_report(trades, signals, contexts, quality)
+    performance_store.save(report)
+    return report.model_dump()
+
+
+def _daemon_update_journal() -> dict[str, Any]:
+    trades, signals, contexts, quality, analytics_report = journal_store.read_inputs()
+    paper_entries = journal_reviewer.review_paper_trades(trades, signals, contexts, quality)
+    signal_entries = journal_reviewer.review_signals(signals, trades, contexts, quality)
+    daily_entry = journal_reviewer.daily_summary(trades, signals, analytics_report, quality)
+    saved = journal_store.upsert_entries([*paper_entries, *signal_entries, daily_entry])
+    return {"entries": len(saved), "updated_at": utc_now_iso()}
+
+
+def _daemon_generate_ai_review() -> dict[str, Any]:
+    if daemon_config.allow_external_llm or ai_review_config.allow_external_llm:
+        return {"errors": ["external LLM use is disabled for daemon"]}
+    report = ai_review_reviewer.generate(ai_review_store.read_inputs())
+    ai_review_store.save(report)
+    return report.model_dump()
+
+
+def _daemon_evaluate_evidence() -> dict[str, Any]:
+    status = _build_operator_status(include_evidence=False)
+    summary = build_operator_summary(status).model_dump()
+    report = evidence_gate_store.evaluate(evidence_gate_store.read_inputs(status.model_dump(), summary))
+    return report.model_dump()
+
+
+def _daemon_command_count() -> int:
+    return len(store.list_commands())
+
+
+daemon_runner = PaperDaemonRunner(
+    DATA_DIR,
+    daemon_config,
+    supervisor_run_once=_daemon_supervisor_run_once,
+    generate_analytics=_daemon_generate_analytics,
+    update_journal=_daemon_update_journal,
+    generate_ai_review=_daemon_generate_ai_review,
+    evaluate_evidence=_daemon_evaluate_evidence,
+    command_count=_daemon_command_count,
+)
+
+
+async def _daemon_loop() -> None:
+    try:
+        while daemon_runner.is_running():
+            daemon_runner.run_once()
+            await asyncio.sleep(max(float(daemon_config.interval_seconds), 0.1))
+    finally:
+        if daemon_runner.is_running():
+            daemon_runner.mark_stopped()
+
+
+@app.get("/daemon/status")
+def daemon_status() -> dict[str, Any]:
+    return daemon_runner.status().model_dump()
+
+
+@app.post("/daemon/run-once")
+def daemon_run_once() -> dict[str, Any]:
+    return daemon_runner.run_once().model_dump()
+
+
+@app.post("/daemon/start")
+async def daemon_start() -> dict[str, Any]:
+    global daemon_task
+    if daemon_task is not None and not daemon_task.done():
+        return daemon_runner.status().model_dump()
+    status = daemon_runner.mark_started()
+    daemon_task = asyncio.create_task(_daemon_loop())
+    return status.model_dump()
+
+
+@app.post("/daemon/stop")
+async def daemon_stop() -> dict[str, Any]:
+    global daemon_task
+    status = daemon_runner.mark_stopped()
+    if daemon_task is not None and not daemon_task.done():
+        daemon_task.cancel()
+        try:
+            await daemon_task
+        except asyncio.CancelledError:
+            pass
+    daemon_task = None
+    return status.model_dump()
+
+
+@app.post("/daemon/reset")
+def daemon_reset() -> dict[str, Any]:
+    return daemon_runner.reset().model_dump()
+
+
 def _build_operator_status(*, include_evidence: bool) -> Any:
     return build_operator_status(
         service="aurix-mac-wine-bridge",
@@ -783,6 +902,7 @@ def _build_operator_status(*, include_evidence: bool) -> Any:
         backtest_status=backtest_status(),
         research_status=research_status(),
         evidence_status=evidence_status() if include_evidence else {},
+        daemon_status=daemon_status(),
     )
 
 

@@ -42,6 +42,7 @@ def main() -> int:
     research_best_expectancy = research_latest.get("best_by_expectancy") or {}
     evidence = status.get("evidence") or {}
     evidence_latest = evidence.get("latest") or {}
+    daemon = status.get("daemon") or {}
     commands = status.get("commands") or {}
     execution = status.get("execution") or {}
     safety = status.get("safety") or {}
@@ -80,6 +81,13 @@ def main() -> int:
         f"status={evidence_latest.get('status')} "
         f"live_ready={evidence_latest.get('live_ready')} "
         f"blocks={len(evidence_latest.get('blocking_reasons') or [])}"
+    )
+    print(
+        "daemon: "
+        f"running={daemon.get('running')} "
+        f"loops={daemon.get('loop_count')} "
+        f"heartbeat={daemon.get('last_heartbeat_at')} "
+        f"errors={'; '.join(str(error) for error in daemon.get('errors') or []) or 'none'}"
     )
     print(f"commands: open={commands.get('open_count')} total={commands.get('total_count')}")
     print(f"execution: results={execution.get('results_count')}")

@@ -57,6 +57,10 @@ def main() -> int:
                         f"evidence_status={summary.get('evidence_status')}",
                         f"evidence_live_ready={summary.get('evidence_live_ready')}",
                         f"evidence_blocks={summary.get('evidence_blocking_reasons_count')}",
+                        f"daemon_running={summary.get('daemon_running')}",
+                        f"daemon_loops={summary.get('daemon_loop_count')}",
+                        f"daemon_heartbeat={summary.get('daemon_last_heartbeat_at')}",
+                        f"daemon_errors={'; '.join(str(error) for error in summary.get('daemon_errors') or []) or 'none'}",
                         f"warnings={'; '.join(str(warning) for warning in warnings) if warnings else 'none'}",
                     ]
                 )

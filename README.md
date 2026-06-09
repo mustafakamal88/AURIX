@@ -16,6 +16,7 @@ Part 13 adds a safe offline-first AI-style review layer using local templates by
 Part 14 adds an offline backtest/replay engine for recorded M1 candles.
 Part 15 adds local backtest diagnostics and parameter sweeps over recorded candles.
 Part 16 adds a deterministic evidence gate that can only return paper-only readiness while live readiness is disabled by config.
+Part 17 adds a paper-only daemon that can run the local paper pipeline in the background after explicit start.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -370,6 +371,25 @@ Evaluate evidence gate:
 python3 scripts/evaluate_evidence_gate.py
 ```
 
+Check paper daemon:
+
+```bash
+python3 scripts/check_daemon.py
+```
+
+Run daemon once:
+
+```bash
+python3 scripts/run_daemon_once.py
+```
+
+Start or stop daemon:
+
+```bash
+python3 scripts/start_daemon.py
+python3 scripts/stop_daemon.py
+```
+
 ## API Endpoints
 
 ```text
@@ -420,6 +440,7 @@ GET  /research/status
 GET  /research/latest
 GET  /evidence/status
 GET  /evidence/latest
+GET  /daemon/status
 
 POST /commands/open-market
 POST /commands/close-position
@@ -452,6 +473,10 @@ POST /research/run-sweep
 POST /research/reset
 POST /evidence/evaluate
 POST /evidence/reset
+POST /daemon/run-once
+POST /daemon/start
+POST /daemon/stop
+POST /daemon/reset
 ```
 
 ## Safety
@@ -471,6 +496,7 @@ POST /evidence/reset
 - The Part 14 backtest engine is replay-only and does not queue commands.
 - The Part 15 research sweep is backtest-only and does not queue commands or mutate strategy config.
 - The Part 16 evidence gate is readiness-only, does not queue commands, and cannot return `live_ready=true` while `allow_live_readiness=false`.
+- The Part 17 daemon is paper-only, does not queue commands, and does not autostart on server boot.
 
 ## Part 2: Risk Governor
 
@@ -799,6 +825,28 @@ More detail:
 docs/evidence_gate.md
 ```
 
+## Part 17: Paper Daemon / Background Runner
+
+Daemon settings live in:
+
+```text
+config/daemon.yaml
+```
+
+Run once or start/stop:
+
+```bash
+python3 scripts/run_daemon_once.py
+python3 scripts/start_daemon.py
+python3 scripts/stop_daemon.py
+```
+
+More detail:
+
+```text
+docs/paper_daemon.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -841,4 +889,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 17 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, and evidence gating are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 18 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, and the paper daemon are stable. Do not enable live trading until every layer has been reviewed and tested.

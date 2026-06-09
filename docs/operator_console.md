@@ -17,6 +17,7 @@ It combines the main system health signals into one place:
 - Latest execution results
 - Latest research parameter sweep summary
 - Latest evidence gate report
+- Daemon status
 - Safety status
 
 ## API
@@ -45,6 +46,7 @@ ai_review
 backtest
 research
 evidence
+daemon
 commands
 execution
 safety
@@ -74,6 +76,10 @@ research_warning_count
 evidence_status
 evidence_live_ready
 evidence_blocking_reasons_count
+daemon_running
+daemon_loop_count
+daemon_last_heartbeat_at
+daemon_errors
 warnings
 ```
 

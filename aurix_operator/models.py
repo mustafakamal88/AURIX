@@ -22,6 +22,7 @@ class OperatorStatus(BaseModel):
     backtest: dict[str, Any] = Field(default_factory=dict)
     research: dict[str, Any] = Field(default_factory=dict)
     evidence: dict[str, Any] = Field(default_factory=dict)
+    daemon: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
@@ -52,4 +53,8 @@ class OperatorSummary(BaseModel):
     evidence_status: Optional[str] = None
     evidence_live_ready: bool = False
     evidence_blocking_reasons_count: int = 0
+    daemon_running: bool = False
+    daemon_loop_count: int = 0
+    daemon_last_heartbeat_at: Optional[str] = None
+    daemon_errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

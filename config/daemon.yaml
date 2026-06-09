@@ -1,0 +1,14 @@
+enabled: true
+mode: "PAPER"
+symbol: "XAUUSDm"
+interval_seconds: 5
+run_context: true
+run_paper_strategy: true
+run_paper_update: true
+run_analytics_every_loops: 12
+run_journal_every_loops: 12
+run_ai_review_every_loops: 60
+run_evidence_every_loops: 12
+allow_command_queueing: false
+allow_live_execution: false
+allow_external_llm: false
