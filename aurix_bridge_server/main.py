@@ -4,11 +4,13 @@ import asyncio
 import os
 import json
 from json import JSONDecodeError
+from pathlib import Path
 from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from aurix_ai_review import AIReviewStore, AIReviewTemplateReviewer, load_ai_review_config
@@ -40,6 +42,7 @@ load_dotenv()
 
 DATA_DIR = os.getenv("AURIX_DATA_DIR", "data")
 DEFAULT_TERMINAL_ID = os.getenv("AURIX_TERMINAL_ID", "AURIX-MAC-001")
+DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "aurix_dashboard"
 
 store = JsonStore(DATA_DIR)
 risk_config = load_risk_config()
@@ -97,6 +100,7 @@ app = FastAPI(
     version="0.1.0",
     description="Mac/Wine-safe MT5 bridge using an MQL5 EA + Python API.",
 )
+app.mount("/dashboard/static", StaticFiles(directory=DASHBOARD_DIR), name="dashboard-static")
 
 
 @app.get("/")
@@ -106,6 +110,7 @@ def root() -> dict[str, Any]:
         "service": "aurix-mac-wine-bridge",
         "name": "AURIX",
         "docs": "/docs",
+        "dashboard": "/dashboard",
         "health": "/health",
         "latest_state": "/state/latest",
         "risk_status": "/risk/status",
@@ -131,6 +136,12 @@ def root() -> dict[str, Any]:
         "forward_test_status": "/forward-test/status",
         "orchestrator_status": "/orchestrator/status",
     }
+
+
+@app.get("/dashboard")
+@app.get("/dashboard/")
+def dashboard() -> FileResponse:
+    return FileResponse(DASHBOARD_DIR / "index.html")
 
 
 class OpenMarketRequest(BaseModel):

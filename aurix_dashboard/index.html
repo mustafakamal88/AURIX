@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AURIX Cockpit</title>
+    <link rel="stylesheet" href="/dashboard/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>AURIX Cockpit</h1>
+        <p class="muted">Read-only local monitor</p>
+      </div>
+      <div class="badges">
+        <span class="badge danger">LIVE TRADING DISABLED</span>
+        <span class="badge good">PAPER MODE ONLY</span>
+        <span class="badge neutral">NO MT5 COMMAND QUEUEING FROM DASHBOARD</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="status-strip">
+        <div><span>Service</span><strong id="service">--</strong></div>
+        <div><span>Mode</span><strong id="mode">--</strong></div>
+        <div><span>Symbol</span><strong id="symbol">--</strong></div>
+        <div><span>Live Trading</span><strong id="liveTrading">DISABLED</strong></div>
+        <div><span>Paper Only</span><strong id="paperOnly">--</strong></div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Account</h2>
+          <dl>
+            <dt>Balance</dt><dd id="balance">--</dd>
+            <dt>Equity</dt><dd id="equity">--</dd>
+            <dt>Currency</dt><dd id="currency">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Market</h2>
+          <dl>
+            <dt>Bid</dt><dd id="bid">--</dd>
+            <dt>Ask</dt><dd id="ask">--</dd>
+            <dt>Spread</dt><dd id="spread">--</dd>
+            <dt>Quality</dt><dd id="marketQuality">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Context</h2>
+          <dl>
+            <dt>Session</dt><dd id="session">--</dd>
+            <dt>Session Allowed</dt><dd id="sessionAllowed">--</dd>
+            <dt>Regime</dt><dd id="regime">--</dd>
+            <dt>Bias</dt><dd id="bias">--</dd>
+          </dl>
+        </article>
+
+        <article class="card wide">
+          <h2>Strategy</h2>
+          <dl>
+            <dt>Latest V1 Signal</dt><dd id="v1Signal">--</dd>
+            <dt>Latest V2 Signal</dt><dd id="v2Signal">--</dd>
+            <dt>V2 Direction</dt><dd id="v2Direction">--</dd>
+            <dt>V2 Reasons</dt><dd id="v2Reasons">--</dd>
+            <dt>V1/V2 Comparison</dt><dd id="comparison">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Paper Trading</h2>
+          <dl>
+            <dt>Open Trades</dt><dd id="paperOpen">--</dd>
+            <dt>Closed Trades</dt><dd id="paperClosed">--</dd>
+            <dt>Win Rate</dt><dd id="winRate">--</dd>
+            <dt>Expectancy R</dt><dd id="expectancy">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Forward Test</h2>
+          <dl>
+            <dt>Status</dt><dd id="forwardStatus">--</dd>
+            <dt>Progress</dt><dd id="forwardProgress">--</dd>
+            <dt>Candles Recorded</dt><dd id="forwardCandles">--</dd>
+            <dt>Closed Paper Trades</dt><dd id="forwardClosed">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Evidence Gate</h2>
+          <dl>
+            <dt>Status</dt><dd id="evidenceStatus">--</dd>
+            <dt>Live Ready</dt><dd id="liveReady">false</dd>
+            <dt>Blocking Reasons</dt><dd id="blockingReasons">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>Orchestrator / Daemon</h2>
+          <dl>
+            <dt>Orchestrator</dt><dd id="orchestratorRunning">--</dd>
+            <dt>Daemon</dt><dd id="daemonRunning">--</dd>
+            <dt>Daemon Loops</dt><dd id="daemonLoops">--</dd>
+            <dt>Last Heartbeat</dt><dd id="daemonHeartbeat">--</dd>
+          </dl>
+        </article>
+
+        <article class="card">
+          <h2>AI Review</h2>
+          <dl>
+            <dt>Latest Summary</dt><dd id="aiSummary">--</dd>
+            <dt>Action Items</dt><dd id="aiActions">--</dd>
+          </dl>
+        </article>
+
+        <article class="card wide">
+          <h2>Warnings</h2>
+          <ul id="warnings" class="warnings"><li>Loading...</li></ul>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <span id="updatedAt">Waiting for first refresh...</span>
+    </footer>
+    <script src="/dashboard/static/app.js"></script>
+  </body>
+</html>

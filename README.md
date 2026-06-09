@@ -955,6 +955,29 @@ More detail:
 docs/xauusd_paper_strategy_v2.md
 ```
 
+## Part 21: Local Dashboard / Cockpit
+
+Run the server and open the read-only dashboard:
+
+```bash
+python3 scripts/run_server.py
+python3 scripts/open_dashboard.py
+```
+
+Direct URL:
+
+```text
+http://127.0.0.1:8765/dashboard
+```
+
+The dashboard is monitoring only. It does not call `/commands/open-market`, does not queue MT5 commands, does not start or stop the daemon/orchestrator, and does not mutate strategy or live trading config.
+
+More detail:
+
+```text
+docs/dashboard.md
+```
+
 ## Troubleshooting
 
 No snapshot received:
@@ -997,4 +1020,4 @@ EA attached but not polling:
 
 ## Next
 
-Part 21 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1/V2, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, and session orchestration are stable. Do not enable live trading until every layer has been reviewed and tested.
+Part 22 can add additional reporting or research tooling after bridge, Risk Governor, lifecycle, shadow signal plumbing, paper trading, market recording, context classification, XAUUSD Paper V1/V2, the paper supervisor loop, operator console, paper analytics, journal engine, local AI review, backtest replay, research sweeps, evidence gating, the paper daemon, forward-test campaign tracking, session orchestration, and local dashboard are stable. Do not enable live trading until every layer has been reviewed and tested.
