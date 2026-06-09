@@ -48,7 +48,7 @@ class SignalPathCertifier:
         context_trace = self._context_trace(signal, passed, skipped, failed)
         strategy_trace = self._strategy_trace(signal, trade, inputs, passed, skipped, failed, warnings)
         paper_engine_trace = self._paper_engine_trace(signal, trade, inputs, passed, skipped, failed)
-        risk_trace = self._risk_trace(signal, trade, inputs, passed, skipped, warnings)
+        risk_trace = self._risk_trace(signal, trade, inputs, passed, skipped, failed, warnings)
         ledger_trace = self._ledger_trace(trade, trades, inputs, passed, skipped, failed)
         analytics_trace = self._analytics_trace(trade, inputs, passed, skipped, warnings)
         visibility_trace = self._visibility_trace(trade, inputs, passed, skipped, warnings)
@@ -208,18 +208,45 @@ class SignalPathCertifier:
         _record(bool(trade), "paper trade was opened", passed, failed)
         return trace
 
-    def _risk_trace(self, signal: dict[str, Any], trade: dict[str, Any], inputs: dict[str, Any], passed: list[str], skipped: list[str], warnings: list[str]) -> dict[str, Any]:
-        decisions = [item for item in as_list(inputs.get("risk_decisions")) if isinstance(item, dict)]
-        persisted = any(decision.get("command_id") == trade.get("id") or decision.get("command_id") == signal.get("id") for decision in decisions)
-        trace = {"simulated_risk_approval_reconstructed": bool(trade), "persisted_paper_risk_decision": persisted, "signal_risk_checked": signal.get("risk_checked")}
-        if trade:
+    def _risk_trace(
+        self,
+        signal: dict[str, Any],
+        trade: dict[str, Any],
+        inputs: dict[str, Any],
+        passed: list[str],
+        skipped: list[str],
+        failed: list[str],
+        warnings: list[str],
+    ) -> dict[str, Any]:
+        decisions = [item for item in as_list(inputs.get("paper_risk_decisions")) if isinstance(item, dict)]
+        decision = _find_paper_risk_decision(decisions, signal, trade)
+        trace = {
+            "simulated_risk_approval_reconstructed": bool(trade),
+            "persisted_paper_risk_decision": bool(decision),
+            "paper_risk_decision": decision or None,
+            "signal_risk_checked": signal.get("risk_checked"),
+            "signal_paper_risk_checked": signal.get("paper_risk_checked"),
+            "signal_paper_risk_decision_id": signal.get("paper_risk_decision_id"),
+        }
+        if decision:
+            _record(decision.get("signal_id") == signal.get("id"), "paper risk decision links certified signal", passed, failed)
+            _record(not trade or decision.get("trade_id") == trade.get("id"), "paper risk decision links certified trade", passed, failed)
+            _record(decision.get("mode") == "PAPER", "paper risk decision mode is PAPER", passed, failed)
+            _record(decision.get("decision_type") == "PAPER_SIMULATED_RISK", "paper risk decision type is PAPER_SIMULATED_RISK", passed, failed)
+            if trade:
+                _record(decision.get("risk_status") == "APPROVED", "paper risk decision approved opened paper trade", passed, failed)
+            _record(as_dict(decision.get("safety")).get("mt5_commands_queued") is False, "paper risk decision queued no MT5 command", passed, failed)
+            _record(as_dict(decision.get("safety")).get("broker_order_created") is False, "paper risk decision created no broker order", passed, failed)
+        elif trade:
             passed.append("simulated risk approval can be reconstructed from paper trade")
+            if signal.get("paper_risk_checked") is True:
+                warnings.append("paper signal claims risk was checked but no paper risk decision was found")
+            else:
+                warnings.append("paper risk decision was not persisted")
         else:
             skipped.append("risk trace skipped because no trade exists")
         if signal and signal.get("risk_checked") is False and trade:
             warnings.append("signal risk_checked=false even though paper engine simulated risk before ledger write")
-        if trade and not persisted:
-            warnings.append("paper risk decision was not persisted in data/risk_decisions.json")
         return trace
 
     def _ledger_trace(self, trade: dict[str, Any], trades: list[dict[str, Any]], inputs: dict[str, Any], passed: list[str], skipped: list[str], failed: list[str]) -> dict[str, Any]:
@@ -312,8 +339,10 @@ class SignalPathCertifier:
         recs: list[str] = []
         if any("risk_checked=false" in item for item in warnings):
             recs.append("persist or annotate paper-engine simulated risk checks separately from strategy signal risk_checked")
-        if any("risk decision was not persisted" in item for item in warnings):
+        if any("paper risk decision was not persisted" in item for item in warnings):
             recs.append("persist paper simulation risk decisions for stronger auditability")
+        if any("claims risk was checked" in item for item in warnings):
+            recs.append("repair missing paper risk audit linkage for the certified signal/trade")
         if any("legacy signal missing decision-time OHLC/rule trace" in item for item in warnings):
             recs.append("new signals should include decision_trace for deterministic rule certification")
         if failed:
@@ -388,6 +417,7 @@ class SignalCertifierStore:
             "live_readiness_report": self._read_dict(self.data_dir / "live_readiness_report.json"),
             "evidence_growth_report": self._read_dict(self.data_dir / "evidence_growth_report.json"),
             "risk_decisions": self._read_list(self.data_dir / "risk_decisions.json"),
+            "paper_risk_decisions": self._read_list(self.data_dir / "paper_risk_decisions.json"),
             "paper_config": self._read_yaml(Path("config/paper_trading.yaml")),
             "strategy_v1_config": self._read_yaml(Path("config/strategy_xauusd_paper_v1.yaml")),
         }
@@ -424,6 +454,21 @@ class SignalCertifierStore:
 
 def _record(ok: bool, name: str, passed: list[str], failed: list[str]) -> None:
     (passed if ok else failed).append(name)
+
+
+def _find_paper_risk_decision(decisions: list[dict[str, Any]], signal: dict[str, Any], trade: dict[str, Any]) -> dict[str, Any]:
+    expected_id = trade.get("risk_decision_id") or signal.get("paper_risk_decision_id")
+    if expected_id:
+        found = find_by_id(decisions, expected_id)
+        if found:
+            return found
+    for decision in decisions:
+        if trade and decision.get("trade_id") == trade.get("id"):
+            return decision
+    for decision in decisions:
+        if signal and decision.get("signal_id") == signal.get("id"):
+            return decision
+    return {}
 
 
 def _ea_live_disabled(snapshot: dict[str, Any], operator_status: dict[str, Any]) -> bool | None:

@@ -6,6 +6,7 @@ const READ_ONLY_ENDPOINTS = {
   market: "/market/status",
   context: "/context/latest",
   paper: "/paper/status",
+  paperRiskAudit: "/paper-risk-audit/status",
   analytics: "/analytics/paper/summary",
   journal: "/journal/status",
   aiReview: "/ai-review/latest",
@@ -121,6 +122,8 @@ function render(data) {
   const latestV2 = latestSignal(status, "xauusd_paper_v2");
   const comparison = status.backtest?.compare_v1_v2 || {};
   const paper = data.paper || status.paper || {};
+  const paperRiskAudit = data.paperRiskAudit || status.paper_risk_audit || {};
+  const paperRiskLatest = paperRiskAudit.latest || {};
   const analytics = data.analytics || status.analytics || {};
   const forward = data.forward || status.forward_test || {};
   const campaign = forward.campaign || {};
@@ -174,6 +177,13 @@ function render(data) {
   text("paperClosed", analytics.closed_trades ?? paper.closed_trades);
   text("winRate", analytics.win_rate ?? summary.paper_win_rate);
   text("expectancy", analytics.expectancy_r ?? summary.paper_expectancy_r);
+
+  text("paperRiskCount", paperRiskAudit.decision_count);
+  text("paperRiskStatus", paperRiskLatest.risk_status);
+  text("paperRiskSignal", paperRiskLatest.signal_id);
+  text("paperRiskTrade", paperRiskLatest.trade_id);
+  text("paperRiskStrategy", paperRiskLatest.strategy_name);
+  text("paperRiskDirection", paperRiskLatest.direction);
 
   text("forwardStatus", campaign.status || summary.forward_test_status);
   text("forwardProgress", `${progress.percent ?? summary.forward_test_progress_percent ?? 0}%`);

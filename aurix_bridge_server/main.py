@@ -29,6 +29,7 @@ from aurix_market_data import MarketDataRecorder, load_market_data_config
 from aurix_operator import build_operator_summary, build_operator_status
 from aurix_orchestrator import SessionOrchestrator, load_orchestrator_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
+from aurix_paper_risk_audit import PaperRiskAuditStore, load_paper_risk_audit_config
 from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
@@ -58,6 +59,8 @@ xauusd_paper_v2_config = load_xauusd_paper_v2_config()
 paper_config = load_paper_trading_config()
 paper_ledger = PaperLedger(DATA_DIR)
 paper_engine = PaperTradingEngine(paper_config, risk_config)
+paper_risk_audit_config = load_paper_risk_audit_config()
+paper_risk_audit_store = PaperRiskAuditStore(DATA_DIR, paper_risk_audit_config)
 market_config = load_market_data_config()
 market_recorder = MarketDataRecorder(DATA_DIR, market_config)
 context_config = load_context_config()
@@ -73,6 +76,7 @@ paper_supervisor = PaperSupervisor(
     paper_engine=paper_engine,
     paper_ledger=paper_ledger,
     market_config=market_config,
+    paper_risk_audit_store=paper_risk_audit_store,
 )
 performance_store = PaperPerformanceStore(DATA_DIR)
 journal_config = load_journal_config()
@@ -133,6 +137,7 @@ def root() -> dict[str, Any]:
         "xauusd_paper_v1": "/strategy/evaluate-paper-v1",
         "xauusd_paper_v2": "/strategy/evaluate-paper-v2",
         "paper_status": "/paper/status",
+        "paper_risk_audit_status": "/paper-risk-audit/status",
         "market_status": "/market/status",
         "context_status": "/context/status",
         "supervisor_status": "/supervisor/status",
@@ -523,6 +528,54 @@ def paper_open_trades() -> list[dict[str, Any]]:
     return paper_ledger.list_open_trades()
 
 
+@app.get("/paper-risk-audit/status")
+def paper_risk_audit_status() -> dict[str, Any]:
+    return paper_risk_audit_store.status()
+
+
+@app.get("/paper-risk-audit/latest")
+def paper_risk_audit_latest() -> dict[str, Any]:
+    latest = paper_risk_audit_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No paper risk decision yet.")
+    return latest
+
+
+@app.get("/paper-risk-audit/history")
+def paper_risk_audit_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": paper_risk_audit_store.history(limit), "limit": limit, "safety": paper_risk_audit_store.status().get("safety")}
+
+
+@app.post("/paper-risk-audit/reset")
+def paper_risk_audit_reset() -> dict[str, Any]:
+    paper_risk_audit_store.reset()
+    return {"ok": True, "decision_count": 0, "history_count": 0}
+
+
+def persist_paper_risk_result(signal: Any, trade: Any, result: dict[str, Any]) -> None:
+    decision = result.get("paper_risk_decision")
+    if not isinstance(decision, dict):
+        return
+    paper_risk_audit_store.add_decision(decision)
+    updates = {
+        "paper_risk_checked": True,
+        "paper_risk_decision_id": decision.get("id"),
+        "paper_risk_status": decision.get("risk_status"),
+        "paper_risk_checked_at": decision.get("created_at"),
+        "risk_check_source": "PAPER_ENGINE_SIMULATION",
+    }
+    signal_id = getattr(signal, "id", None)
+    if signal_id:
+        store.update_strategy_signal(signal_id, updates)
+    for key, value in updates.items():
+        try:
+            setattr(signal, key, value)
+        except Exception:
+            pass
+    if trade is not None:
+        trade.risk_decision_id = decision.get("id")
+
+
 @app.post("/paper/evaluate-signal")
 def paper_evaluate_signal() -> dict[str, Any]:
     signal = strategy_engine.evaluate(
@@ -536,6 +589,7 @@ def paper_evaluate_signal() -> dict[str, Any]:
         open_trades=paper_ledger.list_open_trades(),
         previous_risk_decisions=store.list_risk_decisions(),
     )
+    persist_paper_risk_result(signal, trade, result)
     if trade is not None:
         paper_ledger.add_trade(trade)
     return result
@@ -553,6 +607,7 @@ def paper_evaluate_paper_v1() -> dict[str, Any]:
         open_trades=paper_ledger.list_open_trades(),
         previous_risk_decisions=store.list_risk_decisions(),
     )
+    persist_paper_risk_result(signal, trade, result)
     if trade is not None:
         paper_ledger.add_trade(trade)
     return result
@@ -570,6 +625,7 @@ def paper_evaluate_paper_v2() -> dict[str, Any]:
         open_trades=paper_ledger.list_open_trades(),
         previous_risk_decisions=store.list_risk_decisions(),
     )
+    persist_paper_risk_result(signal, trade, result)
     if trade is not None:
         paper_ledger.add_trade(trade)
     return result
@@ -1269,6 +1325,7 @@ def _build_operator_status(
         risk_status=risk_status(),
         strategy_status=strategy_status(),
         paper_status=paper_status(),
+        paper_risk_audit_status=paper_risk_audit_status(),
         supervisor_status=supervisor_status(),
         analytics_summary=paper_analytics_summary(),
         journal_status=journal_status(),

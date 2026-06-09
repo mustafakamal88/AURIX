@@ -211,5 +211,16 @@ class JsonStore:
     def list_strategy_signals(self) -> list[dict[str, Any]]:
         return self._read_json(self.strategy_signals_file, [])
 
+    def update_strategy_signal(self, signal_id: str, updates: dict[str, Any]) -> None:
+        signals = self.list_strategy_signals()
+        changed = False
+        for signal in signals:
+            if signal.get("id") == signal_id:
+                signal.update(updates)
+                changed = True
+                break
+        if changed:
+            self._write_json(self.strategy_signals_file, signals)
+
     def reset_strategy_signals(self) -> None:
         self._write_json(self.strategy_signals_file, [])

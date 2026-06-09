@@ -29,6 +29,7 @@ class PaperSupervisor:
         paper_engine: PaperTradingEngine,
         paper_ledger: PaperLedger,
         market_config: MarketDataConfig,
+        paper_risk_audit_store: Any | None = None,
     ):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -41,6 +42,7 @@ class PaperSupervisor:
         self.paper_engine = paper_engine
         self.paper_ledger = paper_ledger
         self.market_config = market_config
+        self.paper_risk_audit_store = paper_risk_audit_store
 
     def status(self) -> SupervisorStatus:
         data = self._read_json(self.status_file, None)
@@ -109,6 +111,7 @@ class PaperSupervisor:
                         previous_risk_decisions=self.store.list_risk_decisions(),
                     )
                     status.paper_created = bool(result.get("created"))
+                    self._persist_paper_risk(signal, trade, result)
                     if trade is not None:
                         self.paper_ledger.add_trade(trade)
 
@@ -151,6 +154,25 @@ class PaperSupervisor:
             "open_market_endpoint_called": False,
             "signal_command_id": signal.command_id if signal else None,
         }
+
+    def _persist_paper_risk(self, signal: StrategySignal, trade: Any, result: dict[str, Any]) -> None:
+        decision = result.get("paper_risk_decision")
+        if not isinstance(decision, dict):
+            return
+        if self.paper_risk_audit_store is not None:
+            self.paper_risk_audit_store.add_decision(decision)
+        updates = {
+            "paper_risk_checked": True,
+            "paper_risk_decision_id": decision.get("id"),
+            "paper_risk_status": decision.get("risk_status"),
+            "paper_risk_checked_at": decision.get("created_at"),
+            "risk_check_source": "PAPER_ENGINE_SIMULATION",
+        }
+        self.store.update_strategy_signal(signal.id, updates)
+        for key, value in updates.items():
+            setattr(signal, key, value)
+        if trade is not None:
+            trade.risk_decision_id = decision.get("id")
 
     def _read_json(self, path: Path, default: Any) -> Any:
         if not path.exists():

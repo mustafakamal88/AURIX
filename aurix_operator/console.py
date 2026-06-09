@@ -21,6 +21,7 @@ def build_operator_status(
     strategy_status: dict[str, Any],
     paper_status: dict[str, Any],
     supervisor_status: dict[str, Any],
+    paper_risk_audit_status: dict[str, Any] | None = None,
     analytics_summary: dict[str, Any] | None = None,
     journal_status: dict[str, Any] | None = None,
     ai_review_status: dict[str, Any] | None = None,
@@ -98,6 +99,7 @@ def build_operator_status(
             "signals_count": len(signals),
         },
         paper=paper_status,
+        paper_risk_audit=paper_risk_audit_status or {},
         supervisor=supervisor_status,
         analytics=analytics_summary or {},
         journal=journal_status or {},
@@ -130,6 +132,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     market_quality = as_dict(as_dict(status.market.get("quality")))
     context_latest = as_dict(status.context.get("latest"))
     supervisor = as_dict(status.supervisor)
+    paper_risk = as_dict(status.paper_risk_audit)
+    paper_risk_latest = as_dict(paper_risk.get("latest"))
     analytics = as_dict(status.analytics)
     journal = as_dict(status.journal)
     ai_review = as_dict(status.ai_review)
@@ -186,6 +190,10 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         paper_win_rate=float(analytics.get("win_rate") or 0.0),
         paper_total_r=float(analytics.get("total_r") or 0.0),
         paper_expectancy_r=float(analytics.get("expectancy_r") or 0.0),
+        paper_risk_decision_count=int(paper_risk.get("decision_count") or 0),
+        paper_risk_latest_status=paper_risk_latest.get("risk_status"),
+        paper_risk_latest_signal_id=paper_risk_latest.get("signal_id"),
+        paper_risk_latest_trade_id=paper_risk_latest.get("trade_id"),
         supervisor_loop_count=int(supervisor.get("loop_count") or 0),
         journal_entry_count=int(journal.get("entries_count") or 0),
         journal_latest_classification=journal.get("latest_classification"),

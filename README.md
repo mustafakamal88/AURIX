@@ -25,6 +25,7 @@ Part 22 adds long forward-test mode for explicit, non-autostarting paper evidenc
 Part 23 adds a live execution readiness layer for deterministic manual-review assessment only.
 Part 24 adds an evidence growth monitor for tracking progress toward future manual readiness review.
 Part 25 adds signal path certification for proving paper signal pipeline integrity.
+Part 26 adds paper risk decision persistence for simulated paper-risk auditability.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -436,6 +437,9 @@ GET  /risk/decisions
 GET  /strategy/status
 GET  /strategy/signals
 GET  /paper/status
+GET  /paper-risk-audit/status
+GET  /paper-risk-audit/latest
+GET  /paper-risk-audit/history
 GET  /paper/trades
 GET  /paper/open
 GET  /market/status
@@ -487,6 +491,7 @@ POST /paper/evaluate-signal
 POST /paper/update
 POST /paper/close/{paper_trade_id}
 POST /paper/reset
+POST /paper-risk-audit/reset
 POST /market/reset
 POST /context/evaluate
 POST /context/reset
@@ -557,6 +562,7 @@ POST /signal-certifier/reset
 - The Part 23 live readiness layer is assessment-only, does not queue commands, does not change EA settings, and keeps arming/execution disabled by config.
 - The Part 24 evidence growth monitor is monitor-only, does not queue commands, and only feeds future manual readiness review.
 - The Part 25 signal path certifier is observability-only, does not queue commands, and does not place demo or live broker orders.
+- The Part 26 paper risk audit is paper-only observability, does not queue commands, and links simulated risk decisions to paper signals/trades.
 
 ## Part 2: Risk Governor
 
@@ -1179,6 +1185,34 @@ More detail:
 
 ```text
 docs/signal_path_certification.md
+```
+
+## Part 26: Paper Risk Decision Persistence / Audit Ledger
+
+Paper risk audit settings live in:
+
+```text
+config/paper_risk_audit.yaml
+```
+
+Check paper risk audit:
+
+```bash
+python3 scripts/check_paper_risk_audit.py
+```
+
+Show paper risk decisions:
+
+```bash
+python3 scripts/show_paper_risk_decisions.py
+```
+
+Part 26 improves signal certification by persisting the paper engine's simulated risk decision and linking it to the signal and paper trade. It does not enable live trading, queue MT5 commands, call broker execution endpoints, or place demo/live broker orders. Legacy trades before Part 26 may still lack persisted paper risk decisions.
+
+More detail:
+
+```text
+docs/paper_risk_audit.md
 ```
 
 ## Troubleshooting

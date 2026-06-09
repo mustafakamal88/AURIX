@@ -15,6 +15,7 @@ class OperatorStatus(BaseModel):
     risk: dict[str, Any] = Field(default_factory=dict)
     strategy: dict[str, Any] = Field(default_factory=dict)
     paper: dict[str, Any] = Field(default_factory=dict)
+    paper_risk_audit: dict[str, Any] = Field(default_factory=dict)
     supervisor: dict[str, Any] = Field(default_factory=dict)
     analytics: dict[str, Any] = Field(default_factory=dict)
     journal: dict[str, Any] = Field(default_factory=dict)
@@ -47,6 +48,10 @@ class OperatorSummary(BaseModel):
     paper_win_rate: float = 0.0
     paper_total_r: float = 0.0
     paper_expectancy_r: float = 0.0
+    paper_risk_decision_count: int = 0
+    paper_risk_latest_status: Optional[str] = None
+    paper_risk_latest_signal_id: Optional[str] = None
+    paper_risk_latest_trade_id: Optional[str] = None
     supervisor_loop_count: int = 0
     journal_entry_count: int = 0
     journal_latest_classification: Optional[str] = None

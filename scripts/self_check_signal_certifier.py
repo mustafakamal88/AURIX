@@ -12,6 +12,7 @@ from aurix_signal_certifier import SignalCertifierConfig, SignalCertifierStore, 
 
 def sample(command_id=None, linked=True, live_exec=False, live_arm=False, open_commands=0, risk_persisted=False, decision_trace: str | None = None) -> dict:
     signal_id = "sig-1"
+    paper_risk_decision_id = "paper-risk-1"
     trade = {
         "id": "trade-1",
         "signal_id": signal_id if linked else "missing",
@@ -25,6 +26,7 @@ def sample(command_id=None, linked=True, live_exec=False, live_arm=False, open_c
         "take_profit": 106.3,
         "volume": 0.01,
         "opened_at": "2026-06-09T06:12:31+00:00",
+        "risk_decision_id": paper_risk_decision_id if risk_persisted else None,
         "reasons": ["created from shadow signal", "previous candle swept range low", "current bullish candle reclaimed range low"],
     }
     signal = {
@@ -37,6 +39,9 @@ def sample(command_id=None, linked=True, live_exec=False, live_arm=False, open_c
         "status": "SHADOW_SIGNAL",
         "command_id": command_id,
         "risk_checked": False,
+        "paper_risk_checked": risk_persisted,
+        "paper_risk_decision_id": paper_risk_decision_id if risk_persisted else None,
+        "paper_risk_status": "APPROVED" if risk_persisted else None,
         "context_session": "LONDON",
         "context_regime": "RANGE",
         "context_bias": "NEUTRAL",
@@ -90,7 +95,22 @@ def sample(command_id=None, linked=True, live_exec=False, live_arm=False, open_c
         "operator_summary": {"mode": "PAPER", "paper_open_count": 1},
         "live_readiness_report": {"status": "BLOCKED", "live_execution_allowed": live_exec, "live_arming_allowed": live_arm},
         "evidence_growth_report": {"status": "COLLECTING"},
-        "risk_decisions": [{"command_id": "trade-1"}] if risk_persisted else [],
+        "paper_risk_decisions": [
+            {
+                "id": paper_risk_decision_id,
+                "mode": "PAPER",
+                "decision_type": "PAPER_SIMULATED_RISK",
+                "symbol": "XAUUSDm",
+                "strategy_name": "xauusd_paper_v1",
+                "strategy_version": "0.1.0",
+                "signal_id": "sig-1",
+                "trade_id": "trade-1",
+                "direction": "BUY",
+                "volume": 0.01,
+                "risk_status": "APPROVED",
+                "safety": {"mt5_commands_queued": False, "broker_order_created": False},
+            }
+        ] if risk_persisted else [],
         "paper_config": {"enabled": True, "max_open_paper_trades": 1, "allow_multiple_same_direction": False, "default_stop_points": 300, "default_take_profit_points": 600},
     }
 
@@ -113,11 +133,20 @@ def main() -> int:
     require(any("legacy_signal_trace_missing" in item for item in legacy.skipped_checks), "legacy V1 rule checks were not skipped")
     require(not any(item.startswith("V1 BUY rule") for item in legacy.failed_checks), "legacy V1 rule checks should not fail")
 
-    valid = certifier.certify(sample(decision_trace="valid"))
+    valid = certifier.certify(sample(decision_trace="valid", risk_persisted=True))
     require(valid.status in {"CERTIFIED", "CERTIFIED_WITH_WARNINGS"}, f"valid traced trade not certified: {valid.status} {valid.failed_checks}")
     require("signal risk_checked=false even though paper engine simulated risk before ledger write" in valid.warnings, "risk_checked warning missing")
-    require("paper risk decision was not persisted in data/risk_decisions.json" in valid.warnings, "missing persisted risk warning missing")
-    require(any("persist paper simulation risk decisions" in item for item in valid.recommendations), "risk persistence recommendation missing")
+    require("paper risk decision was not persisted" not in valid.warnings, "persisted paper risk decision still warned missing")
+
+    no_paper_risk = certifier.certify(sample(decision_trace="valid"))
+    require("paper risk decision was not persisted" in no_paper_risk.warnings, "legacy missing paper risk warning missing")
+    require(any("persist paper simulation risk decisions" in item for item in no_paper_risk.recommendations), "risk persistence recommendation missing")
+
+    mismatched = sample(decision_trace="valid", risk_persisted=True)
+    mismatched["paper_risk_decisions"][0]["trade_id"] = "other-trade"
+    mismatch_report = certifier.certify(mismatched)
+    require(mismatch_report.status == "FAILED", "mismatched paper risk decision should fail")
+    require("paper risk decision links certified trade" in mismatch_report.failed_checks, "mismatched paper risk failed check missing")
 
     invalid = certifier.certify(sample(decision_trace="invalid"))
     require(invalid.status == "FAILED", "invalid decision_trace should fail")
@@ -146,7 +175,7 @@ def main() -> int:
 
     with TemporaryDirectory() as tmp:
         store = SignalCertifierStore(tmp, config)
-        report = store.certify(sample(decision_trace="valid"))
+        report = store.certify(sample(decision_trace="valid", risk_persisted=True))
         require(report.status in {"CERTIFIED", "CERTIFIED_WITH_WARNINGS"}, "store certify failed")
         require((Path(tmp) / "signal_path_certification_report.json").exists(), "latest report missing")
         require(len(store.history()) == 1, "history append failed")

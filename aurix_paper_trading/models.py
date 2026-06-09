@@ -28,6 +28,7 @@ class PaperTrade(BaseModel):
     close_price: Optional[float] = None
     pnl_points: Optional[float] = None
     r_multiple: Optional[float] = None
+    risk_decision_id: Optional[str] = None
     reasons: list[str] = Field(default_factory=list)
     snapshot_opened_at: Optional[str] = None
     snapshot_closed_at: Optional[str] = None

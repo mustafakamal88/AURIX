@@ -48,3 +48,8 @@ class StrategySignal(BaseModel):
     range_high: Optional[float] = None
     range_low: Optional[float] = None
     decision_trace: Optional[dict[str, Any]] = None
+    paper_risk_checked: bool = False
+    paper_risk_decision_id: Optional[str] = None
+    paper_risk_status: Optional[str] = None
+    paper_risk_checked_at: Optional[str] = None
+    risk_check_source: Optional[str] = None

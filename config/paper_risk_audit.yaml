@@ -1,0 +1,10 @@
+enabled: true
+symbol: "XAUUSDm"
+mode: "PAPER_AUDIT_ONLY"
+write_history: true
+history_limit: 500
+allow_live_arming: false
+allow_live_execution: false
+allow_command_queueing: false
+require_paper_mode: true
+require_command_id_null_for_paper: true

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from aurix_bridge_server.models import Command, utc_now_iso
+from aurix_paper_risk_audit import PaperRiskDecision
 from aurix_risk_governor import RiskGovernor
 from aurix_risk_governor.config import RiskConfig
 from aurix_strategy_engine.models import StrategySignal
@@ -100,10 +101,22 @@ class PaperTradingEngine:
         )
         risk_decision = self.risk_governor.evaluate_open_market(risk_command, snapshot, previous_risk_decisions)
         if not risk_decision.approved:
+            paper_risk_decision = self._paper_risk_decision(
+                signal=signal,
+                snapshot=snapshot,
+                trade_id=None,
+                entry=entry,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                risk_status="REJECTED",
+                risk_reason="; ".join(risk_decision.reasons) or "simulated risk check rejected paper trade",
+                risk_decision=risk_decision.model_dump(),
+            )
             return None, {
                 "created": False,
                 "reason": "simulated risk check blocked paper trade",
                 "risk_decision": risk_decision.model_dump(),
+                "paper_risk_decision": paper_risk_decision.model_dump(),
                 "signal": signal.model_dump(),
             }
 
@@ -120,7 +133,91 @@ class PaperTradingEngine:
             reasons=["created from paper signal" if signal.status == "PAPER_SIGNAL" else "created from shadow signal", *signal.reasons],
             snapshot_opened_at=snapshot.get("received_at") if snapshot else None,
         )
-        return trade, {"created": True, "paper_trade": trade.model_dump(), "risk_decision": risk_decision.model_dump(), "signal": signal.model_dump()}
+        paper_risk_decision = self._paper_risk_decision(
+            signal=signal,
+            snapshot=snapshot,
+            trade_id=trade.id,
+            entry=entry,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            risk_status="APPROVED",
+            risk_reason="simulated risk check approved paper trade",
+            risk_decision=risk_decision.model_dump(),
+        )
+        trade.risk_decision_id = paper_risk_decision.id
+        signal.paper_risk_checked = True
+        signal.paper_risk_decision_id = paper_risk_decision.id
+        signal.paper_risk_status = paper_risk_decision.risk_status
+        signal.paper_risk_checked_at = paper_risk_decision.created_at
+        signal.risk_check_source = "PAPER_ENGINE_SIMULATION"
+        return trade, {
+            "created": True,
+            "paper_trade": trade.model_dump(),
+            "risk_decision": risk_decision.model_dump(),
+            "paper_risk_decision": paper_risk_decision.model_dump(),
+            "signal": signal.model_dump(),
+        }
+
+    def _paper_risk_decision(
+        self,
+        *,
+        signal: StrategySignal,
+        snapshot: Optional[dict[str, Any]],
+        trade_id: Optional[str],
+        entry: float,
+        stop_loss: float,
+        take_profit: float,
+        risk_status: str,
+        risk_reason: str,
+        risk_decision: dict[str, Any],
+    ) -> PaperRiskDecision:
+        account = as_dict(snapshot.get("account")) if snapshot else {}
+        tick = as_dict(snapshot.get("tick")) if snapshot else {}
+        return PaperRiskDecision(
+            symbol=signal.symbol,
+            strategy_name=signal.strategy_name,
+            strategy_version=signal.strategy_version,
+            signal_id=signal.id,
+            trade_id=trade_id,
+            direction=str(signal.direction),
+            entry_reference=entry,
+            stop_loss_reference=stop_loss,
+            take_profit_reference=take_profit,
+            volume=self.config.default_volume,
+            risk_status=risk_status,  # type: ignore[arg-type]
+            risk_reason=risk_reason,
+            checks={
+                "risk_governor_decision": risk_decision.get("decision"),
+                "risk_governor_approved": risk_decision.get("approved"),
+                "risk_governor_reasons": risk_decision.get("reasons") or [],
+            },
+            limits={
+                "max_open_paper_trades": self.config.max_open_paper_trades,
+                "allow_multiple_same_direction": self.config.allow_multiple_same_direction,
+                "default_volume": self.config.default_volume,
+            },
+            account_snapshot={
+                "balance": account.get("balance"),
+                "equity": account.get("equity"),
+                "currency": account.get("currency"),
+                "login": account.get("login"),
+                "server": account.get("server"),
+            },
+            market_snapshot={
+                "symbol": tick.get("symbol"),
+                "bid": tick.get("bid"),
+                "ask": tick.get("ask"),
+                "spread_points": tick.get("spread_points"),
+                "snapshot_received_at": snapshot.get("received_at") if snapshot else None,
+            },
+            safety={
+                "paper_audit_only": True,
+                "mode": "PAPER",
+                "mt5_commands_queued": False,
+                "broker_order_created": False,
+                "open_market_endpoint_called": False,
+            },
+        )
 
     def update_open_trades(self, snapshot: Optional[dict[str, Any]], trades: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         if snapshot is None:
