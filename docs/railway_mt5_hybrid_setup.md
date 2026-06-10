@@ -93,8 +93,13 @@ X-AURIX-API-Key: YOUR_AURIX_API_KEY
 
 This part does not enable command creation or queueing. A healthy response is usually:
 
-```text
-NOOP
+```json
+{
+  "ok": true,
+  "command": null,
+  "status": "NO_COMMAND",
+  "command_queue_enabled": false
+}
 ```
 
 ## Snapshot Posting
@@ -113,6 +118,33 @@ Content-Type: application/json
 ```
 
 Snapshots contain market/account visibility only. They do not create broker orders.
+
+A successful snapshot response looks like:
+
+```json
+{
+  "ok": true,
+  "status": "snapshot_received",
+  "terminal_id": "AURIX-VPS-001",
+  "symbol": "XAUUSDm"
+}
+```
+
+## Railway Response Codes
+
+- `200` from `POST /mt5/snapshot` means Railway accepted the EA snapshot.
+- `200` from `GET /mt5/command?terminal_id=AURIX-VPS-001` with `NO_COMMAND` means command queueing is safely disabled.
+- `401` or `403` means the EA `ApiKey` does not match Railway `AURIX_API_KEY`.
+- `404` means the Railway deployment does not expose the expected MT5 bridge route, or the service is running old code.
+
+After snapshots are accepted, the dashboard should show:
+
+- symbol `XAUUSDm`
+- account/feed data from MT5
+- small `mt5_snapshot_age_seconds`
+- live execution disabled
+- demo execution disabled
+- command queueing disabled
 
 ## Safety Rules
 

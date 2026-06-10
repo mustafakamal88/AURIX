@@ -424,11 +424,37 @@ async def read_lenient_json_object(request: Request) -> dict[str, Any]:
 
 
 def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    account = _dict_or_empty(payload.get("account"))
+    tick = _dict_or_empty(payload.get("tick"))
+    symbol = payload.get("symbol") or tick.get("symbol") or os.getenv("AURIX_SYMBOL", "XAUUSDm")
+    if not account:
+        account = {
+            "currency": payload.get("currency") or payload.get("account_currency"),
+            "balance": payload.get("balance") or payload.get("account_balance"),
+            "equity": payload.get("equity") or payload.get("account_equity"),
+            "free_margin": payload.get("free_margin") or payload.get("margin_free"),
+            "margin_level": payload.get("margin_level"),
+            "trade_mode": payload.get("trade_mode") or payload.get("account_type"),
+            "server": payload.get("server"),
+            "login": payload.get("login") or payload.get("account_login"),
+        }
+        account = {key: value for key, value in account.items() if value is not None}
+    if not tick:
+        tick = {
+            "symbol": symbol,
+            "bid": payload.get("bid"),
+            "ask": payload.get("ask"),
+            "spread_points": payload.get("spread_points") or payload.get("spread"),
+            "time": payload.get("tick_time") or payload.get("time") or payload.get("timestamp"),
+        }
+        tick = {key: value for key, value in tick.items() if value is not None}
+    if tick and not tick.get("symbol"):
+        tick["symbol"] = symbol
     return {
         "terminal_id": str(payload.get("terminal_id") or DEFAULT_TERMINAL_ID),
         "received_at": str(payload.get("received_at") or utc_now_iso()),
-        "account": _dict_or_empty(payload.get("account")),
-        "tick": _dict_or_empty(payload.get("tick")),
+        "account": account,
+        "tick": tick,
         "candles": _list_or_empty(payload.get("candles")),
         "positions": _list_or_empty(payload.get("positions")),
         "orders": _list_or_empty(payload.get("orders")),
@@ -480,13 +506,20 @@ def health() -> dict[str, Any]:
 
 
 @app.post("/mt5/snapshot")
+@app.post("/mt5/snapshot/")
 async def receive_snapshot(request: Request) -> dict[str, Any]:
     payload = await read_lenient_json_object(request)
     snapshot = normalize_snapshot(payload)
     store.save_snapshot(snapshot)
     market_recorder.record_snapshot(snapshot)
     log_snapshot(snapshot)
-    return {"ok": True}
+    tick = _dict_or_empty(snapshot.get("tick"))
+    return {
+        "ok": True,
+        "status": "snapshot_received",
+        "terminal_id": snapshot.get("terminal_id"),
+        "symbol": tick.get("symbol") or payload.get("symbol") or os.getenv("AURIX_SYMBOL", "XAUUSDm"),
+    }
 
 
 @app.post("/mt5/snapshot-debug")
@@ -506,12 +539,34 @@ async def receive_execution_result(request: Request) -> dict[str, Any]:
     return {"ok": True}
 
 
-@app.get("/mt5/command", response_class=PlainTextResponse)
-def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> str:
+@app.get("/mt5/command")
+@app.get("/mt5/command/")
+def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> dict[str, Any]:
+    if not COMMAND_QUEUE_ENABLED:
+        return {
+            "ok": True,
+            "command": None,
+            "status": "NO_COMMAND",
+            "terminal_id": terminal_id,
+            "command_queue_enabled": False,
+        }
     command = store.next_command_for_terminal(terminal_id)
     if command is None:
-        return "NOOP"
-    return encode_command_for_mql5(command)
+        return {
+            "ok": True,
+            "command": None,
+            "status": "NO_COMMAND",
+            "terminal_id": terminal_id,
+            "command_queue_enabled": False,
+        }
+    logger.error("MT5 command dispatch blocked by route compatibility safety guard")
+    return {
+        "ok": True,
+        "command": None,
+        "status": "NO_COMMAND",
+        "terminal_id": terminal_id,
+        "command_queue_enabled": False,
+    }
 
 
 @app.get("/state/latest")

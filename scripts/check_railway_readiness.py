@@ -44,6 +44,7 @@ def main() -> int:
         "docs/railway_mt5_hybrid_setup.md",
         "scripts/run_server.py",
         "scripts/check_railway_remote_health.py",
+        "scripts/check_mt5_bridge_routes.py",
     ]:
         require_file(path)
 
@@ -84,6 +85,10 @@ def main() -> int:
         ok("/healthz endpoint exists")
     else:
         fail("/healthz endpoint missing")
+    if '@app.post("/mt5/snapshot")' in main_py and '@app.get("/mt5/command")' in main_py:
+        ok("EA-compatible MT5 bridge routes exist")
+    else:
+        fail("EA-compatible MT5 bridge routes missing")
 
     safety_expectations = {
         "AURIX_LIVE_EXECUTION_ENABLED=false": "live execution false",

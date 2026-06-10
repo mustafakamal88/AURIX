@@ -516,7 +516,7 @@ void PollCommand()
    StringTrimLeft(response);
    StringTrimRight(response);
 
-   if(response == "" || response == "NOOP")
+   if(response == "" || response == "NOOP" || StringFind(response, "\"status\":\"NO_COMMAND\"") >= 0 || StringFind(response, "\"command\":null") >= 0)
       return;
 
    string parts[];
