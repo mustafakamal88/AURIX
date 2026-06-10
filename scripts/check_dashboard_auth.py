@@ -24,6 +24,7 @@ def main() -> int:
     require("/dashboard/login" in main_py, "login route missing")
     require("/dashboard/session" in main_py, "session route missing")
     require("/dashboard/logout" in main_py, "logout route missing")
+    require('@app.get("/api")' in main_py, "route index /api route missing")
     require("httponly" in (ROOT / "aurix_bridge_server" / "dashboard_auth.py").read_text(encoding="utf-8").lower(), "dashboard cookie must be HttpOnly")
     require("api_key" not in app_js, "dashboard JS must not read api_key from query")
     require("X-AURIX-API-Key" not in app_js and "x-aurix-api-key" not in app_js.lower(), "dashboard JS must not send API key headers")
@@ -35,6 +36,14 @@ def main() -> int:
     require("/commands/open-market" not in app_js, "dashboard JS must not call open-market")
     require("?api_key" not in open_dashboard and "AURIX_API_KEY" not in open_dashboard, "open_dashboard must not append or read API key")
     require("/dashboard" in open_dashboard, "open_dashboard should open clean dashboard URL")
+
+    import aurix_bridge_server.main as direct_main
+
+    root_response = direct_main.root()
+    require(getattr(root_response, "status_code", None) in {302, 303}, "root route must redirect")
+    require(root_response.headers.get("location") == "/dashboard", "root route must redirect to dashboard")
+    api_index = direct_main.api_index()
+    require(api_index.get("dashboard") == "/dashboard" and api_index.get("dashboard_login") == "/dashboard/login", "route index missing dashboard entries")
 
     from aurix_bridge_server.dashboard_auth import (
         DashboardAuthConfig,
@@ -63,6 +72,8 @@ def main() -> int:
             import aurix_bridge_server.main as main_module
 
             client = TestClient(main_module.app)
+            root = client.get("/", follow_redirects=False)
+            require(root.status_code in {302, 303} and root.headers.get("location") == "/dashboard", "root did not redirect to dashboard")
             response = client.get("/dashboard", follow_redirects=False)
             require(response.status_code in {302, 303}, f"unauthenticated dashboard did not redirect: {response.status_code}")
             require(response.headers.get("location") == "/dashboard/login", "unauthenticated dashboard redirect target is wrong")

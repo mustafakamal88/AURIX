@@ -8,11 +8,19 @@ Open it at:
 http://127.0.0.1:8765/dashboard
 ```
 
+The root URL redirects to the dashboard:
+
+```text
+http://127.0.0.1:8765/
+```
+
 Railway deployments can use:
 
 ```text
 https://your-app.up.railway.app/dashboard
 ```
+
+For a custom domain, opening `https://your-domain/` redirects to `https://your-domain/dashboard`. If the browser is not authenticated, `/dashboard` redirects to `/dashboard/login`.
 
 The browser dashboard uses a server-side login session. Open `/dashboard`, log in with the Railway `AURIX_DASHBOARD_PASSWORD`, and the server sets a signed HttpOnly cookie using `AURIX_DASHBOARD_SESSION_SECRET`. The dashboard JavaScript does not read URL secrets, does not send `X-AURIX-API-Key`, and does not store secrets in browser storage.
 
@@ -29,6 +37,8 @@ AURIX_DASHBOARD_SESSION_TTL_SECONDS=86400
 `AURIX_API_KEY` is for the EA and API clients. `AURIX_DASHBOARD_PASSWORD` is for human browser login. Do not put either value in the dashboard URL. If an API key was previously opened in a dashboard URL, rotate it.
 
 For a custom domain, add the domain in Railway service settings, configure the DNS record Railway gives you, keep HTTPS enabled, and open `https://your-domain/dashboard`.
+
+The route index that used to appear at `/` is available at `/api` for debugging.
 
 ## Read-Only Safety
 

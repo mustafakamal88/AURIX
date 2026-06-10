@@ -161,6 +161,8 @@ Open it with the server running:
 http://127.0.0.1:8765/dashboard
 ```
 
+The root URL `/` redirects to `/dashboard`, so a custom domain opens the cockpit first. If the browser is not authenticated, `/dashboard` redirects to `/dashboard/login`. The JSON route index is available at `/api`.
+
 Check the dashboard runtime summary from the CLI:
 
 ```bash
@@ -315,6 +317,8 @@ https://your-app.up.railway.app/dashboard
 ```
 
 The browser dashboard authenticates through `/dashboard/login` using `AURIX_DASHBOARD_PASSWORD` and a signed HttpOnly cookie. `AURIX_API_KEY` remains for EA and API clients. If it was previously exposed in a dashboard URL, rotate it.
+
+Opening the Railway/custom-domain root `/` redirects to `/dashboard`; the route index is available at `/api`.
 
 Remote health check:
 

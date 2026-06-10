@@ -119,6 +119,13 @@ def main() -> int:
     import aurix_bridge_server.main as main_module
 
     routes = {getattr(route, "path", "") for route in main_module.app.routes}
+    require("/" in routes, "FastAPI root route missing")
+    require("/api" in routes, "route index /api route missing")
+    root_response = main_module.root()
+    require(getattr(root_response, "status_code", None) in {302, 303}, "root route must redirect")
+    require(root_response.headers.get("location") == "/dashboard", "root route must redirect to /dashboard")
+    api_index = main_module.api_index()
+    require(api_index.get("dashboard") == "/dashboard" and api_index.get("healthz") == "/healthz", "route index /api missing expected entries")
     require("/dashboard" in routes, "FastAPI /dashboard route missing")
     require("/dashboard/" in routes, "FastAPI /dashboard/ route missing")
     require("/dashboard/login" in routes, "dashboard login route missing")

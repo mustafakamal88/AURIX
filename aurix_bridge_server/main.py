@@ -322,12 +322,18 @@ async def require_remote_api_key(request: Request, call_next: Any) -> Any:
 
 
 @app.get("/")
-def root() -> dict[str, Any]:
+def root() -> RedirectResponse:
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@app.get("/api")
+def api_index() -> dict[str, Any]:
     return {
         "ok": True,
         "service": "aurix-mac-wine-bridge",
         "name": "AURIX",
         "docs": "/docs",
+        "api": "/api",
         "dashboard": "/dashboard",
         "dashboard_login": "/dashboard/login",
         "health": "/health",
