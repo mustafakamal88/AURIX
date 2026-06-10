@@ -66,6 +66,7 @@ def _market(snapshot: dict[str, Any] | None, decision: dict[str, Any], decision_
         "spread_status": status,
         "latest_tick_time": tick.get("time") or _dict(snapshot).get("received_at"),
         "latest_candle_time": _dict(candles[-1]).get("time") if candles else None,
+        "snapshot_age_seconds": _age_seconds(_dict(snapshot).get("received_at")),
     }
 
 
@@ -125,6 +126,7 @@ def build_runtime_dashboard_summary(
     *,
     runtime_provenance: dict[str, Any] | None = None,
     evidence_integrity: dict[str, Any] | None = None,
+    runtime_environment: dict[str, Any] | None = None,
 ) -> AurixRuntimeDashboardSummary:
     store = RuntimeDashboardStore(data_dir)
     snapshot = store.latest_snapshot()
@@ -182,6 +184,7 @@ def build_runtime_dashboard_summary(
     safety = RuntimeDashboardSafety()
     runtime_provenance = runtime_provenance or legacy_runtime_provenance(data_dir, mode=str(decision.get("mode") or "UNKNOWN"), symbol=str(market.get("symbol") or "XAUUSDm"))
     evidence_integrity = evidence_integrity or build_evidence_integrity_status(data_dir)
+    runtime_environment = runtime_environment or {}
     health = _health(decision, event_bus_status, snapshot, warnings)
     if evidence_integrity.get("status") == "ERROR":
         health = "ERROR"
@@ -251,6 +254,7 @@ def build_runtime_dashboard_summary(
         paper_risk_audit=_dict(paper_risk[-1]) if paper_risk else {},
         runtime_provenance=runtime_provenance,
         evidence_integrity=evidence_integrity,
+        runtime_environment=runtime_environment,
         safety=safety,
         health=health,
         top_blocks=blocks[:5],

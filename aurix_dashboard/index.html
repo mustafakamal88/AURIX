@@ -317,15 +317,20 @@
         <article class="card">
           <h2>VPS Runtime Profile</h2>
           <div class="row-table">
-            <div class="rt-row"><span class="rt-label">Profile</span><span class="rt-value" id="vpsProfile">--</span></div>
+            <div class="rt-row"><span class="rt-label">Runtime Profile</span><span class="rt-value" id="vpsProfile">--</span></div>
+            <div class="rt-row"><span class="rt-label">Public Base URL</span><span class="rt-value" id="vpsPublicBaseUrl">--</span></div>
+            <div class="rt-row"><span class="rt-label">Remote Auth Required</span><span class="rt-value" id="vpsRemoteAuth">--</span></div>
             <div class="rt-row"><span class="rt-label">Host / Port</span><span class="rt-value" id="vpsHostPort">--</span></div>
-            <div class="rt-row"><span class="rt-label">Dashboard</span><span class="rt-value"><span class="pill safe">READ-ONLY</span></span></div>
-            <div class="rt-row"><span class="rt-label">MT5 Snapshot Age</span><span class="rt-value" id="vpsMt5Age">--</span></div>
+            <div class="rt-row"><span class="rt-label">Data Dir</span><span class="rt-value" id="vpsDataDir">--</span></div>
+            <div class="rt-row"><span class="rt-label">Log Dir</span><span class="rt-value" id="vpsLogDir">--</span></div>
+            <div class="rt-row"><span class="rt-label">Railway Volume</span><span class="rt-value" id="vpsRailwayVolume">--</span></div>
             <div class="rt-row"><span class="rt-label">Terminal ID</span><span class="rt-value" id="vpsTerminalId">--</span></div>
+            <div class="rt-row"><span class="rt-label">Last MT5 Snapshot Age</span><span class="rt-value" id="vpsMt5Age">--</span></div>
             <div class="rt-row"><span class="rt-label">Symbol</span><span class="rt-value" id="vpsSymbol">--</span></div>
-            <div class="rt-row"><span class="rt-label">Live Execution</span><span class="rt-value"><span class="pill lock">LOCKED</span></span></div>
-            <div class="rt-row"><span class="rt-label">Demo Broker Exec</span><span class="rt-value"><span class="pill lock">DISABLED</span></span></div>
-            <div class="rt-row"><span class="rt-label">Command Queue</span><span class="rt-value"><span class="pill lock">DISABLED</span></span></div>
+            <div class="rt-row"><span class="rt-label">Dashboard Read Only</span><span class="rt-value" id="vpsDashboardReadOnly">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Execution Locked</span><span class="rt-value" id="vpsLiveLocked">--</span></div>
+            <div class="rt-row"><span class="rt-label">Demo Broker Execution</span><span class="rt-value" id="vpsDemoDisabled">--</span></div>
+            <div class="rt-row"><span class="rt-label">Command Queue</span><span class="rt-value" id="vpsCommandDisabled">--</span></div>
           </div>
           <div class="vps-card-note">VPS execution fields are populated from runtime-summary when available.</div>
         </article>

@@ -37,6 +37,7 @@ Part 34 adds an advanced read-only XAUUSD runtime control dashboard.
 Part 35 hardens runtime persistence so concurrent status/dashboard polling cannot collide on fixed JSON temp files.
 Part 36 adds runtime provenance, current-session counters, and evidence integrity checks.
 The Windows Forex VPS deployment pack adds local Windows setup docs, PowerShell runtime scripts, and a preflight checker for running MT5, the EA, and AURIX on the same VPS.
+The Railway Cloud Bridge deployment pack adds secure remote hosting support for the AURIX bridge/dashboard while MT5 and the EA remain on the Windows Forex VPS.
 
 Do not use the official Python `MetaTrader5` package for this setup. Native macOS Python cannot directly call the Wine-hosted MT5 terminal.
 
@@ -276,6 +277,58 @@ cd C:\AURIX
 ```
 
 This deployment pack is packaging only. Demo execution, live execution, broker order creation, MT5 command queueing, paper trade creation, order request creation, and EA setting changes remain disabled until a later explicit safety-gated part.
+
+## Railway Cloud Bridge Deployment
+
+The hybrid deployment runs the AURIX FastAPI bridge, runtime dashboard, decision engine, provenance, and evidence integrity layer on Railway. The Windows Forex VPS runs only Exness MT5 plus `AurixBridgeEA`.
+
+Railway setup guide:
+
+```text
+docs/railway_cloud_bridge_setup.md
+```
+
+MT5 hybrid setup guide:
+
+```text
+docs/railway_mt5_hybrid_setup.md
+```
+
+Railway start command:
+
+```bash
+python scripts/run_server.py
+```
+
+Required Railway volume mount:
+
+```text
+/data
+```
+
+Dashboard URL pattern:
+
+```text
+https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+```
+
+Remote health check:
+
+```bash
+python3 scripts/check_railway_remote_health.py \
+  --base-url https://your-app.up.railway.app \
+  --api-key YOUR_AURIX_API_KEY
+```
+
+Required safety variables stay false:
+
+```env
+AURIX_LIVE_EXECUTION_ENABLED=false
+AURIX_DEMO_BROKER_EXECUTION_ENABLED=false
+AURIX_COMMAND_QUEUE_ENABLED=false
+```
+
+Remote access requires `AURIX_API_KEY` when `AURIX_RUNTIME_PROFILE=RAILWAY_CLOUD_BRIDGE`. This pack does not enable live execution, demo broker execution, broker order creation, MT5 command queueing, paper trade creation, order request creation, or EA setting changes.
 
 List open commands:
 

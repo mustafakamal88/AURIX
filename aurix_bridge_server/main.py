@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -55,9 +55,19 @@ from .store import JsonStore
 
 load_dotenv()
 
+RUNTIME_PROFILE = os.getenv("AURIX_RUNTIME_PROFILE", "LOCAL_DEV").upper()
 DATA_DIR = os.getenv("AURIX_DATA_DIR", "data")
+LOG_DIR = os.getenv("AURIX_LOG_DIR", "logs")
+PUBLIC_BASE_URL = os.getenv("AURIX_PUBLIC_BASE_URL", "")
 DEFAULT_TERMINAL_ID = os.getenv("AURIX_TERMINAL_ID", "AURIX-MAC-001")
+REQUIRE_API_KEY_FOR_REMOTE = os.getenv("AURIX_REQUIRE_API_KEY_FOR_REMOTE", "false").lower() in {"1", "true", "yes"}
+API_KEY = os.getenv("AURIX_API_KEY", "")
+DASHBOARD_READ_ONLY = os.getenv("AURIX_DASHBOARD_READ_ONLY", "true").lower() in {"1", "true", "yes"}
+LIVE_EXECUTION_ENABLED = os.getenv("AURIX_LIVE_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
+DEMO_BROKER_EXECUTION_ENABLED = os.getenv("AURIX_DEMO_BROKER_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
+COMMAND_QUEUE_ENABLED = os.getenv("AURIX_COMMAND_QUEUE_ENABLED", "false").lower() in {"1", "true", "yes"}
 DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "aurix_dashboard"
+RAILWAY_VOLUME_DETECTED = Path(DATA_DIR).is_mount() if Path(DATA_DIR).exists() else False
 
 store = JsonStore(DATA_DIR)
 logger = logging.getLogger("aurix.runtime")
@@ -196,6 +206,56 @@ app = FastAPI(
 app.mount("/dashboard/static", StaticFiles(directory=DASHBOARD_DIR), name="dashboard-static")
 
 
+def _remote_auth_required() -> bool:
+    if RUNTIME_PROFILE == "LOCAL_DEV":
+        return False
+    return REQUIRE_API_KEY_FOR_REMOTE or RUNTIME_PROFILE == "RAILWAY_CLOUD_BRIDGE"
+
+
+def _extract_api_key(request: Request) -> str:
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth.split(" ", 1)[1].strip()
+    return request.headers.get("x-aurix-api-key", "") or request.query_params.get("api_key", "")
+
+
+def _auth_error_detail() -> str:
+    if not API_KEY:
+        return "AURIX_API_KEY is required for remote profile; remote access is closed."
+    return "Missing or invalid AURIX API key."
+
+
+def runtime_environment_payload() -> dict[str, Any]:
+    return {
+        "runtime_profile": RUNTIME_PROFILE,
+        "public_base_url": PUBLIC_BASE_URL,
+        "remote_auth_required": _remote_auth_required(),
+        "api_key_configured": bool(API_KEY),
+        "data_dir": DATA_DIR,
+        "log_dir": LOG_DIR,
+        "railway_volume_detected": RAILWAY_VOLUME_DETECTED if RUNTIME_PROFILE == "RAILWAY_CLOUD_BRIDGE" else "unknown",
+        "mt5_terminal_id": DEFAULT_TERMINAL_ID,
+        "dashboard_read_only": DASHBOARD_READ_ONLY,
+        "live_execution_enabled": LIVE_EXECUTION_ENABLED,
+        "demo_broker_execution_enabled": DEMO_BROKER_EXECUTION_ENABLED,
+        "command_queue_enabled": COMMAND_QUEUE_ENABLED,
+    }
+
+
+@app.middleware("http")
+async def require_remote_api_key(request: Request, call_next: Any) -> Any:
+    path = request.url.path
+    if path in {"/healthz"} or path.startswith("/dashboard/static"):
+        return await call_next(request)
+    if not _remote_auth_required():
+        return await call_next(request)
+    if not API_KEY:
+        return JSONResponse(status_code=503, content={"ok": False, "error": _auth_error_detail()})
+    if _extract_api_key(request) != API_KEY:
+        return JSONResponse(status_code=401, content={"ok": False, "error": _auth_error_detail()})
+    return await call_next(request)
+
+
 @app.get("/")
 def root() -> dict[str, Any]:
     return {
@@ -240,6 +300,20 @@ def root() -> dict[str, Any]:
         "demo_command_queue_status": "/demo-command-queue/status",
         "decision_engine_status": "/decision-engine/status",
         "evidence_integrity_status": "/evidence-integrity/status",
+        "healthz": "/healthz",
+    }
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "runtime_profile": RUNTIME_PROFILE,
+        "dashboard_read_only": DASHBOARD_READ_ONLY,
+        "live_execution_enabled": LIVE_EXECUTION_ENABLED,
+        "demo_broker_execution_enabled": DEMO_BROKER_EXECUTION_ENABLED,
+        "command_queue_enabled": COMMAND_QUEUE_ENABLED,
+        "runtime_session_id": runtime_session.runtime_session_id,
     }
 
 
@@ -256,6 +330,7 @@ def dashboard_runtime_summary() -> dict[str, Any]:
             DATA_DIR,
             runtime_provenance=runtime_session.payload(),
             evidence_integrity=evidence_integrity_payload(),
+            runtime_environment=runtime_environment_payload(),
         ).model_dump(mode="json")
     except Exception as exc:
         logger.exception("dashboard runtime summary degraded after unexpected runtime read failure")
@@ -278,6 +353,7 @@ def dashboard_runtime_summary() -> dict[str, Any]:
             "paper_risk_audit": {},
             "runtime_provenance": runtime_session.payload(),
             "evidence_integrity": {"status": "ERROR", "notes": [str(exc)]},
+            "runtime_environment": runtime_environment_payload(),
             "safety": {
                 "read_only_dashboard": True,
                 "paper_trade_creation_allowed": False,
@@ -1885,7 +1961,12 @@ def operator_status() -> dict[str, Any]:
         return operator_status_payload()
     except Exception as exc:
         logger.exception("operator status degraded after unexpected runtime status failure")
-        summary = build_runtime_dashboard_summary(DATA_DIR, runtime_provenance=runtime_session.payload(), evidence_integrity=evidence_integrity_payload()).model_dump(mode="json")
+        summary = build_runtime_dashboard_summary(
+            DATA_DIR,
+            runtime_provenance=runtime_session.payload(),
+            evidence_integrity=evidence_integrity_payload(),
+            runtime_environment=runtime_environment_payload(),
+        ).model_dump(mode="json")
         return {"degraded": True, "error": str(exc), "runtime_summary": summary, "safety": summary.get("safety", {})}
 
 
@@ -1896,7 +1977,12 @@ def operator_summary() -> dict[str, Any]:
         return build_operator_summary(status).model_dump()
     except Exception as exc:
         logger.exception("operator summary degraded after unexpected runtime status failure")
-        summary = build_runtime_dashboard_summary(DATA_DIR, runtime_provenance=runtime_session.payload(), evidence_integrity=evidence_integrity_payload()).model_dump(mode="json")
+        summary = build_runtime_dashboard_summary(
+            DATA_DIR,
+            runtime_provenance=runtime_session.payload(),
+            evidence_integrity=evidence_integrity_payload(),
+            runtime_environment=runtime_environment_payload(),
+        ).model_dump(mode="json")
         return {
             "degraded": True,
             "error": str(exc),

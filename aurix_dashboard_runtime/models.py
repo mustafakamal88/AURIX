@@ -49,6 +49,7 @@ class AurixRuntimeDashboardSummary(BaseModel):
     paper_risk_audit: dict[str, Any] = Field(default_factory=dict)
     runtime_provenance: dict[str, Any] = Field(default_factory=dict)
     evidence_integrity: dict[str, Any] = Field(default_factory=dict)
+    runtime_environment: dict[str, Any] = Field(default_factory=dict)
     safety: RuntimeDashboardSafety = Field(default_factory=RuntimeDashboardSafety)
     health: str = "HEALTHY"
     top_blocks: list[str] = Field(default_factory=list)

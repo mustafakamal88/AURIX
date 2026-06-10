@@ -2,6 +2,10 @@
 
 const REFRESH_MS = 5000;
 const RUNTIME_SUMMARY_ENDPOINT = "/dashboard/runtime-summary";
+const DASHBOARD_API_KEY = new URLSearchParams(window.location.search).get("api_key") || window.localStorage.getItem("aurix_api_key") || "";
+if (DASHBOARD_API_KEY) {
+  window.localStorage.setItem("aurix_api_key", DASHBOARD_API_KEY);
+}
 
 // ── DOM helpers ──────────────────────────────────────────────────
 
@@ -147,7 +151,10 @@ function setConnected(ok, reason) {
 // ── Fetch ─────────────────────────────────────────────────────────
 
 async function getRuntimeSummary() {
-  const response = await fetch(RUNTIME_SUMMARY_ENDPOINT, { method: "GET", cache: "no-store" });
+  const url = new URL(RUNTIME_SUMMARY_ENDPOINT, window.location.origin);
+  if (DASHBOARD_API_KEY) url.searchParams.set("api_key", DASHBOARD_API_KEY);
+  const headers = DASHBOARD_API_KEY ? { "X-AURIX-API-Key": DASHBOARD_API_KEY } : {};
+  const response = await fetch(url.toString(), { method: "GET", cache: "no-store", headers });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
@@ -200,6 +207,7 @@ function render(summary) {
   const sessionCounters      = provenance.session_counters    || {};
   const assertion            = provenance.safety_assertion    || {};
   const evidenceIntegrity    = summary.evidence_integrity     || {};
+  const runtimeEnvironment   = summary.runtime_environment    || {};
 
   const symbol = summary.symbol || market.symbol;
   const sessionId = provenance.runtime_session_id;
@@ -390,14 +398,23 @@ function render(summary) {
   renderWarnings(summary.top_warnings || []);
 
   // ── VPS Profile ──────────────────────────────────────────────────
-  const vpsProfile = summary.vps_profile || summary.runtime_profile || "--";
+  const vpsProfile = runtimeEnvironment.runtime_profile || summary.vps_profile || summary.runtime_profile || "--";
   setText("vpsProfile",    vpsProfile);
   const host = summary.host || summary.bridge_host;
   const port = summary.port || summary.bridge_port;
   setText("vpsHostPort",   host && port ? `${host}:${port}` : (host || port || "--"));
-  setText("vpsMt5Age",     summary.mt5_snapshot_age || account.snapshot_age || "--");
-  setText("vpsTerminalId", summary.terminal_id || "--");
+  setText("vpsPublicBaseUrl", runtimeEnvironment.public_base_url);
+  setStatus("vpsRemoteAuth", runtimeEnvironment.remote_auth_required ? "REQUIRED" : "LOCAL_ONLY", runtimeEnvironment.remote_auth_required ? "warn" : "good");
+  setText("vpsDataDir", runtimeEnvironment.data_dir);
+  setText("vpsLogDir", runtimeEnvironment.log_dir);
+  setStatus("vpsRailwayVolume", runtimeEnvironment.railway_volume_detected);
+  setText("vpsMt5Age",     market.snapshot_age_seconds || summary.mt5_snapshot_age || account.snapshot_age || "--");
+  setText("vpsTerminalId", runtimeEnvironment.mt5_terminal_id || summary.terminal_id || "--");
   setText("vpsSymbol",     symbol);
+  setOverallSafe("vpsDashboardReadOnly", runtimeEnvironment.dashboard_read_only !== false);
+  setExecLock("vpsLiveLocked", runtimeEnvironment.live_execution_enabled);
+  setExecLock("vpsDemoDisabled", runtimeEnvironment.demo_broker_execution_enabled);
+  setExecLock("vpsCommandDisabled", runtimeEnvironment.command_queue_enabled);
 
   // ── Footer ───────────────────────────────────────────────────────
   setText("updatedAt", `Updated ${new Date().toLocaleTimeString()} · polling every ${REFRESH_MS / 1000}s · read-only`);

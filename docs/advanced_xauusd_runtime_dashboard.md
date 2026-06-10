@@ -115,3 +115,23 @@ GET /evidence-integrity/status
 The endpoint checks whether core evidence files are readable, whether corrupt JSON files exist in the data tree, whether stale atomic temp files remain after Part 35, and whether basic evidence counts are internally sane.
 
 The dashboard shows this in the Evidence Integrity card. This is an observability layer only; it does not execute trades, create paper trades, queue MT5 commands, create order requests, modify broker state, or change EA settings.
+
+## Railway Cloud Bridge Runtime
+
+The Railway Cloud Bridge deployment pack lets the same read-only cockpit run from a Railway-hosted AURIX bridge while MT5 and `AurixBridgeEA` remain on the Windows Forex VPS.
+
+The dashboard still polls only:
+
+```text
+GET /dashboard/runtime-summary
+```
+
+For Railway, remote access requires `AURIX_API_KEY`. The dashboard can be opened with:
+
+```text
+https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+```
+
+The runtime summary includes a `runtime_environment` block with runtime profile, public base URL, remote auth requirement, data/log directories, Railway volume detection, terminal id, and disabled execution flags. These fields are observability only.
+
+Railway support does not enable live trading, demo broker execution, command queueing, broker orders, paper trades, order requests, or EA setting changes.

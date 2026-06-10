@@ -6,10 +6,11 @@
 
 #include <Trade/Trade.mqh>
 
-input string TerminalId       = "AURIX-MAC-001";
-input string ServerBaseUrl    = "http://127.0.0.1:8765";
+input string TerminalId       = "AURIX-VPS-001";
+input string BridgeBaseUrl    = "http://127.0.0.1:8765";
+input string ApiKey           = "";
 input string TradeSymbol      = "XAUUSDm";
-input int    TimerSeconds     = 2;
+input int    PollSeconds      = 2;
 input bool   AllowLiveTrading = false;
 input double MaxVolume        = 0.01;
 input int    MagicNumber      = 880001;
@@ -22,8 +23,8 @@ int OnInit()
 {
    trade.SetExpertMagicNumber(MagicNumber);
    trade.SetDeviationInPoints(DeviationPoints);
-   EventSetTimer(TimerSeconds);
-   Print("AURIX Bridge EA started. TerminalId=", TerminalId, " Server=", ServerBaseUrl);
+   EventSetTimer(PollSeconds);
+   Print("AURIX Bridge EA started. TerminalId=", TerminalId, " Bridge=", BridgeBaseUrl);
    return(INIT_SUCCEEDED);
 }
 
@@ -247,8 +248,10 @@ string DealsJson()
 //+------------------------------------------------------------------+
 bool HttpPostJson(string path, string payload, string &response)
 {
-   string url = ServerBaseUrl + path;
+   string url = BridgeBaseUrl + path;
    string headers = "Content-Type: application/json\r\n";
+   if(ApiKey != "")
+      headers += "X-AURIX-API-Key: " + ApiKey + "\r\n";
    char data[];
    char result[];
    string result_headers;
@@ -277,8 +280,10 @@ bool HttpPostJson(string path, string payload, string &response)
 //+------------------------------------------------------------------+
 bool HttpGetText(string path, string &response)
 {
-   string url = ServerBaseUrl + path;
+   string url = BridgeBaseUrl + path;
    string headers = "";
+   if(ApiKey != "")
+      headers = "X-AURIX-API-Key: " + ApiKey + "\r\n";
    char data[];
    char result[];
    string result_headers;
