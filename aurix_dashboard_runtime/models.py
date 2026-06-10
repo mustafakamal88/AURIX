@@ -14,8 +14,7 @@ class RuntimeDashboardSafety(BaseModel):
     read_only_dashboard: bool = True
     paper_trade_creation_allowed: bool = False
     order_request_creation_allowed: bool = False
-    demo_command_queueing_allowed: bool = False
-    mt5_command_queueing_allowed: bool = False
+    broker_execution_enabled: bool = False
     demo_execution_allowed: bool = False
     live_execution_allowed: bool = False
     live_arming_allowed: bool = False

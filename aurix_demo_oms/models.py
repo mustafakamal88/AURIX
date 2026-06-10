@@ -97,7 +97,7 @@ class OmsOrderRequest(BaseModel):
     entry_reference: Optional[float] = None
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
-    status: str = "DRY_RUN_ONLY"
+    status: str = "READY_FOR_BROKER_EXECUTION"
     mt5_command_id: Optional[str] = None
     broker_order_id: Optional[str] = None
     correlation_id: Optional[str] = None
@@ -112,7 +112,7 @@ class OmsExecutionPlan(BaseModel):
     intent_id: str
     request_id: Optional[str] = None
     mode: str = "DEMO_OMS_DRY_RUN"
-    status: str = "DRY_RUN_ONLY"
+    status: str = "READY_FOR_BROKER_EXECUTION"
     safety: DemoOmsSafety = Field(default_factory=DemoOmsSafety)
 
 

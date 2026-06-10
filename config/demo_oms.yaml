@@ -7,17 +7,13 @@ account_currency: "GBP"
 allow_order_intent_creation: true
 allow_order_request_event_creation: true
 allow_demo_execution: false
-allow_demo_command_queueing: false
 allow_live_arming: false
 allow_live_execution: false
 allow_real_account_execution: false
-allow_command_queueing: false
 
 # Required safety gates
 require_demo_account: true
 require_real_account_blocked: true
-require_manual_demo_arm: true
-require_ea_live_trading_disabled_now: true
 require_signal_command_id_null: true
 require_event_bus_enabled: true
 require_risk_governor_approval: true

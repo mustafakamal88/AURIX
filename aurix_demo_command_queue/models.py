@@ -87,7 +87,7 @@ class DemoMt5CommandPayload(BaseModel):
     magic: int = 320032
     comment: str = "AURIX-DEMO-DRY-RUN"
     ttl_seconds: int = 30
-    status: str = "DRY_RUN_ONLY"
+    status: str = "READY_FOR_BROKER_EXECUTION"
     mt5_command_id: Optional[str] = None
     queued_at: Optional[str] = None
     broker_order_id: Optional[str] = None
@@ -115,9 +115,6 @@ class DemoCommandQueueStatus(BaseModel):
     payload_count: int = 0
     latest_preview_status: Optional[str] = None
     latest_payload_status: Optional[str] = None
-    manual_demo_arm: bool = False
-    demo_command_queueing_allowed: bool = False
-    mt5_command_queueing_allowed: bool = False
     demo_execution_allowed: bool = False
     live_execution_allowed: bool = False
     broker_order_created: bool = False

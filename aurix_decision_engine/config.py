@@ -16,8 +16,6 @@ class DecisionEngineConfig(BaseModel):
     allowed_autonomy_levels: list[str] = Field(default_factory=lambda: ["OBSERVE_ONLY", "ADVISORY_ONLY", "DEMO_DRY_RUN_ONLY", "DEMO_AUTONOMY_DISABLED", "MICRO_LIVE_DISABLED"])
     allow_trade_decision: bool = True
     allow_order_request_creation: bool = False
-    allow_demo_command_queueing: bool = False
-    allow_mt5_command_queueing: bool = False
     allow_demo_execution: bool = False
     allow_live_execution: bool = False
     allow_live_arming: bool = False
@@ -28,7 +26,6 @@ class DecisionEngineConfig(BaseModel):
     require_broker_reconciliation_clean: bool = True
     require_demo_oms_safe: bool = True
     require_demo_command_queue_safe: bool = True
-    require_ea_live_trading_disabled_now: bool = True
     require_account_currency_match: bool = True
     require_symbol_match: bool = True
     min_signal_confidence: float = 0.60

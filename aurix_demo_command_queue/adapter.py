@@ -76,7 +76,7 @@ class DemoCommandQueueAdapter:
         preview.validation_status = validation.status
         preview.rejection_reasons = validation.rejection_reasons
         preview.warnings = validation.warnings
-        preview.status = "READY_BUT_QUEUE_DISABLED" if not validation.approved and all(r.code in {"manual_demo_arm_false", "demo_command_queueing_disabled", "mt5_command_queueing_disabled"} for r in validation.rejection_reasons) else "BLOCKED" if not validation.approved else "PREVIEW_CREATED"
+        preview.status = "BLOCKED" if not validation.approved else "PREVIEW_CREATED"
         self.store.add_preview(preview)
         event = publish_preview_event(self.event_bus, preview, validation)
         return {"status": preview.status, "preview": preview.model_dump(mode="json"), "validation": validation.model_dump(mode="json"), "event": event, "safety": preview.safety.model_dump()}
@@ -113,7 +113,7 @@ class DemoCommandQueueAdapter:
         )
 
     def build_mt5_command_payload(self, preview: DemoCommandPreview, validation) -> DemoMt5CommandPayload:
-        status = "DRY_RUN_ONLY" if validation.approved else "QUEUE_DISABLED" if any(r.code in {"manual_demo_arm_false", "demo_command_queueing_disabled", "mt5_command_queueing_disabled"} for r in validation.rejection_reasons) else "BLOCKED"
+        status = "READY_FOR_BROKER_EXECUTION" if validation.approved else "BLOCKED"
         return DemoMt5CommandPayload(
             preview_id=preview.id,
             command_type="OPEN_MARKET",
@@ -143,7 +143,7 @@ class DemoCommandQueueAdapter:
         preview.validation_status = validation.status
         preview.rejection_reasons = validation.rejection_reasons
         preview.warnings = validation.warnings
-        preview.status = "READY_BUT_QUEUE_DISABLED" if not validation.approved and any(r.code.endswith("disabled") or r.code == "manual_demo_arm_false" for r in validation.rejection_reasons) else "BLOCKED" if not validation.approved else "PREVIEW_CREATED"
+        preview.status = "BLOCKED" if not validation.approved else "PREVIEW_CREATED"
         self.store.add_preview(preview)
         preview_event = publish_preview_event(self.event_bus, preview, validation)
         payload = self.build_mt5_command_payload(preview, validation)

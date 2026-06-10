@@ -657,14 +657,14 @@ def command_for_ea(command: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def latest_actionable_signal() -> dict[str, Any] | None:
+def latest_broker_execution_signal() -> dict[str, Any] | None:
     items = strategy_agent_evaluator.latest()
     for item in reversed(items):
         if not isinstance(item, dict):
             continue
         if item.get("symbol") != "XAUUSDm":
             continue
-        if item.get("status") in {"SIGNAL", "VALID", "ACTIONABLE"} and item.get("direction") in {"BUY", "SELL"}:
+        if item.get("status") in {"SIGNAL", "VALID", "ACTIONABLE"}:
             return item
     return None
 
@@ -677,7 +677,7 @@ def evaluate_demo_broker_execution_gate() -> dict[str, Any]:
         summary_health = "UNKNOWN"
     return demo_broker_execution_gate.evaluate(
         snapshot=store.latest_snapshot(),
-        signal=latest_actionable_signal(),
+        signal=latest_broker_execution_signal(),
         runtime_session_id=runtime_session.runtime_session_id,
         runtime_health=summary_health,
     )

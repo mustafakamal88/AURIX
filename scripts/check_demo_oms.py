@@ -29,8 +29,6 @@ def main() -> int:
         "latest_request_status",
         "demo_execution_allowed",
         "live_execution_allowed",
-        "command_queueing_allowed",
-        "demo_command_queueing_allowed",
         "broker_order_created",
         "mt5_commands_queued",
     ]

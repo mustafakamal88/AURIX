@@ -56,18 +56,10 @@ def validate_command_preview(
     ]:
         if flag:
             reasons.append(_reason(code, f"safety config violation: {code}"))
-    if config.require_manual_demo_arm and not config.manual_demo_arm:
-        reasons.append(_reason("manual_demo_arm_false", "manual demo arm is false"))
-    if not config.allow_demo_command_queueing:
-        reasons.append(_reason("demo_command_queueing_disabled", "demo command queueing is disabled"))
-    if not config.allow_mt5_command_queueing:
-        reasons.append(_reason("mt5_command_queueing_disabled", "MT5 command queueing is disabled"))
     if config.require_broker_reconciliation_clean and _as_dict(broker_reconciliation).get("status") != "CLEAN":
         reasons.append(_reason("broker_reconciliation_not_clean", "broker reconciliation must be CLEAN"))
     if config.require_demo_oms_request and not oms_request:
         reasons.append(_reason("demo_oms_request_missing", "Demo OMS request is required"))
-    if config.require_demo_oms_request_dry_run and _as_dict(oms_request).get("status") not in {"DRY_RUN_ONLY", "READY_FOR_DEMO_ONLY"}:
-        reasons.append(_reason("demo_oms_request_not_dry_run", "Demo OMS request is not dry-run ready"))
     if config.require_mt5_command_id_null and _as_dict(oms_request).get("mt5_command_id") is not None:
         reasons.append(_reason("mt5_command_id_present", "OMS request mt5_command_id must be null"))
     if config.require_broker_order_id_null and _as_dict(oms_request).get("broker_order_id") is not None:
@@ -78,6 +70,10 @@ def validate_command_preview(
         reasons.append(_reason("account_currency_mismatch", f"account currency {account.get('currency')} does not match {config.account_currency}"))
     elif not account.get("currency"):
         warnings.append("account currency unavailable")
+    if preview.direction is None:
+        reasons.append(_reason("signal_direction_missing", "signal direction missing"))
+    elif preview.direction not in {"BUY", "SELL"}:
+        reasons.append(_reason("direction_not_allowed", f"direction must be BUY or SELL, got {preview.direction}"))
     if preview.order_type not in config.allowed_order_types:
         reasons.append(_reason("order_type_not_allowed", f"order type not allowed: {preview.order_type}"))
     if preview.volume <= 0 or (config.require_max_volume and preview.volume > config.max_volume):
@@ -85,8 +81,6 @@ def validate_command_preview(
     spread = _as_float(tick.get("spread_points"))
     if spread is not None and spread > config.max_spread_points:
         reasons.append(_reason("spread_above_max", f"spread {spread} exceeds max_spread_points {config.max_spread_points}"))
-    if raw.get("broker_execution_enabled") is True and config.require_ea_live_trading_disabled_now:
-        reasons.append(_reason("ea_live_trading_enabled", "EA reports AURIX_BROKER_EXECUTION=true"))
     symbol_positions = [item for item in positions if _as_dict(item).get("symbol") == config.symbol]
     symbol_orders = [item for item in orders if _as_dict(item).get("symbol") == config.symbol]
     if config.require_no_open_broker_position_for_symbol and len(symbol_positions) > config.max_open_broker_positions:

@@ -13,8 +13,6 @@ allowed_autonomy_levels:
 
 allow_trade_decision: true
 allow_order_request_creation: false
-allow_demo_command_queueing: false
-allow_mt5_command_queueing: false
 allow_demo_execution: false
 allow_live_execution: false
 allow_live_arming: false
@@ -26,7 +24,6 @@ require_strategy_agent_status: true
 require_broker_reconciliation_clean: true
 require_demo_oms_safe: true
 require_demo_command_queue_safe: true
-require_ea_live_trading_disabled_now: true
 require_account_currency_match: true
 require_symbol_match: true
 

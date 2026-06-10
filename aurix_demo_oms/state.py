@@ -14,7 +14,7 @@ def count_today_requests(requests: list[dict[str, Any]]) -> int:
 
 
 def count_open_oms_orders(requests: list[dict[str, Any]], symbol: str | None = None) -> int:
-    active = {"DRY_RUN_ONLY", "QUEUE_DISABLED", "READY_FOR_DEMO_ONLY"}
+    active = {"READY_FOR_BROKER_EXECUTION"}
     count = 0
     for item in requests:
         if symbol and item.get("symbol") != symbol:

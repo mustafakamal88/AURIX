@@ -15,15 +15,11 @@ class DemoOmsConfig(BaseModel):
     allow_order_intent_creation: bool = True
     allow_order_request_event_creation: bool = True
     allow_demo_execution: bool = False
-    allow_demo_command_queueing: bool = False
     allow_live_arming: bool = False
     allow_live_execution: bool = False
     allow_real_account_execution: bool = False
-    allow_command_queueing: bool = False
     require_demo_account: bool = True
     require_real_account_blocked: bool = True
-    require_manual_demo_arm: bool = True
-    require_ea_live_trading_disabled_now: bool = True
     require_signal_command_id_null: bool = True
     require_event_bus_enabled: bool = True
     require_risk_governor_approval: bool = True

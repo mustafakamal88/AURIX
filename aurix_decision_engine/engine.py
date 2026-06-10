@@ -173,7 +173,6 @@ class AurixDecisionEngine:
             block("decision_engine_config_invalid", "decision engine config is disabled or not DECISION_ONLY")
         for flag, code in [
             (self.config.allow_order_request_creation, "order_request_creation_enabled"),
-            (self.config.allow_demo_command_queueing or self.config.allow_mt5_command_queueing, "command_queueing_enabled"),
             (self.config.allow_demo_execution or self.config.allow_live_execution, "execution_enabled"),
             (self.config.allow_live_arming, "live_arming_enabled"),
             (self.config.allow_real_account_execution, "real_account_execution_enabled"),
@@ -186,9 +185,6 @@ class AurixDecisionEngine:
             block("event_bus_state_missing", "event bus runtime state is unavailable")
         if self.config.require_strategy_agent_status and not source.strategy_agent_available:
             block("strategy_agent_state_missing", "strategy agent state is unavailable")
-        if self.config.require_ea_live_trading_disabled_now and raw.get("broker_execution_enabled") is True:
-            safety_violation = True
-            block("ea_live_trading_enabled", "EA reports AURIX_BROKER_EXECUTION=true")
         if self.config.require_account_currency_match and account.get("currency") and account.get("currency") != self.config.account_currency:
             block("account_currency_mismatch", f"account currency {account.get('currency')} does not match {self.config.account_currency}")
         if self.config.require_symbol_match and tick.get("symbol") and tick.get("symbol") != self.config.symbol:
@@ -257,15 +253,10 @@ class AurixDecisionEngine:
             status = AurixDecisionStatus.READY if action in {AurixDecisionAction.TRADE_LONG, AurixDecisionAction.TRADE_SHORT} else AurixDecisionStatus.WAITING
 
         if not self.config.allow_demo_execution:
-            warnings.append("execution disabled: no order request created")
-        if not self.config.allow_demo_command_queueing and not self.config.allow_mt5_command_queueing:
-            warnings.append("demo command queueing disabled: no MT5 command queued")
+            warnings.append("order creation remains gated by AURIX_BROKER_EXECUTION and broker execution checks")
         if self.config.autonomy_level == "ADVISORY_ONLY":
             warnings.append("advisory-only mode: monitor/manual action only")
 
-        if self.config.block_when_command_queue_disabled and not self.config.allow_mt5_command_queueing:
-            action = AurixDecisionAction.BLOCKED_BY_COMMAND_QUEUE_DISABLED
-            status = AurixDecisionStatus.BLOCKED
         if self.config.block_when_execution_disabled and not self.config.allow_demo_execution:
             action = AurixDecisionAction.BLOCKED_BY_EXECUTION_DISABLED
             status = AurixDecisionStatus.BLOCKED

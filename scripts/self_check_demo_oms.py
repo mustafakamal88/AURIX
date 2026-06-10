@@ -76,8 +76,6 @@ def main() -> int:
         "allow_demo_execution: false",
         "allow_live_execution: false",
         "allow_real_account_execution: false",
-        "allow_command_queueing: false",
-        "allow_demo_command_queueing: false",
     ]:
         if required not in config_text:
             raise AssertionError(f"Demo OMS config does not enforce {required}")
@@ -91,7 +89,7 @@ def main() -> int:
         status = oms.get_demo_oms_status()
         if status["order_intent_count"] != 0 or status["order_request_count"] != 0:
             raise AssertionError(f"empty OMS status is not safe: {status}")
-        if any(status.get(key) for key in ["demo_execution_allowed", "live_execution_allowed", "command_queueing_allowed", "broker_order_created", "mt5_commands_queued"]):
+        if any(status.get(key) for key in ["demo_execution_allowed", "live_execution_allowed", "broker_order_created", "mt5_commands_queued"]):
             raise AssertionError(f"empty OMS safety flags are not safe: {status}")
 
         published_signal = bus.publish_event(signal_event())
@@ -99,8 +97,8 @@ def main() -> int:
         assert_safe(result)
         if result["intent"]["status"] != "DRY_RUN_READY":
             raise AssertionError(f"valid mock signal did not create dry-run-ready intent: {result}")
-        if result["request"]["status"] != "DRY_RUN_ONLY":
-            raise AssertionError(f"valid mock signal did not create dry-run request: {result}")
+        if result["request"]["status"] != "READY_FOR_BROKER_EXECUTION":
+            raise AssertionError(f"valid mock signal did not create broker-execution-ready request: {result}")
         state = bus.get_latest_state()
         latest_request = (state.get("execution") or {}).get("latest_order_request") or {}
         if latest_request.get("id") != result["request"]["id"]:
@@ -138,12 +136,15 @@ def main() -> int:
         for field, code in [
             ("allow_live_execution", "live_execution_enabled"),
             ("allow_demo_execution", "demo_execution_enabled"),
-            ("allow_command_queueing", "command_queueing_enabled"),
         ]:
             bad_oms = DemoOms(tmpdir, config.model_copy(update={field: True}), event_bus=bus, snapshot_provider=lambda: snapshot())
             result = bad_oms.process_signal_event(bus.publish_event(signal_event()))
             if code not in codes(result):
                 raise AssertionError(f"{field}=true did not enforce {code}: {result}")
+
+        missing_direction = oms.process_signal_event(bus.publish_event(signal_event(payload={"direction": None})))
+        if "direction_not_allowed" not in codes(missing_direction):
+            raise AssertionError(f"missing direction did not block: {missing_direction}")
 
         no_risk_oms = DemoOms(tmpdir, config, event_bus=bus, snapshot_provider=lambda: None)
         no_risk_oms.reset_demo_oms()

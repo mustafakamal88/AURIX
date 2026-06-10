@@ -54,10 +54,8 @@ def publish_order_request_event(event_bus: AurixEventBus | None, request: OmsOrd
     if event_bus is None:
         return None
     payload = request.model_dump(mode="json")
-    if request.status == "DRY_RUN_ONLY":
-        payload["event_status"] = "ORDER_REQUEST_DRY_RUN"
-    elif request.status == "QUEUE_DISABLED":
-        payload["event_status"] = "ORDER_REQUEST_QUEUE_DISABLED"
+    if request.status == "READY_FOR_BROKER_EXECUTION":
+        payload["event_status"] = "ORDER_REQUEST_READY_FOR_BROKER_EXECUTION"
     else:
         payload["event_status"] = "ORDER_REQUEST_BLOCKED"
     payload["validation"] = validation.model_dump(mode="json")

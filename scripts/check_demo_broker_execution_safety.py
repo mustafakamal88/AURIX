@@ -54,7 +54,7 @@ def assert_blocked(gate, name, snap=None, sig=None):
 
 def main() -> int:
     base_config = load_demo_broker_execution_config()
-    enabled = replace(base_config, demo_broker_execution_enabled=True, command_queue_enabled=True, live_execution_enabled=False)
+    enabled = replace(base_config, broker_execution_enabled=True, execution_mode="BROKER_EXECUTION_ENABLED")
     with tempfile.TemporaryDirectory(prefix="aurix-demo-broker-safety-") as temp_dir:
         store = DemoBrokerExecutionStore(temp_dir)
         gate = DemoBrokerExecutionGate(enabled, store)
@@ -65,6 +65,12 @@ def main() -> int:
         assert_blocked(gate, "missing_sl", sig=signal(stop_loss_reference=None))
         assert_blocked(gate, "missing_tp", sig=signal(take_profit_reference=None))
         assert_blocked(gate, "open_position_exists", snap=snapshot(positions=[{"ticket": 1, "symbol": "XAUUSDm"}]))
+        no_signal = gate.evaluate(snapshot=snapshot(), signal=None, runtime_session_id="test", runtime_health="HEALTHY")
+        if no_signal.get("primary_block") != "no actionable signal":
+            raise AssertionError(f"no signal primary block wrong: {no_signal}")
+        no_direction = gate.evaluate(snapshot=snapshot(), signal=signal(direction=None), runtime_session_id="test", runtime_health="HEALTHY")
+        if no_direction.get("primary_block") != "signal direction missing":
+            raise AssertionError(f"missing direction primary block wrong: {no_direction}")
         allowed = gate.evaluate(snapshot=snapshot(), signal=signal(), runtime_session_id="test", runtime_health="HEALTHY")
         print(f"mock_allowed_decision: {allowed['allowed']} action={allowed['action']}")
         if not allowed["allowed"]:

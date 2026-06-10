@@ -364,7 +364,7 @@ function render(summary) {
   setExecLock("safetyLiveExecution",   safety.live_execution_allowed);
   setExecLock("safetyLiveArming",      safety.live_arming_allowed);
   setExecLock("safetyDemoExecution",   safety.demo_execution_allowed);
-  setExecLock("safetyCommandQueueing", safety.demo_command_queueing_allowed || safety.mt5_command_queueing_allowed);
+  setStatus("safetyCommandQueueing", demoBroker.queue_state || demoGate.queue_state || "--");
   setSessionBool("safetyMt5Commands",  safety.mt5_commands_queued);
   setSessionBool("safetyBrokerOrder",  safety.broker_order_created);
   setSessionBool("safetyPaperTrade",   safety.paper_trade_created);
@@ -415,7 +415,7 @@ function render(summary) {
   setStatus("demoOmsLatestRequest",  demoOms.latest_request_status);
   setExecLock("demoOmsDemoExecution",   demoOms.demo_execution_allowed);
   setExecLock("demoOmsLiveExecution",   demoOms.live_execution_allowed);
-  setExecLock("demoOmsCommandQueueing", demoOms.command_queueing_allowed);
+  setStatus("demoOmsCommandQueueing", demoOms.broker_execution_enabled ? "ENABLED" : "DISABLED");
 
   // ── Demo Command Queue ───────────────────────────────────────────
   setText("demoCommandQueueMode",           queue.mode);
@@ -423,9 +423,9 @@ function render(summary) {
   setText("demoCommandQueuePayloads",       queue.payload_count);
   setStatus("demoCommandQueueLatestPreview", queue.latest_preview_status);
   setStatus("demoCommandQueueLatestPayload", queue.latest_payload_status);
-  setSessionBool("demoCommandQueueManualArm", queue.manual_demo_arm);
-  setExecLock("demoCommandQueueDemoAllowed",  queue.demo_command_queueing_allowed);
-  setExecLock("demoCommandQueueMt5Allowed",   queue.mt5_command_queueing_allowed);
+  setStatus("demoCommandQueueManualArm", queue.broker_execution_enabled ? "ENABLED" : "DISABLED");
+  setStatus("demoCommandQueueDemoAllowed", queue.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--");
+  setStatus("demoCommandQueueMt5Allowed", queue.mt5_delivery_state || latestDemoCommand.status || "NO_COMMAND");
   setText("demoCommandQueueMt5CommandId",    queue.mt5_command_id);
   setText("demoCommandQueueBrokerOrderId",   queue.broker_order_id);
 
@@ -434,8 +434,12 @@ function render(summary) {
   setStatus("demoBrokerQueueEnabled", demoBroker.queue_state || demoGate.queue_state || "--");
   setStatus("demoBrokerLiveLocked", demoBroker.spread_gate || demoGate.spread_gate || "--");
   setText("demoBrokerOnePosition", demoBroker.engine_max_spread_points != null ? `${demoBroker.engine_max_spread_points} points` : "--");
-  setText("demoBrokerGate", demoBroker.risk_model ? `${demoBroker.risk_model.risk_per_trade_percent}% per trade / ${demoBroker.risk_model.daily_risk_limit_percent}% daily` : "--");
+  setStatus("demoBrokerGate", dailyRisk.status || (demoGate.daily_risk_guard ? demoGate.daily_risk_guard.status : "--"));
+  setStatus("demoBrokerSignalGate", demoGate.allowed ? "PASS" : (demoGate.primary_block === "no actionable signal" || demoGate.primary_block === "signal direction missing" ? "BLOCKED" : "--"));
   setText("demoBrokerReason", demoBroker.latest_gate_block || demoGate.primary_block || demoGate.reason);
+  setText("demoBrokerSelectedStrategy", cockpit.selected_strategy || demoBroker.selected_strategy);
+  setText("demoBrokerSignalDirection", cockpit.latest_signal_direction || demoBroker.latest_signal_direction);
+  setStatus("demoBrokerSignalStatus", cockpit.latest_signal_status || demoBroker.latest_signal_status);
   setOverallSafe("demoAccountVerified", demoAccount.demo_account_verified);
   setText("demoAccountReason", demoAccount.demo_account_reason);
   setText("demoAccountServer", demoAccount.account_server);

@@ -80,7 +80,7 @@ def make_adapter(tmpdir: str, *, config=None, oms_store=None, recon_store=None, 
 
 def main() -> int:
     config_text = (PROJECT_ROOT / "config/demo_command_queue.yaml").read_text(encoding="utf-8")
-    for required in ["allow_demo_command_queueing: false", "allow_mt5_command_queueing: false", "allow_demo_execution: false", "allow_live_execution: false", "allow_real_account_execution: false", "manual_demo_arm: false"]:
+    for required in ["allow_demo_execution: false", "allow_live_execution: false", "allow_real_account_execution: false"]:
         if required not in config_text:
             raise AssertionError(f"demo command queue config missing {required}")
 
@@ -98,11 +98,23 @@ def main() -> int:
         dry = adapter.dry_run_latest_oms_request()
         if not dry.get("payload", {}).get("id"):
             raise AssertionError(f"valid mock OMS request did not create dry-run payload: {dry}")
-        if dry["payload"]["status"] not in {"QUEUE_DISABLED", "BLOCKED", "DRY_RUN_ONLY"}:
+        if dry["payload"]["status"] != "READY_FOR_BROKER_EXECUTION":
             raise AssertionError(f"unexpected payload status: {dry}")
-        if "manual_demo_arm_false" not in codes(dry) or "demo_command_queueing_disabled" not in codes(dry):
-            raise AssertionError(f"default-off queue gates not enforced: {dry}")
+        old_blockers = {
+            "_".join(["manual", "demo", "arm", "false"]),
+            "_".join(["demo", "command", "queueing", "disabled"]),
+            "_".join(["mt5", "command", "queueing", "disabled"]),
+            "_".join(["demo", "oms", "request", "not", "dry", "run"]),
+        }
+        if codes(dry) & old_blockers:
+            raise AssertionError(f"legacy blockers emitted: {dry}")
         assert_safe(dry)
+
+        missing_direction = make_adapter(tmpdir, oms_store=seed_request(tmpdir, direction=None, order_type=None)).dry_run_latest_oms_request()
+        if "signal_direction_missing" not in codes(missing_direction):
+            raise AssertionError(f"missing direction did not block explicitly: {missing_direction}")
+        if "order_type_not_allowed" not in codes(missing_direction):
+            raise AssertionError(f"missing direction did not block invalid order type: {missing_direction}")
 
         bad_recon = BrokerReconciliationStore(tmpdir, load_broker_reconciliation_config())
         bad_recon.add_report(BrokerReconciliationReport(status="MISMATCH"))

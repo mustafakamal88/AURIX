@@ -154,9 +154,9 @@ class DemoOms:
         return validation
 
     def create_order_request_dry_run(self, intent: OmsOrderIntent, validation: OmsValidationResult) -> OmsOrderRequest:
-        status = "DRY_RUN_ONLY" if validation.approved else "BLOCKED"
-        if validation.approved and (not self.config.allow_order_request_event_creation or self.config.allow_command_queueing or self.config.allow_demo_command_queueing):
-            status = "QUEUE_DISABLED"
+        status = "READY_FOR_BROKER_EXECUTION" if validation.approved else "BLOCKED"
+        if validation.approved and not self.config.allow_order_request_event_creation:
+            status = "BLOCKED"
         request = OmsOrderRequest(
             intent_id=intent.id,
             symbol=intent.symbol,
@@ -174,7 +174,7 @@ class DemoOms:
             safety=DemoOmsSafety(),
             provenance=self.provenance_provider("demo_oms", "aurix_demo_oms.oms.create_order_request_dry_run"),
         )
-        intent.status = OmsOrderState.DRY_RUN_READY if status == "DRY_RUN_ONLY" else OmsOrderState.BLOCKED
+        intent.status = OmsOrderState.DRY_RUN_READY if status == "READY_FOR_BROKER_EXECUTION" else OmsOrderState.BLOCKED
         self.store.update_intent(intent)
         self.store.add_request(request)
         return request
