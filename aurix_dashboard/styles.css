@@ -166,7 +166,8 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .topbar-pills .pill { font-size: 10px; padding: 3px 8px; letter-spacing: 0.06em; }
-.pill.hidden { display: none; }
+.banner-slot { display: inline-flex; line-height: 1; }
+.banner-slot.hidden, .pill.hidden { display: none; }
 
 /* ─── Pills / badges ───────────────────────────────────────────── */
 .pill {

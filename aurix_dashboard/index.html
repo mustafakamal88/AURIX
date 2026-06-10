@@ -22,13 +22,13 @@
     </header>
 
     <section class="topbar-pills" aria-label="Safety status">
-      <span id="bannerBrokerExecution" class="pill safe">BROKER EXECUTION DISABLED</span>
-      <span id="bannerEaExecution" class="pill safe">EA EXECUTION DISABLED</span>
-      <span id="bannerExecutionMatch" class="pill neutral">EXECUTION STATE UNKNOWN</span>
-      <span id="bannerDurableAudit" class="pill neutral hidden">DURABLE AUDIT --</span>
-      <span id="bannerReadOnly" class="pill safe">READ-ONLY DASHBOARD</span>
-      <span id="bannerNoCommands" class="pill safe">NO COMMANDS FROM DASHBOARD</span>
-      <span id="dashboardSessionStatus" class="pill safe">Authenticated</span>
+      <span id="bannerBrokerExecution" class="banner-slot"><span class="pill safe">BROKER EXECUTION DISABLED</span></span>
+      <span id="bannerEaExecution" class="banner-slot"><span class="pill safe">EA EXECUTION DISABLED</span></span>
+      <span id="bannerExecutionMatch" class="banner-slot"><span class="pill neutral">EXECUTION STATE UNKNOWN</span></span>
+      <span id="bannerDurableAudit" class="banner-slot hidden"><span class="pill neutral">DURABLE AUDIT --</span></span>
+      <span id="bannerReadOnly" class="banner-slot"><span class="pill safe">READ-ONLY DASHBOARD</span></span>
+      <span id="bannerNoCommands" class="banner-slot"><span class="pill safe">NO COMMANDS FROM DASHBOARD</span></span>
+      <span id="dashboardSessionStatus" class="banner-slot"><span class="pill safe">Authenticated</span></span>
       <button id="dashboardLogout" class="link-button" type="button">Log out</button>
     </section>
 
@@ -664,13 +664,11 @@
             } else {
               dap.classList.remove("hidden");
               const upper = txt.toUpperCase();
-              dap.textContent = "DURABLE AUDIT " + upper;
-              dap.classList.remove("good", "warn", "danger", "neutral", "safe");
               const cls = /OK|ENABLED|CONNECTED|HEALTHY/.test(upper) ? "good"
                        : /ERROR|FAIL|DISCONNECTED/.test(upper) ? "danger"
                        : /WARN|DEGRADED|STALE/.test(upper) ? "warn"
                        : "neutral";
-              dap.classList.add("pill", cls);
+              dap.innerHTML = '<span class="pill ' + cls + '">DURABLE AUDIT ' + upper + '</span>';
             }
           }
         }
