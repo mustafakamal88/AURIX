@@ -118,6 +118,7 @@ def seed_runtime(
     write_json(root, "demo_oms/order_requests.json", [])
     write_json(root, "demo_command_queue/payloads.json", [])
     write_json(root, "trade_explanations/index.json", [])
+    write_json(root, "durable_audit/status.json", {"durable_audit": "DISABLED", "database_connected": False})
 
 
 def main() -> int:
@@ -158,7 +159,7 @@ def main() -> int:
     require(session_storage not in app_js, "dashboard must not store API keys in browser session storage")
     require("sk-" not in combined, "dashboard must not hardcode API keys")
     require("read-only" in combined.lower(), "dashboard should identify itself as read-only")
-    for section in ["Execution Control State", "AURIX Gates", "Validation / Readiness", "Quick Validation", "Latest Trade Explanation"]:
+    for section in ["Execution Control State", "AURIX Gates", "Validation / Readiness", "Quick Validation", "Latest Trade Explanation", "Durable Audit"]:
         require(section in index, f"missing cockpit section: {section}")
     require("No trade explanation recorded yet." in index and "No trade explanation recorded yet." in app_js, "dashboard missing empty trade explanation copy")
     for css_class in [".state-ok", ".state-warn", ".state-danger", ".state-disabled", ".state-enabled", ".state-blocked"]:
@@ -230,6 +231,14 @@ def main() -> int:
         "tradeExplanationConfidence",
         "tradeExplanationComponents",
         "tradeExplanationResult",
+        "durableAuditState",
+        "durableAuditConnected",
+        "durableAuditLastWrite",
+        "durableAuditLastError",
+        "durableAuditExplanationId",
+        "durableAuditCommandId",
+        "durableAuditMt5OrderId",
+        "durableAuditTradeResult",
     ]
     for field in required_fields:
         require(f'id="{field}"' in index or f"text(\"{field}\"" in app_js, f"missing dashboard field: {field}")
@@ -299,6 +308,7 @@ def main() -> int:
         require(cockpit["dashboard_order_capability"] == "READ_ONLY / CANNOT_CREATE_COMMANDS", f"dashboard order capability wrong: {cockpit}")
         require(true_summary["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "dashboard summary should not create an MT5 command")
         require(true_summary["latest_trade_explanation"] == {}, "empty trade explanation ledger should render as empty summary data")
+        require(true_summary["durable_audit"]["durable_audit"] == "DISABLED", f"missing durable audit dashboard state: {true_summary['durable_audit']}")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
         require(true_summary["session"]["trading_session"]["name"] in {"ASIA", "LONDON", "NEW_YORK", "OFF_SESSION"}, f"trading session missing: {true_summary['session']}")
 

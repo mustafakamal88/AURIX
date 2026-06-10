@@ -8,6 +8,7 @@ from urllib.parse import parse_qs
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Optional
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -43,6 +44,7 @@ from aurix_operator import build_operator_summary, build_operator_status
 from aurix_orchestrator import SessionOrchestrator, load_orchestrator_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_paper_risk_audit import PaperRiskAuditStore, load_paper_risk_audit_config
+from aurix_persistence import DurableAuditError, DurableAuditStore
 from aurix_quick_validation import QuickValidationRunner, QuickValidationStore
 from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
@@ -53,6 +55,7 @@ from aurix_supervisor import PaperSupervisor, load_supervisor_config
 from aurix_strategy_engine import StrategyEngine, load_strategy_config
 from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load_xauusd_paper_v1_config
 from aurix_strategy_engine.xauusd_paper_v2 import evaluate_xauusd_paper_v2, load_xauusd_paper_v2_config
+from aurix_trade_explanations import TradeExplanationStore, build_trade_explanation
 
 from .command_codec import encode_command_for_mql5
 from .dashboard_auth import (
@@ -196,6 +199,8 @@ runtime_session = RuntimeSession(
     mode=decision_engine_config.mode,
     symbol=decision_engine_config.symbol,
 )
+durable_audit_store = DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+trade_explanation_store = TradeExplanationStore(DATA_DIR)
 
 
 def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
@@ -210,8 +215,22 @@ def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
     }
 
 
+def mirror_historical_trade_explanation_to_db() -> None:
+    if not durable_audit_store.database_url:
+        return
+    path = Path(DATA_DIR) / "trade_explanations" / "1765078137.json"
+    if not path.exists():
+        return
+    try:
+        explanation = json.loads(path.read_text(encoding="utf-8"))
+        durable_audit_store.write_trade_explanation(explanation, explanation_id=str(uuid5(NAMESPACE_URL, "aurix-historical-trade-1765078137")))
+    except Exception as exc:
+        logger.warning("durable audit historical mirror failed: %s", exc)
+
+
 demo_oms.provenance_provider = runtime_provenance_metadata
 demo_command_queue.provenance_provider = runtime_provenance_metadata
+mirror_historical_trade_explanation_to_db()
 
 app = FastAPI(
     title="AURIX Mac/Wine MT5 Bridge",
@@ -785,6 +804,11 @@ async def receive_execution_result(request: Request) -> dict[str, Any]:
         "provenance": result.provenance,
     }
     demo_broker_execution_store.append_execution_result(demo_result)
+    if durable_audit_store.database_url:
+        try:
+            durable_audit_store.write_broker_execution_result(demo_result)
+        except DurableAuditError as exc:
+            logger.warning("durable audit broker result write failed: %s", exc)
     return {"ok": True, "status": "execution_result_received", "command_id": result.command_id}
 
 
@@ -823,21 +847,52 @@ def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> d
     if pending is None:
         gate = evaluate_demo_broker_execution_gate()
         if gate.get("allowed"):
-            pending = demo_broker_execution_store.create_command(
-                terminal_id=terminal_id,
-                side=str(gate["side"]),
-                symbol=str(gate["symbol"]),
-                volume=float(gate["volume"]),
-                stop_loss=float(gate["stop_loss"]),
-                take_profit=float(gate["take_profit"]),
-                strategy_id=str(gate.get("strategy_id") or ""),
-                signal_id=str(gate.get("signal_id") or ""),
-                runtime_session_id=runtime_session.runtime_session_id,
-                provenance=runtime_provenance_metadata("demo_broker_mt5_command", "aurix_bridge_server.main.mt5_next_command"),
-                safety_checks_snapshot=gate,
-                ttl_seconds=demo_broker_execution_config.command_ttl_seconds,
-                magic_number=demo_broker_execution_config.magic_number,
-            )
+            try:
+                audited = prepare_durable_audit_for_broker_command(gate, terminal_id)
+            except DurableAuditError as exc:
+                reason = str(exc) if str(exc) in {"DURABLE_AUDIT_DISABLED", "DURABLE_AUDIT_DUPLICATE_COMMAND"} else "DURABLE_AUDIT_WRITE_FAILED"
+                blocked_gate = _durable_audit_block(reason, str(exc))
+                demo_broker_execution_store.write_status(build_demo_broker_execution_status(latest_gate_decision=blocked_gate))
+                return {
+                    "ok": True,
+                    "command": None,
+                    "status": "NO_COMMAND",
+                    "terminal_id": terminal_id,
+                    "reason": reason,
+                    "primary_block": reason,
+                }
+            try:
+                pending = demo_broker_execution_store.create_command(
+                    terminal_id=terminal_id,
+                    side=str(gate["side"]),
+                    symbol=str(gate["symbol"]),
+                    volume=float(gate["volume"]),
+                    stop_loss=float(gate["stop_loss"]),
+                    take_profit=float(gate["take_profit"]),
+                    strategy_id=str(gate.get("strategy_id") or ""),
+                    signal_id=str(gate.get("signal_id") or ""),
+                    runtime_session_id=runtime_session.runtime_session_id,
+                    provenance=audited.get("provenance") or runtime_provenance_metadata("demo_broker_mt5_command", "aurix_bridge_server.main.mt5_next_command"),
+                    safety_checks_snapshot=gate,
+                    ttl_seconds=demo_broker_execution_config.command_ttl_seconds,
+                    magic_number=demo_broker_execution_config.magic_number,
+                    command_id=str(audited["command_id"]),
+                    comment=str(audited["comment"]),
+                )
+                durable_audit_store.mark_command_queued(str(pending.get("command_id")), pending)
+            except Exception as exc:
+                if audited.get("command_id"):
+                    demo_broker_execution_store.mark_blocked(str(audited["command_id"]), "DURABLE_AUDIT_WRITE_FAILED")
+                blocked_gate = _durable_audit_block("DURABLE_AUDIT_WRITE_FAILED", str(exc))
+                demo_broker_execution_store.write_status(build_demo_broker_execution_status(latest_gate_decision=blocked_gate))
+                return {
+                    "ok": True,
+                    "command": None,
+                    "status": "NO_COMMAND",
+                    "terminal_id": terminal_id,
+                    "reason": "DURABLE_AUDIT_WRITE_FAILED",
+                    "primary_block": "DURABLE_AUDIT_WRITE_FAILED",
+                }
         else:
             demo_broker_execution_store.write_status(build_demo_broker_execution_status(latest_gate_decision=gate))
             return {
@@ -868,6 +923,7 @@ def command_for_ea(command: dict[str, Any]) -> dict[str, Any]:
         "stop_loss": command.get("stop_loss"),
         "take_profit": command.get("take_profit"),
         "magic_number": command.get("magic_number"),
+        "comment": command.get("comment") or "AURIX-DEMO",
         "expires_at": command.get("expires_at"),
     }
 
@@ -896,6 +952,110 @@ def evaluate_demo_broker_execution_gate() -> dict[str, Any]:
         runtime_session_id=runtime_session.runtime_session_id,
         runtime_health=summary_health,
     )
+
+
+def _latest_decision_payload() -> dict[str, Any]:
+    try:
+        events = event_bus.load_events_by_type(AurixEventType.AURIX_DECISION_EVENT.value, limit=20)
+    except Exception:
+        events = []
+    if events:
+        payload = events[-1].get("payload")
+        if isinstance(payload, dict):
+            return payload
+    report = decision_engine.store.latest()
+    return report if isinstance(report, dict) else {}
+
+
+def _broker_command_id(signal_id: str | None) -> str:
+    if signal_id:
+        cleaned = "".join(ch for ch in str(signal_id) if ch.isalnum())[:24]
+        if cleaned:
+            return f"cmd{cleaned}"
+    return uuid4().hex
+
+
+def _broker_command_comment(command_id: str) -> str:
+    return f"AURIX-DEMO:{command_id[:8]}"[:31]
+
+
+def _durable_audit_block(reason: str, detail: str | None = None) -> dict[str, Any]:
+    return {
+        "allowed": False,
+        "action": "BLOCKED",
+        "reason": reason,
+        "primary_block": reason,
+        "detail": detail,
+        "queue_state": "BLOCKED",
+        "spread_gate": "BLOCKED",
+        "checks": [{"name": "durable_audit_write", "passed": False, "reason": reason, "detail": detail}],
+    }
+
+
+def prepare_durable_audit_for_broker_command(gate: dict[str, Any], terminal_id: str) -> dict[str, Any]:
+    if not durable_audit_store.database_url:
+        raise DurableAuditError("DURABLE_AUDIT_DISABLED")
+    signal = latest_broker_execution_signal() or {}
+    decision = _latest_decision_payload()
+    command_id = _broker_command_id(str(gate.get("signal_id") or signal.get("id") or ""))
+    comment = _broker_command_comment(command_id)
+    if durable_audit_store.command_already_queued(command_id):
+        durable_audit_store.mark_duplicate_command_blocked(command_id)
+        raise DurableAuditError("DURABLE_AUDIT_DUPLICATE_COMMAND")
+    command = {
+        "command_id": command_id,
+        "terminal_id": terminal_id,
+        "mode": "BROKER",
+        "action": "OPEN_MARKET",
+        "symbol": gate.get("symbol"),
+        "side": gate.get("side"),
+        "volume": gate.get("volume"),
+        "entry": signal.get("entry_reference"),
+        "stop_loss": gate.get("stop_loss"),
+        "take_profit": gate.get("take_profit"),
+        "magic_number": demo_broker_execution_config.magic_number,
+        "comment": comment,
+        "strategy_id": gate.get("strategy_id"),
+        "signal_id": gate.get("signal_id"),
+        "runtime_session_id": runtime_session.runtime_session_id,
+        "provenance": runtime_provenance_metadata("demo_broker_mt5_command", "aurix_bridge_server.main.mt5_next_command"),
+        "safety_checks_snapshot": gate,
+    }
+    if signal:
+        durable_audit_store.write_strategy_evaluation(signal, market_snapshot=store.latest_snapshot() or {})
+    decision_id = durable_audit_store.write_decision_record(decision or {"action": gate.get("action"), "reason": gate.get("reason")}, gates=gate, strategy_snapshot=signal)
+    explanation = build_trade_explanation(
+        oms_request={},
+        oms_intent={
+            "id": signal.get("id"),
+            "strategy_name": signal.get("strategy_name"),
+            "direction": signal.get("direction"),
+            "confidence": signal.get("confidence"),
+            "setup_reason": signal.get("setup_reason"),
+            "decision_trace": signal.get("decision_trace") if isinstance(signal.get("decision_trace"), dict) else {},
+        },
+        preview={
+            "id": command_id,
+            "symbol": gate.get("symbol"),
+            "direction": gate.get("side"),
+            "volume": gate.get("volume"),
+            "entry_reference": signal.get("entry_reference"),
+            "stop_loss": gate.get("stop_loss"),
+            "take_profit": gate.get("take_profit"),
+            "strategy_name": signal.get("strategy_name") or gate.get("strategy_id"),
+        },
+        validation=gate,
+        payload={"id": command_id, "side": gate.get("side"), "volume": gate.get("volume"), "sl": gate.get("stop_loss"), "tp": gate.get("take_profit")},
+        snapshot=store.latest_snapshot() or {},
+        decision=decision,
+        strategy_diagnostics=signal,
+    )
+    explanation["trade_id"] = command_id
+    local_explanation = trade_explanation_store.write(explanation)
+    explanation_id = durable_audit_store.write_trade_explanation(local_explanation, explanation_id=str(local_explanation.get("id") or command_id), command_id=command_id, decision_id=decision_id)
+    durable_audit_store.write_command_audit(command, explanation_id=explanation_id, decision_id=decision_id, queued=False, status="WRITE_BEFORE_SEND")
+    command["durable_audit"] = {"explanation_id": explanation_id, "decision_id": decision_id}
+    return command
 
 
 def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -935,6 +1095,7 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
             "daily_risk_guard": latest_gate_decision.get("daily_risk_guard"),
             "latest_command": demo_broker_execution_store.latest_command(),
             "latest_execution_result": demo_broker_execution_store.latest_execution_result(),
+            "durable_audit": durable_audit_store.status(),
             "safety": {
                 "broker_execution_enabled": demo_broker_execution_config.broker_execution_enabled,
                 "internal_queue_controlled_by_broker_execution": True,

@@ -217,6 +217,7 @@ function render(summary) {
   const quickValidation      = summary.quick_validation       || {};
   const pipeline             = summary.strategy_pipeline      || {};
   const tradeExplanation     = summary.latest_trade_explanation || {};
+  const durableAudit         = summary.durable_audit          || {};
   const cockpit              = summary.broker_execution_cockpit || {};
   const quickValidationSafety = quickValidation.safety         || {};
   const quickValidationSummary = quickValidation.summary       || {};
@@ -489,6 +490,16 @@ function render(summary) {
     traceSetup.execute_triggered !== undefined ? `execute=${traceSetup.execute_triggered}` : null,
   ].filter(Boolean)) : "--");
   setStatus("tradeExplanationResult", hasExplanation ? tradeExplanation.result : "--");
+
+  // ── Durable Audit ────────────────────────────────────────────────
+  setStatus("durableAuditState", durableAudit.durable_audit || "DISABLED");
+  setStatus("durableAuditConnected", durableAudit.database_connected === true ? "true" : "false", durableAudit.database_connected === true ? "good" : "warn");
+  setText("durableAuditLastWrite", durableAudit.last_db_write);
+  setText("durableAuditLastError", durableAudit.last_db_error);
+  setText("durableAuditExplanationId", shortId(durableAudit.latest_explanation_id));
+  setText("durableAuditCommandId", shortId(durableAudit.latest_command_id));
+  setText("durableAuditMt5OrderId", durableAudit.latest_mt5_order_id);
+  setStatus("durableAuditTradeResult", durableAudit.latest_trade_result);
 
   // ── Demo Broker Execution ────────────────────────────────────────
   setStatus("demoBrokerEnabled", demoBroker.broker_execution || (demoBrokerConfig.broker_execution_enabled ? "ENABLED" : "DISABLED"));

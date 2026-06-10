@@ -81,14 +81,27 @@ class DemoBrokerExecutionStore:
         self.save_commands(commands)
         return selected
 
+    def mark_blocked(self, command_id: str, reason: str) -> Optional[dict[str, Any]]:
+        commands = self.list_commands()
+        selected = None
+        for command in commands:
+            if command.get("command_id") == command_id:
+                command["status"] = "BLOCKED"
+                command["blocked_at"] = utc_now_iso()
+                command["blocked_reason"] = reason
+                selected = command
+                break
+        self.save_commands(commands)
+        return selected
+
     def has_duplicate_pending(self, signal_id: Optional[str]) -> bool:
         if not signal_id:
             return False
         return any(cmd.get("signal_id") == signal_id and cmd.get("status") in {"PENDING", "DELIVERED"} for cmd in self.list_commands())
 
-    def create_command(self, *, terminal_id: str, side: str, symbol: str, volume: float, stop_loss: float, take_profit: float, strategy_id: str, signal_id: str, runtime_session_id: str, provenance: dict[str, Any], safety_checks_snapshot: dict[str, Any], ttl_seconds: int, magic_number: int) -> dict[str, Any]:
+    def create_command(self, *, terminal_id: str, side: str, symbol: str, volume: float, stop_loss: float, take_profit: float, strategy_id: str, signal_id: str, runtime_session_id: str, provenance: dict[str, Any], safety_checks_snapshot: dict[str, Any], ttl_seconds: int, magic_number: int, command_id: str | None = None, comment: str | None = None) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
-        command_id = uuid4().hex
+        command_id = command_id or uuid4().hex
         command = {
             "command_id": command_id,
             "terminal_id": terminal_id,
@@ -100,6 +113,7 @@ class DemoBrokerExecutionStore:
             "stop_loss": stop_loss,
             "take_profit": take_profit,
             "magic_number": magic_number,
+            "comment": comment or "AURIX-DEMO",
             "strategy_id": strategy_id,
             "signal_id": signal_id,
             "runtime_session_id": runtime_session_id,

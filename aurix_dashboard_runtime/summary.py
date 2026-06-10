@@ -238,6 +238,7 @@ def build_runtime_dashboard_summary(
     demo_queue_previews = _list(store.read_json("demo_command_queue/previews.json", []))
     demo_queue_payloads = _list(store.read_json("demo_command_queue/payloads.json", []))
     trade_explanation_index = _list(store.read_json("trade_explanations/index.json", []))
+    durable_audit = _dict(store.read_json("durable_audit/status.json", {}))
     demo_broker_execution = _dict(store.read_json("demo_broker_execution/status.json", {}))
     broker_status = _dict(store.read_json("broker_reconciliation/status.json", {}))
     broker_report = _dict(store.read_json("broker_reconciliation/report.json", {}))
@@ -458,6 +459,12 @@ def build_runtime_dashboard_summary(
         quick_validation=quick_validation,
         strategy_pipeline=pipeline_status,
         latest_trade_explanation=latest_trade_explanation,
+        durable_audit=durable_audit or {
+            "durable_audit": "DISABLED",
+            "database_connected": False,
+            "last_db_write": None,
+            "last_db_error": None,
+        },
         broker_execution_cockpit=broker_execution_cockpit,
         runtime_provenance=runtime_provenance,
         evidence_integrity=evidence_integrity,

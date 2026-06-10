@@ -76,11 +76,22 @@ The header shows Runtime Safety separately from Trading Session. Runtime Safety 
 
 MT5 account login determines whether the account is demo or live. The dashboard does not expose separate demo/live execution controls.
 
+## Durable Audit
+
+The Durable Audit section is read-only. It reports Railway Postgres audit availability from `DATABASE_URL`:
+
+- `ENABLED` means AURIX can connect to the durable audit database.
+- `DISABLED` means `DATABASE_URL` is missing; local JSON remains dashboard/debug cache only.
+- `ERROR` means a database write/connect attempt failed.
+
+When broker execution would create an MT5 command, durable audit is required. If `DATABASE_URL` is missing, command creation is blocked. If a database write fails, command creation is blocked with `DURABLE_AUDIT_WRITE_FAILED` and no MT5 command is queued.
+
 ## Sections
 
 - Execution Control State
 - AURIX Gates
 - Validation / Readiness
+- Durable Audit
 - Account / Market
 - Strategy / Paper / Research
 - Forward Test / Long Run

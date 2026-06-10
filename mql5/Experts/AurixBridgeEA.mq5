@@ -457,6 +457,7 @@ void ExecuteBrokerMarketJson(string response)
    string action = JsonStringValue(response, "action");
    string symbol = JsonStringValue(response, "symbol");
    string side = JsonStringValue(response, "side");
+   string comment = JsonStringValue(response, "comment");
    double volume = JsonNumberValue(response, "volume");
    double sl = JsonNumberValue(response, "stop_loss");
    double tp = JsonNumberValue(response, "take_profit");
@@ -495,10 +496,11 @@ void ExecuteBrokerMarketJson(string response)
    }
 
    bool ok = false;
+   if(comment == "") comment = "AURIX-DEMO";
    if(side == "BUY")
-      ok = trade.Buy(volume, symbol, 0, sl, tp, "AURIX-DEMO");
+      ok = trade.Buy(volume, symbol, 0, sl, tp, comment);
    else if(side == "SELL")
-      ok = trade.Sell(volume, symbol, 0, sl, tp, "AURIX-DEMO");
+      ok = trade.Sell(volume, symbol, 0, sl, tp, comment);
    else
    {
       SendExecutionResult(command_id, "REJECTED", -28, "Unknown side", 0, 0, symbol, side, volume, 0, sl, tp);
