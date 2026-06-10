@@ -9,7 +9,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from aurix_broker_reconciliation import BrokerReconciliationReport, BrokerReconciliationStore
+from aurix_dashboard_runtime import build_runtime_dashboard_summary
 from aurix_decision_engine import AurixDecisionEngine, load_decision_engine_config
+from aurix_decision_engine.config import DecisionEngineConfig
 from aurix_demo_command_queue import DemoCommandQueueStore
 from aurix_demo_oms import DemoOmsStore
 from aurix_event_bus import AurixEvent, AurixEventBus, AurixEventType, load_event_bus_config
@@ -61,18 +63,21 @@ def engine(tmpdir: str, *, event_bus=None, strategy=None, broker=None, snap=None
     )
 
 
-def assert_no_side_effects(tmpdir: str, before_oms: int) -> None:
+def assert_no_side_effects(tmpdir: str, before_oms: int, before_payloads: int = 0) -> None:
     if len(DemoOmsStore(tmpdir).load_order_requests()) != before_oms:
         raise AssertionError("decision engine created OMS order requests")
+    if len(DemoCommandQueueStore(tmpdir).load_payloads()) != before_payloads:
+        raise AssertionError("decision engine queued MT5 command payloads")
 
 
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmpdir:
         before_oms = len(DemoOmsStore(tmpdir).load_order_requests())
+        before_payloads = len(DemoCommandQueueStore(tmpdir).load_payloads())
         report = engine(tmpdir, event_bus=None).evaluate()
         if report["action"] != "SYSTEM_NOT_READY":
             raise AssertionError(f"no runtime state should be SYSTEM_NOT_READY: {report}")
-        assert_no_side_effects(tmpdir, before_oms)
+        assert_no_side_effects(tmpdir, before_oms, before_payloads)
 
         report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal()]), broker=seed_broker(tmpdir, "MISMATCH", 1, 0)).evaluate()
         if report["action"] != "BLOCKED_BY_BROKER_STATE":
@@ -93,22 +98,56 @@ def main() -> int:
         report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal("BUY", 0.9)])).evaluate()
         if report["action"] != "TRADE_LONG":
             raise AssertionError(f"BUY signal did not produce TRADE_LONG advisory: {report}")
+        if report["status"] != "READY":
+            raise AssertionError(f"actionable advisory decision should be READY: {report}")
+        if report["execution_view"].get("order_request_created") is not False or report["execution_view"].get("mt5_command_queued") is not False:
+            raise AssertionError(f"decision engine implied execution side effects: {report}")
+        assert_no_side_effects(tmpdir, before_oms, before_payloads)
 
         report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal("SELL", 0.9)])).evaluate()
         if report["action"] != "TRADE_SHORT":
             raise AssertionError(f"SELL signal did not produce TRADE_SHORT advisory: {report}")
+        assert_no_side_effects(tmpdir, before_oms, before_payloads)
 
         config = load_decision_engine_config().model_copy(update={"autonomy_level": "OBSERVE_ONLY"})
         report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal("BUY", 0.9)]), config=config).evaluate()
         if report["action"] in {"TRADE_LONG", "TRADE_SHORT"}:
             raise AssertionError(f"OBSERVE_ONLY returned trade action: {report}")
 
-        for update in [{"allow_live_execution": True}, {"allow_mt5_command_queueing": True}, {}]:
+        for update in [{"allow_live_execution": True}]:
             cfg = load_decision_engine_config().model_copy(update=update)
-            snap = snapshot(ea_live=(update == {}))
-            report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal()]), config=cfg, snap=snap).evaluate()
+            report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal()]), config=cfg).evaluate()
             if report["action"] != "SYSTEM_NOT_READY":
                 raise AssertionError(f"safety violation did not produce SYSTEM_NOT_READY: {report}")
+            assert_no_side_effects(tmpdir, before_oms, before_payloads)
+
+        report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal()]), snap=snapshot(ea_live=True)).evaluate()
+        if report["action"] not in {"TRADE_LONG", "TRADE_SHORT"} or report["status"] != "READY":
+            raise AssertionError(f"EA broker execution state should not block advisory decision result: {report}")
+        assert_no_side_effects(tmpdir, before_oms, before_payloads)
+
+        legacy_config_data = load_decision_engine_config().model_dump()
+        legacy_config_data["allow_mt5_command_queueing"] = True
+        cfg = DecisionEngineConfig(**legacy_config_data)
+        if "allow_mt5_command_queueing" in cfg.model_dump() or hasattr(cfg, "allow_mt5_command_queueing"):
+            raise AssertionError("legacy allow_mt5_command_queueing became an active config field")
+        report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal("BUY", 0.9)]), config=cfg).evaluate()
+        if report["action"] not in {"TRADE_LONG", "TRADE_SHORT"} or report["status"] != "READY":
+            raise AssertionError(f"legacy unknown config key changed advisory runtime behavior: {report}")
+        if report["execution_view"].get("order_request_created") is not False or report["execution_view"].get("mt5_command_queued") is not False:
+            raise AssertionError(f"advisory decision implied command/order creation: {report}")
+        assert_no_side_effects(tmpdir, before_oms, before_payloads)
+
+        dashboard_summary = build_runtime_dashboard_summary(tmpdir).model_dump(mode="json")
+        dashboard_safety = dashboard_summary["safety"]
+        dashboard_cockpit = dashboard_summary["broker_execution_cockpit"]
+        if dashboard_safety["read_only_dashboard"] is not True or dashboard_cockpit["no_commands_from_dashboard"] is not True:
+            raise AssertionError(f"dashboard read-only safety flags wrong: {dashboard_safety}")
+        if dashboard_safety["order_request_creation_allowed"] is not False or dashboard_safety["mt5_commands_queued"] is not False:
+            raise AssertionError(f"dashboard read-only path allows command/order creation: {dashboard_safety}")
+        if dashboard_summary["demo_command_queue"].get("mt5_delivery_state") != "NO_COMMAND":
+            raise AssertionError(f"dashboard summary should not queue MT5 command: {dashboard_summary['demo_command_queue']}")
+        assert_no_side_effects(tmpdir, before_oms, before_payloads)
 
         event_bus = bus(tmpdir)
         report = engine(tmpdir, event_bus=event_bus, strategy=seed_strategy(tmpdir, [signal()])).evaluate()
