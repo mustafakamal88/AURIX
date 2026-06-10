@@ -145,6 +145,7 @@ def build_runtime_dashboard_summary(
     demo_queue_status = _dict(store.read_json("demo_command_queue/status.json", {}))
     demo_queue_previews = _list(store.read_json("demo_command_queue/previews.json", []))
     demo_queue_payloads = _list(store.read_json("demo_command_queue/payloads.json", []))
+    demo_broker_execution = _dict(store.read_json("demo_broker_execution/status.json", {}))
     broker_status = _dict(store.read_json("broker_reconciliation/status.json", {}))
     broker_report = _dict(store.read_json("broker_reconciliation/report.json", {}))
     live_readiness = _dict(store.read_json("live_readiness_report.json", {}))
@@ -240,6 +241,7 @@ def build_runtime_dashboard_summary(
             "mt5_command_id": latest_payload.get("mt5_command_id"),
             "broker_order_id": latest_payload.get("broker_order_id"),
         },
+        demo_broker_execution=demo_broker_execution,
         broker_reconciliation={
             "status": broker_status.get("status") or broker_report.get("status"),
             "broker_positions": broker_status.get("broker_position_count", len(_list(broker_report.get("broker_positions")))),

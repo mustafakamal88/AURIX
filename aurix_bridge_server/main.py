@@ -23,6 +23,8 @@ from aurix_broker_reconciliation import BrokerReconciler, load_broker_reconcilia
 from aurix_context_engine import ContextEngine, load_context_config
 from aurix_daemon import DaemonConfig, PaperDaemonRunner, load_daemon_config
 from aurix_demo_command_queue import DemoCommandQueueAdapter, load_demo_command_queue_config
+from aurix_demo_broker_execution import DemoBrokerExecutionGate, DemoBrokerExecutionStore, load_demo_broker_execution_config
+from aurix_demo_broker_execution.account import verify_demo_account
 from aurix_demo_oms import DemoOms, load_demo_oms_config
 from aurix_decision_engine import AurixDecisionEngine, load_decision_engine_config
 from aurix_dashboard_runtime import build_runtime_dashboard_summary
@@ -164,6 +166,9 @@ demo_command_queue = DemoCommandQueueAdapter(
     demo_oms_store=demo_oms.store,
     broker_reconciliation_store=broker_reconciler.store,
 )
+demo_broker_execution_config = load_demo_broker_execution_config()
+demo_broker_execution_store = DemoBrokerExecutionStore(DATA_DIR)
+demo_broker_execution_gate = DemoBrokerExecutionGate(demo_broker_execution_config, demo_broker_execution_store)
 decision_engine_config = load_decision_engine_config()
 decision_engine = AurixDecisionEngine(
     DATA_DIR,
@@ -236,9 +241,9 @@ def runtime_environment_payload() -> dict[str, Any]:
         "railway_volume_detected": RAILWAY_VOLUME_DETECTED if RUNTIME_PROFILE == "RAILWAY_CLOUD_BRIDGE" else "unknown",
         "mt5_terminal_id": DEFAULT_TERMINAL_ID,
         "dashboard_read_only": DASHBOARD_READ_ONLY,
-        "live_execution_enabled": LIVE_EXECUTION_ENABLED,
-        "demo_broker_execution_enabled": DEMO_BROKER_EXECUTION_ENABLED,
-        "command_queue_enabled": COMMAND_QUEUE_ENABLED,
+        "live_execution_enabled": demo_broker_execution_config.live_execution_enabled,
+        "demo_broker_execution_enabled": demo_broker_execution_config.demo_broker_execution_enabled,
+        "command_queue_enabled": demo_broker_execution_config.command_queue_enabled,
     }
 
 
@@ -298,6 +303,7 @@ def root() -> dict[str, Any]:
         "demo_oms_status": "/demo-oms/status",
         "broker_reconciliation_status": "/broker-reconciliation/status",
         "demo_command_queue_status": "/demo-command-queue/status",
+        "demo_broker_execution_status": "/demo-broker-execution/status",
         "decision_engine_status": "/decision-engine/status",
         "evidence_integrity_status": "/evidence-integrity/status",
         "healthz": "/healthz",
@@ -310,9 +316,9 @@ def healthz() -> dict[str, Any]:
         "status": "ok",
         "runtime_profile": RUNTIME_PROFILE,
         "dashboard_read_only": DASHBOARD_READ_ONLY,
-        "live_execution_enabled": LIVE_EXECUTION_ENABLED,
-        "demo_broker_execution_enabled": DEMO_BROKER_EXECUTION_ENABLED,
-        "command_queue_enabled": COMMAND_QUEUE_ENABLED,
+        "live_execution_enabled": demo_broker_execution_config.live_execution_enabled,
+        "demo_broker_execution_enabled": demo_broker_execution_config.demo_broker_execution_enabled,
+        "command_queue_enabled": demo_broker_execution_config.command_queue_enabled,
         "runtime_session_id": runtime_session.runtime_session_id,
     }
 
@@ -326,6 +332,7 @@ def dashboard() -> FileResponse:
 @app.get("/dashboard/runtime-summary")
 def dashboard_runtime_summary() -> dict[str, Any]:
     try:
+        build_demo_broker_execution_status()
         return build_runtime_dashboard_summary(
             DATA_DIR,
             runtime_provenance=runtime_session.payload(),
@@ -346,6 +353,7 @@ def dashboard_runtime_summary() -> dict[str, Any]:
             "event_bus": {},
             "demo_oms": {},
             "demo_command_queue": {},
+            "demo_broker_execution": {},
             "broker_reconciliation": {},
             "live_readiness": {},
             "evidence_growth": {},
@@ -439,6 +447,20 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
             "login": payload.get("login") or payload.get("account_login"),
         }
         account = {key: value for key, value in account.items() if value is not None}
+    for target, aliases in {
+        "login": ["account_login"],
+        "name": ["account_name"],
+        "server": ["account_server"],
+        "company": ["account_company"],
+        "currency": ["account_currency"],
+        "trade_mode": ["account_trade_mode"],
+        "is_demo": ["is_demo"],
+    }.items():
+        if account.get(target) is None:
+            for alias in aliases:
+                if payload.get(alias) is not None:
+                    account[target] = payload.get(alias)
+                    break
     if not tick:
         tick = {
             "symbol": symbol,
@@ -464,16 +486,20 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_execution_result(payload: dict[str, Any]) -> ExecutionResult:
+    ok = payload.get("ok")
+    status = str(payload.get("status") or "").upper()
+    if ok is None and status:
+        ok = status in {"FILLED", "DONE", "SUCCESS"}
     return ExecutionResult(
         terminal_id=str(payload.get("terminal_id") or DEFAULT_TERMINAL_ID),
         command_id=str(payload.get("command_id") or ""),
-        ok=bool(payload.get("ok")),
-        retcode=payload.get("retcode"),
-        message=str(payload.get("message") or ""),
-        order=payload.get("order"),
+        ok=bool(ok),
+        retcode=payload.get("retcode") or payload.get("error_code"),
+        message=str(payload.get("message") or payload.get("error_message") or status),
+        order=payload.get("order") or payload.get("ticket"),
         deal=payload.get("deal"),
         symbol=payload.get("symbol"),
-        direction=payload.get("direction"),
+        direction=payload.get("direction") or payload.get("side"),
         volume=payload.get("volume"),
         price=payload.get("price"),
         received_at=str(payload.get("received_at") or utc_now_iso()),
@@ -535,38 +561,151 @@ async def receive_execution_result(request: Request) -> dict[str, Any]:
     result = normalize_execution_result(payload)
     if not result.command_id:
         raise HTTPException(status_code=400, detail="Execution result command_id is required.")
+    result.provenance = runtime_provenance_metadata("mt5_execution_result", "aurix_bridge_server.main.receive_execution_result")
     store.mark_result(result)
-    return {"ok": True}
+    demo_result = {
+        **payload,
+        "ok": result.ok,
+        "command_id": result.command_id,
+        "terminal_id": result.terminal_id,
+        "status": str(payload.get("status") or ("FILLED" if result.ok else "ERROR")),
+        "received_at": result.received_at,
+        "provenance": result.provenance,
+    }
+    demo_broker_execution_store.append_execution_result(demo_result)
+    return {"ok": True, "status": "execution_result_received", "command_id": result.command_id}
 
 
 @app.get("/mt5/command")
 @app.get("/mt5/command/")
 def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> dict[str, Any]:
-    if not COMMAND_QUEUE_ENABLED:
+    if terminal_id not in demo_broker_execution_config.terminal_id_allowlist:
         return {
             "ok": True,
             "command": None,
             "status": "NO_COMMAND",
             "terminal_id": terminal_id,
             "command_queue_enabled": False,
+            "block_reason": "terminal id is not allowlisted",
         }
-    command = store.next_command_for_terminal(terminal_id)
-    if command is None:
+    if not demo_broker_execution_config.command_queue_enabled or not demo_broker_execution_config.demo_broker_execution_enabled or demo_broker_execution_config.live_execution_enabled:
+        gate_status = build_demo_broker_execution_status()
         return {
             "ok": True,
             "command": None,
             "status": "NO_COMMAND",
             "terminal_id": terminal_id,
             "command_queue_enabled": False,
+            "block_reason": gate_status.get("latest_gate_decision", {}).get("reason") or "demo broker execution or command queueing disabled",
         }
-    logger.error("MT5 command dispatch blocked by route compatibility safety guard")
+    pending = demo_broker_execution_store.pending_for_terminal(terminal_id)
+    if pending is None:
+        gate = evaluate_demo_broker_execution_gate()
+        if gate.get("allowed"):
+            pending = demo_broker_execution_store.create_command(
+                terminal_id=terminal_id,
+                side=str(gate["side"]),
+                symbol=str(gate["symbol"]),
+                volume=float(gate["volume"]),
+                stop_loss=float(gate["stop_loss"]),
+                take_profit=float(gate["take_profit"]),
+                strategy_id=str(gate.get("strategy_id") or ""),
+                signal_id=str(gate.get("signal_id") or ""),
+                runtime_session_id=runtime_session.runtime_session_id,
+                provenance=runtime_provenance_metadata("demo_broker_mt5_command", "aurix_bridge_server.main.mt5_next_command"),
+                safety_checks_snapshot=gate,
+                ttl_seconds=demo_broker_execution_config.command_ttl_seconds,
+                magic_number=demo_broker_execution_config.magic_number,
+            )
+        else:
+            demo_broker_execution_store.write_status(build_demo_broker_execution_status(latest_gate_decision=gate))
+            return {
+                "ok": True,
+                "command": None,
+                "status": "NO_COMMAND",
+                "terminal_id": terminal_id,
+                "command_queue_enabled": False,
+                "block_reason": gate.get("reason"),
+            }
+    delivered = demo_broker_execution_store.mark_delivered(str(pending.get("command_id"))) or pending
     return {
         "ok": True,
-        "command": None,
-        "status": "NO_COMMAND",
+        "command": command_for_ea(delivered),
+        "status": "COMMAND_AVAILABLE",
         "terminal_id": terminal_id,
-        "command_queue_enabled": False,
+        "command_queue_enabled": True,
     }
+
+
+def command_for_ea(command: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "command_id": command.get("command_id"),
+        "mode": "DEMO_BROKER",
+        "action": "OPEN_MARKET",
+        "symbol": command.get("symbol"),
+        "side": command.get("side"),
+        "volume": command.get("volume"),
+        "stop_loss": command.get("stop_loss"),
+        "take_profit": command.get("take_profit"),
+        "magic_number": command.get("magic_number"),
+        "expires_at": command.get("expires_at"),
+    }
+
+
+def latest_actionable_signal() -> dict[str, Any] | None:
+    items = strategy_agent_evaluator.latest()
+    for item in reversed(items):
+        if not isinstance(item, dict):
+            continue
+        if item.get("symbol") != "XAUUSDm":
+            continue
+        if item.get("status") in {"SIGNAL", "VALID", "ACTIONABLE"} and item.get("direction") in {"BUY", "SELL"}:
+            return item
+    return None
+
+
+def evaluate_demo_broker_execution_gate() -> dict[str, Any]:
+    summary_health = "UNKNOWN"
+    try:
+        summary_health = build_runtime_dashboard_summary(DATA_DIR).health
+    except Exception:
+        summary_health = "UNKNOWN"
+    return demo_broker_execution_gate.evaluate(
+        snapshot=store.latest_snapshot(),
+        signal=latest_actionable_signal(),
+        runtime_session_id=runtime_session.runtime_session_id,
+        runtime_health=summary_health,
+    )
+
+
+def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | None = None) -> dict[str, Any]:
+    latest_gate_decision = latest_gate_decision or evaluate_demo_broker_execution_gate()
+    snapshot = store.latest_snapshot()
+    account_verification = verify_demo_account(snapshot)
+    return demo_broker_execution_store.write_status(
+        {
+            "generated_at": utc_now_iso(),
+            "execution_mode": demo_broker_execution_config.execution_mode,
+            "config": demo_broker_execution_config.safety_flags(),
+            "demo_account_verification": account_verification,
+            "latest_gate_decision": latest_gate_decision,
+            "daily_risk_guard": latest_gate_decision.get("daily_risk_guard"),
+            "latest_command": demo_broker_execution_store.latest_command(),
+            "latest_execution_result": demo_broker_execution_store.latest_execution_result(),
+            "safety": {
+                "live_execution_enabled": demo_broker_execution_config.live_execution_enabled,
+                "demo_broker_execution_enabled": demo_broker_execution_config.demo_broker_execution_enabled,
+                "command_queue_enabled": demo_broker_execution_config.command_queue_enabled,
+                "real_money_live_path_added": False,
+                "max_volume": demo_broker_execution_config.max_volume,
+            },
+        }
+    )
+
+
+@app.get("/demo-broker-execution/status")
+def demo_broker_execution_status() -> dict[str, Any]:
+    return build_demo_broker_execution_status()
 
 
 @app.get("/state/latest")

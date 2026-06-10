@@ -1,0 +1,22 @@
+execution_mode: DEMO_BROKER_DISABLED
+demo_broker_execution_enabled: false
+live_execution_enabled: false
+command_queue_enabled: false
+symbol_allowlist:
+  - XAUUSDm
+terminal_id_allowlist:
+  - AURIX-VPS-001
+max_volume: 0.01
+max_spread_points: 250
+max_open_positions: 1
+allow_all_sessions: true
+allow_asia_session: true
+allow_london_session: true
+allow_new_york_session: true
+one_trade_per_day_limit: false
+max_trades_per_day: null
+daily_loss_limit_gbp: 5.00
+daily_drawdown_percent: 5.0
+require_stop_loss: true
+require_take_profit: true
+require_demo_account_verified: true

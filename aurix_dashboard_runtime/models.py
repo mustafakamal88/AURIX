@@ -42,6 +42,7 @@ class AurixRuntimeDashboardSummary(BaseModel):
     event_bus: dict[str, Any] = Field(default_factory=dict)
     demo_oms: dict[str, Any] = Field(default_factory=dict)
     demo_command_queue: dict[str, Any] = Field(default_factory=dict)
+    demo_broker_execution: dict[str, Any] = Field(default_factory=dict)
     broker_reconciliation: dict[str, Any] = Field(default_factory=dict)
     live_readiness: dict[str, Any] = Field(default_factory=dict)
     evidence_growth: dict[str, Any] = Field(default_factory=dict)

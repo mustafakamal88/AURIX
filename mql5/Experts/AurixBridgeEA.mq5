@@ -11,12 +11,15 @@ input string BridgeBaseUrl    = "http://127.0.0.1:8765";
 input string ApiKey           = "";
 input string TradeSymbol      = "XAUUSDm";
 input int    PollSeconds      = 2;
+input bool   AllowDemoBrokerTrading = false;
 input bool   AllowLiveTrading = false;
 input double MaxVolume        = 0.01;
 input int    MagicNumber      = 880001;
 input int    DeviationPoints  = 20;
 
 CTrade trade;
+string ProcessedCommandIds[100];
+int ProcessedCommandCount = 0;
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -73,6 +76,13 @@ string AccountJson()
    j += "\"currency\":\"" + JsonEscape(AccountInfoString(ACCOUNT_CURRENCY)) + "\",";
    j += "\"company\":\"" + JsonEscape(AccountInfoString(ACCOUNT_COMPANY)) + "\",";
    j += "\"name\":\"" + JsonEscape(AccountInfoString(ACCOUNT_NAME)) + "\",";
+   j += "\"account_login\":" + IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN)) + ",";
+   j += "\"account_server\":\"" + JsonEscape(AccountInfoString(ACCOUNT_SERVER)) + "\",";
+   j += "\"account_currency\":\"" + JsonEscape(AccountInfoString(ACCOUNT_CURRENCY)) + "\",";
+   j += "\"account_company\":\"" + JsonEscape(AccountInfoString(ACCOUNT_COMPANY)) + "\",";
+   j += "\"account_name\":\"" + JsonEscape(AccountInfoString(ACCOUNT_NAME)) + "\",";
+   j += "\"account_trade_mode\":" + IntegerToString((int)AccountInfoInteger(ACCOUNT_TRADE_MODE)) + ",";
+   j += "\"is_demo\":" + (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO ? "true" : "false") + ",";
    j += "\"balance\":" + Num(AccountInfoDouble(ACCOUNT_BALANCE), 2) + ",";
    j += "\"equity\":" + Num(AccountInfoDouble(ACCOUNT_EQUITY), 2) + ",";
    j += "\"profit\":" + Num(AccountInfoDouble(ACCOUNT_PROFIT), 2) + ",";
@@ -328,6 +338,7 @@ void SendSnapshot()
    payload += "\"raw\":{";
    payload += "\"ea\":\"AurixBridgeEA\",";
    payload += "\"allow_live_trading\":" + (AllowLiveTrading ? "true" : "false") + ",";
+   payload += "\"allow_demo_broker_trading\":" + (AllowDemoBrokerTrading ? "true" : "false") + ",";
    payload += "\"magic\":" + IntegerToString(MagicNumber);
    payload += "}";
    payload += "}";
@@ -357,7 +368,7 @@ bool ConfirmAllowed(string confirm)
 //+------------------------------------------------------------------+
 void SendExecutionResult(
    string command_id,
-   bool ok,
+   string status,
    int retcode,
    string message,
    ulong order_ticket,
@@ -365,26 +376,160 @@ void SendExecutionResult(
    string symbol,
    string direction,
    double volume,
-   double price
+   double price,
+   double sl,
+   double tp
 )
 {
    string payload = "{";
    payload += "\"terminal_id\":\"" + JsonEscape(TerminalId) + "\",";
    payload += "\"command_id\":\"" + JsonEscape(command_id) + "\",";
-   payload += "\"ok\":" + (ok ? "true" : "false") + ",";
+   payload += "\"status\":\"" + JsonEscape(status) + "\",";
+   payload += "\"ok\":" + (status == "FILLED" ? "true" : "false") + ",";
    payload += "\"retcode\":" + IntegerToString(retcode) + ",";
-   payload += "\"message\":\"" + JsonEscape(message) + "\",";
+   payload += "\"error_code\":" + IntegerToString(retcode) + ",";
+   payload += "\"error_message\":\"" + JsonEscape(message) + "\",";
    payload += "\"order\":" + IntegerToString((long)order_ticket) + ",";
+   payload += "\"ticket\":" + IntegerToString((long)order_ticket) + ",";
    payload += "\"deal\":" + IntegerToString((long)deal_ticket) + ",";
    payload += "\"symbol\":\"" + JsonEscape(symbol) + "\",";
-   payload += "\"direction\":\"" + JsonEscape(direction) + "\",";
+   payload += "\"side\":\"" + JsonEscape(direction) + "\",";
    payload += "\"volume\":" + Num(volume, 2) + ",";
    payload += "\"price\":" + Num(price) + ",";
+   payload += "\"sl\":" + Num(sl) + ",";
+   payload += "\"tp\":" + Num(tp) + ",";
+   payload += "\"timestamp\":\"" + TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + "\",";
+   payload += "\"account\": " + AccountJson() + ",";
    payload += "\"raw\":{}";
    payload += "}";
 
    string response;
    HttpPostJson("/mt5/execution-result", payload, response);
+}
+
+//+------------------------------------------------------------------+
+string JsonStringValue(string text, string key)
+{
+   string pattern = "\"" + key + "\":\"";
+   int start = StringFind(text, pattern);
+   if(start < 0) return "";
+   start += StringLen(pattern);
+   int end = StringFind(text, "\"", start);
+   if(end < 0) return "";
+   return StringSubstr(text, start, end - start);
+}
+
+//+------------------------------------------------------------------+
+double JsonNumberValue(string text, string key)
+{
+   string pattern = "\"" + key + "\":";
+   int start = StringFind(text, pattern);
+   if(start < 0) return 0;
+   start += StringLen(pattern);
+   int end = start;
+   while(end < StringLen(text))
+   {
+      string ch = StringSubstr(text, end, 1);
+      if(ch == "," || ch == "}" || ch == " ") break;
+      end++;
+   }
+   return StringToDouble(StringSubstr(text, start, end - start));
+}
+
+//+------------------------------------------------------------------+
+bool AlreadyProcessed(string command_id)
+{
+   for(int i = 0; i < ProcessedCommandCount; i++)
+      if(ProcessedCommandIds[i] == command_id)
+         return true;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+void RememberProcessed(string command_id)
+{
+   if(command_id == "") return;
+   int idx = ProcessedCommandCount % 100;
+   ProcessedCommandIds[idx] = command_id;
+   ProcessedCommandCount++;
+}
+
+//+------------------------------------------------------------------+
+bool IsDemoAccount()
+{
+   return AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO;
+}
+
+//+------------------------------------------------------------------+
+void ExecuteDemoBrokerMarketJson(string response)
+{
+   string command_id = JsonStringValue(response, "command_id");
+   string mode = JsonStringValue(response, "mode");
+   string action = JsonStringValue(response, "action");
+   string symbol = JsonStringValue(response, "symbol");
+   string side = JsonStringValue(response, "side");
+   double volume = JsonNumberValue(response, "volume");
+   double sl = JsonNumberValue(response, "stop_loss");
+   double tp = JsonNumberValue(response, "take_profit");
+
+   if(AlreadyProcessed(command_id))
+   {
+      SendExecutionResult(command_id, "DUPLICATE", -20, "Duplicate command_id already processed", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   RememberProcessed(command_id);
+
+   if(mode != "DEMO_BROKER" || action != "OPEN_MARKET")
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -21, "Command mode/action blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   if(!AllowDemoBrokerTrading)
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -22, "AllowDemoBrokerTrading is false", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   if(!IsDemoAccount())
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -23, "Account is not demo", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   if(symbol != TradeSymbol || symbol != "XAUUSDm")
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -24, "Symbol blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   if(volume <= 0 || volume > MaxVolume || volume > 0.01)
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -25, "Volume blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   if(sl <= 0 || tp <= 0)
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -26, "SL/TP required", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+   if(PositionsTotal() > 0)
+   {
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -27, "Existing broker position blocks new demo order", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+
+   bool ok = false;
+   if(side == "BUY")
+      ok = trade.Buy(volume, symbol, 0, sl, tp, "AURIX-DEMO");
+   else if(side == "SELL")
+      ok = trade.Sell(volume, symbol, 0, sl, tp, "AURIX-DEMO");
+   else
+   {
+      SendExecutionResult(command_id, "REJECTED", -28, "Unknown side", 0, 0, symbol, side, volume, 0, sl, tp);
+      return;
+   }
+
+   int retcode = (int)trade.ResultRetcode();
+   string msg = trade.ResultRetcodeDescription();
+   string status = ok ? "FILLED" : "ERROR";
+   SendExecutionResult(command_id, status, retcode, msg, trade.ResultOrder(), trade.ResultDeal(), symbol, side, volume, trade.ResultPrice(), sl, tp);
 }
 
 //+------------------------------------------------------------------+
@@ -402,19 +547,19 @@ void ExecuteOpenMarket(string &parts[])
 
    if(!ConfirmAllowed(confirm))
    {
-      SendExecutionResult(cmd_id, false, -1, "Live trading blocked by EA safety gate", 0, 0, symbol, dir, volume, 0);
+      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -1, "Live trading blocked by EA safety gate", 0, 0, symbol, dir, volume, 0, sl, tp);
       return;
    }
 
    if(volume <= 0 || volume > MaxVolume)
    {
-      SendExecutionResult(cmd_id, false, -2, "Volume blocked by MaxVolume", 0, 0, symbol, dir, volume, 0);
+      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -2, "Volume blocked by MaxVolume", 0, 0, symbol, dir, volume, 0, sl, tp);
       return;
    }
 
    if(!SymbolSelect(symbol, true))
    {
-      SendExecutionResult(cmd_id, false, -3, "SymbolSelect failed", 0, 0, symbol, dir, volume, 0);
+      SendExecutionResult(cmd_id, "ERROR", -3, "SymbolSelect failed", 0, 0, symbol, dir, volume, 0, sl, tp);
       return;
    }
 
@@ -425,7 +570,7 @@ void ExecuteOpenMarket(string &parts[])
       ok = trade.Sell(volume, symbol, 0, sl, tp, comment);
    else
    {
-      SendExecutionResult(cmd_id, false, -4, "Unknown direction", 0, 0, symbol, dir, volume, 0);
+      SendExecutionResult(cmd_id, "REJECTED", -4, "Unknown direction", 0, 0, symbol, dir, volume, 0, sl, tp);
       return;
    }
 
@@ -435,7 +580,7 @@ void ExecuteOpenMarket(string &parts[])
    ulong deal_ticket = trade.ResultDeal();
    double price = trade.ResultPrice();
 
-   SendExecutionResult(cmd_id, ok, retcode, msg, order_ticket, deal_ticket, symbol, dir, volume, price);
+   SendExecutionResult(cmd_id, ok ? "FILLED" : "ERROR", retcode, msg, order_ticket, deal_ticket, symbol, dir, volume, price, sl, tp);
 }
 
 //+------------------------------------------------------------------+
@@ -450,14 +595,14 @@ void ExecuteClosePosition(string &parts[])
 
    if(!ConfirmAllowed(confirm))
    {
-      SendExecutionResult(cmd_id, false, -1, "Close blocked by EA safety gate", ticket, 0, "", "CLOSE", volume, 0);
+      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -1, "Close blocked by EA safety gate", ticket, 0, "", "CLOSE", volume, 0, 0, 0);
       return;
    }
 
    bool selected = PositionSelectByTicket(ticket);
    if(!selected)
    {
-      SendExecutionResult(cmd_id, false, -2, "Position ticket not found", ticket, 0, "", "CLOSE", volume, 0);
+      SendExecutionResult(cmd_id, "ERROR", -2, "Position ticket not found", ticket, 0, "", "CLOSE", volume, 0, 0, 0);
       return;
    }
 
@@ -476,7 +621,7 @@ void ExecuteClosePosition(string &parts[])
    ulong deal_ticket = trade.ResultDeal();
    double price = trade.ResultPrice();
 
-   SendExecutionResult(cmd_id, ok, retcode, msg, order_ticket, deal_ticket, symbol, "CLOSE", volume, price);
+   SendExecutionResult(cmd_id, ok ? "FILLED" : "ERROR", retcode, msg, order_ticket, deal_ticket, symbol, "CLOSE", volume, price, 0, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -488,7 +633,7 @@ void ExecuteKillSwitch(string &parts[])
 
    if(!ConfirmAllowed(confirm))
    {
-      SendExecutionResult(cmd_id, false, -1, "Kill switch blocked by EA safety gate", 0, 0, "", "KILL", 0, 0);
+      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -1, "Kill switch blocked by EA safety gate", 0, 0, "", "KILL", 0, 0, 0, 0);
       return;
    }
 
@@ -501,7 +646,7 @@ void ExecuteKillSwitch(string &parts[])
          all_ok = false;
    }
 
-   SendExecutionResult(cmd_id, all_ok, (int)trade.ResultRetcode(), "Kill switch processed", trade.ResultOrder(), trade.ResultDeal(), "", "KILL", 0, trade.ResultPrice());
+   SendExecutionResult(cmd_id, all_ok ? "FILLED" : "ERROR", (int)trade.ResultRetcode(), "Kill switch processed", trade.ResultOrder(), trade.ResultDeal(), "", "KILL", 0, trade.ResultPrice(), 0, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -518,6 +663,12 @@ void PollCommand()
 
    if(response == "" || response == "NOOP" || StringFind(response, "\"status\":\"NO_COMMAND\"") >= 0 || StringFind(response, "\"command\":null") >= 0)
       return;
+
+   if(StringFind(response, "\"mode\":\"DEMO_BROKER\"") >= 0 || StringFind(response, "\"mode\": \"DEMO_BROKER\"") >= 0)
+   {
+      ExecuteDemoBrokerMarketJson(response);
+      return;
+   }
 
    string parts[];
    int n = SplitPipe(response, parts);

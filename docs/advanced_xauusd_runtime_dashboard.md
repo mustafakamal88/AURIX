@@ -135,3 +135,19 @@ https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
 The runtime summary includes a `runtime_environment` block with runtime profile, public base URL, remote auth requirement, data/log directories, Railway volume detection, terminal id, and disabled execution flags. These fields are observability only.
 
 Railway support does not enable live trading, demo broker execution, command queueing, broker orders, paper trades, order requests, or EA setting changes.
+
+## Part 38 Demo Broker Execution Visibility
+
+Part 38 adds read-only dashboard visibility for demo-account broker execution gates. The cockpit shows:
+
+- demo broker execution enabled/disabled
+- command queue enabled/disabled
+- real-money live execution locked
+- demo account verification result and reason
+- one-open-position rule status
+- daily loss/drawdown guard status
+- latest gate decision and block reason
+- latest MT5 command status
+- latest EA execution result
+
+The dashboard still has no trade buttons and still polls only `/dashboard/runtime-summary`. Demo execution remains deterministic and gated by backend config, Railway env vars, MT5 demo-account verification, spread, SL/TP, daily risk guards, and one-open-position enforcement.

@@ -222,11 +222,59 @@ To roll back code:
 ## What Remains Disabled
 
 - Live execution.
-- Demo broker execution.
-- MT5 command queueing.
 - Broker order creation.
 - Broker order modification.
 - Broker position closing.
 - Paper trade creation by this deployment pack.
 - Order request creation by this deployment pack.
 - EA trading permission changes.
+
+## Enabling Demo Broker Execution
+
+Part 38 can enable Exness MT5 demo-account broker execution only. It never enables real-money live execution.
+
+Set these Railway variables intentionally:
+
+```env
+AURIX_DEMO_BROKER_EXECUTION_ENABLED=true
+AURIX_COMMAND_QUEUE_ENABLED=true
+AURIX_LIVE_EXECUTION_ENABLED=false
+AURIX_MAX_DEMO_VOLUME=0.01
+AURIX_MAX_SPREAD_POINTS=250
+AURIX_DAILY_LOSS_LIMIT_GBP=5.00
+AURIX_DAILY_DRAWDOWN_PERCENT=5.0
+```
+
+Required EA inputs:
+
+```text
+BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
+ApiKey=YOUR_AURIX_API_KEY
+TerminalId=AURIX-VPS-001
+TradeSymbol=XAUUSDm
+AllowDemoBrokerTrading=true
+AllowLiveTrading=false
+MaxVolume=0.01
+```
+
+Demo execution remains blocked unless AURIX can positively verify the MT5 account is demo, the symbol is `XAUUSDm`, spread is within limit, SL/TP are present, daily loss/drawdown guards pass, and there is no existing broker position.
+
+To stop demo execution, set either:
+
+```env
+AURIX_DEMO_BROKER_EXECUTION_ENABLED=false
+```
+
+or:
+
+```env
+AURIX_COMMAND_QUEUE_ENABLED=false
+```
+
+The EA can also stop execution by setting:
+
+```text
+AllowDemoBrokerTrading=false
+```
+
+Never set real-money live flags for this deployment.

@@ -14,6 +14,7 @@ ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
 PollSeconds=2
+AllowDemoBrokerTrading=false
 AllowLiveTrading=false
 MaxVolume=0.01
 ```
@@ -49,8 +50,9 @@ Do not add a public HTTP URL. Use Railway HTTPS.
 3. Compile `AurixBridgeEA.mq5`.
 4. Open an `XAUUSDm` chart in MT5.
 5. Attach `AurixBridgeEA`.
-6. Confirm `AllowLiveTrading=false`.
-7. Confirm `MaxVolume=0.01`.
+6. Confirm `AllowDemoBrokerTrading=false` until Part 38 Railway variables are intentionally enabled.
+7. Confirm `AllowLiveTrading=false`.
+8. Confirm `MaxVolume=0.01`.
 
 ## Confirm Railway Receives Snapshots
 
@@ -91,7 +93,7 @@ with:
 X-AURIX-API-Key: YOUR_AURIX_API_KEY
 ```
 
-This part does not enable command creation or queueing. A healthy response is usually:
+When demo broker execution is disabled, a healthy response is usually:
 
 ```json
 {
@@ -151,10 +153,44 @@ After snapshots are accepted, the dashboard should show:
 Keep:
 
 ```text
+MaxVolume=0.01
+AllowLiveTrading=false
+```
+
+For Part 38 demo execution, the only EA trading switch to enable is:
+
+```text
+AllowDemoBrokerTrading=true
+```
+
+Only do this after Railway variables are set for demo execution and `AURIX_LIVE_EXECUTION_ENABLED=false` remains in place.
+
+Do not enable real-money live trading.
+
+## Enabling Demo Broker Execution
+
+Railway variables:
+
+```env
+AURIX_DEMO_BROKER_EXECUTION_ENABLED=true
+AURIX_COMMAND_QUEUE_ENABLED=true
+AURIX_LIVE_EXECUTION_ENABLED=false
+AURIX_MAX_DEMO_VOLUME=0.01
+AURIX_MAX_SPREAD_POINTS=250
+AURIX_DAILY_LOSS_LIMIT_GBP=5.00
+AURIX_DAILY_DRAWDOWN_PERCENT=5.0
+```
+
+EA inputs:
+
+```text
+BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
+ApiKey=YOUR_AURIX_API_KEY
+TerminalId=AURIX-VPS-001
+TradeSymbol=XAUUSDm
+AllowDemoBrokerTrading=true
 AllowLiveTrading=false
 MaxVolume=0.01
 ```
 
-until a later explicitly gated demo-execution part says otherwise.
-
-Do not enable live trading. Do not enable demo broker execution. Do not queue commands. Do not create orders.
+To stop demo execution, set `AURIX_DEMO_BROKER_EXECUTION_ENABLED=false`, set `AURIX_COMMAND_QUEUE_ENABLED=false`, or set EA `AllowDemoBrokerTrading=false`.

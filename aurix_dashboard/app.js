@@ -197,6 +197,7 @@ function render(summary) {
   const demoOms       = summary.demo_oms                 || {};
   const broker        = summary.broker_reconciliation    || {};
   const queue         = summary.demo_command_queue       || {};
+  const demoBroker    = summary.demo_broker_execution    || {};
   const safety        = summary.safety                   || {};
   const liveReadiness = summary.live_readiness           || {};
   const evidenceGrowth       = summary.evidence_growth        || {};
@@ -208,6 +209,12 @@ function render(summary) {
   const assertion            = provenance.safety_assertion    || {};
   const evidenceIntegrity    = summary.evidence_integrity     || {};
   const runtimeEnvironment   = summary.runtime_environment    || {};
+  const demoBrokerConfig     = demoBroker.config || {};
+  const demoAccount          = demoBroker.demo_account_verification || {};
+  const demoGate             = demoBroker.latest_gate_decision || {};
+  const dailyRisk            = demoBroker.daily_risk_guard || {};
+  const latestDemoCommand    = demoBroker.latest_command || {};
+  const latestDemoResult     = demoBroker.latest_execution_result || {};
 
   const symbol = summary.symbol || market.symbol;
   const sessionId = provenance.runtime_session_id;
@@ -377,6 +384,25 @@ function render(summary) {
   setExecLock("demoCommandQueueMt5Allowed",   queue.mt5_command_queueing_allowed);
   setText("demoCommandQueueMt5CommandId",    queue.mt5_command_id);
   setText("demoCommandQueueBrokerOrderId",   queue.broker_order_id);
+
+  // ── Demo Broker Execution ────────────────────────────────────────
+  setExecLock("demoBrokerEnabled", demoBrokerConfig.demo_broker_execution_enabled);
+  setExecLock("demoBrokerQueueEnabled", demoBrokerConfig.command_queue_enabled);
+  setExecLock("demoBrokerLiveLocked", demoBrokerConfig.live_execution_enabled);
+  setStatus("demoBrokerOnePosition", demoBrokerConfig.max_open_positions === 1 ? "OK" : "BLOCKED");
+  setStatus("demoBrokerGate", demoGate.allowed ? "ALLOWED" : "BLOCKED", demoGate.allowed ? "good" : "danger");
+  setText("demoBrokerReason", demoGate.reason);
+  setOverallSafe("demoAccountVerified", demoAccount.demo_account_verified);
+  setText("demoAccountReason", demoAccount.demo_account_reason);
+  setText("demoAccountServer", demoAccount.account_server);
+  setText("demoAccountLogin", demoAccount.account_login_masked);
+  setText("demoAccountCurrency", demoAccount.account_currency);
+  setStatus("dailyRiskStatus", dailyRisk.status);
+  setText("dailyRiskLoss", dailyRisk.equity_loss);
+  setText("dailyRiskDrawdown", dailyRisk.drawdown_percent);
+  setText("latestMt5Command", latestDemoCommand.command_id);
+  setStatus("latestMt5CommandStatus", latestDemoCommand.status);
+  setStatus("latestMt5ExecutionResult", latestDemoResult.status);
 
   // ── Event Bus ────────────────────────────────────────────────────
   setText("eventBusCount",         eventBus.event_count);

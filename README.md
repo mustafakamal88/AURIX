@@ -330,6 +330,38 @@ AURIX_COMMAND_QUEUE_ENABLED=false
 
 Remote access requires `AURIX_API_KEY` when `AURIX_RUNTIME_PROFILE=RAILWAY_CLOUD_BRIDGE`. This pack does not enable live execution, demo broker execution, broker order creation, MT5 command queueing, paper trade creation, order request creation, or EA setting changes.
 
+## Part 38 Demo Broker Execution
+
+Part 38 adds deterministic demo-account broker execution gates for Railway + MT5 EA. Defaults remain disabled.
+
+Required Railway variables to enable Exness MT5 demo execution:
+
+```env
+AURIX_DEMO_BROKER_EXECUTION_ENABLED=true
+AURIX_COMMAND_QUEUE_ENABLED=true
+AURIX_LIVE_EXECUTION_ENABLED=false
+AURIX_MAX_DEMO_VOLUME=0.01
+AURIX_MAX_SPREAD_POINTS=250
+AURIX_DAILY_LOSS_LIMIT_GBP=5.00
+AURIX_DAILY_DRAWDOWN_PERCENT=5.0
+```
+
+Required EA inputs:
+
+```text
+BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
+ApiKey=YOUR_AURIX_API_KEY
+TerminalId=AURIX-VPS-001
+TradeSymbol=XAUUSDm
+AllowDemoBrokerTrading=true
+AllowLiveTrading=false
+MaxVolume=0.01
+```
+
+Stop demo execution by setting `AURIX_DEMO_BROKER_EXECUTION_ENABLED=false`, `AURIX_COMMAND_QUEUE_ENABLED=false`, or EA `AllowDemoBrokerTrading=false`.
+
+Real-money live execution remains unsupported and disabled.
+
 List open commands:
 
 ```bash
