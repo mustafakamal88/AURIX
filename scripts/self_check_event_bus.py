@@ -34,6 +34,14 @@ def assert_safe_flags(safety: dict[str, Any]) -> None:
             raise AssertionError(f"safety flag {key} expected {value}, got {safety.get(key)}")
 
 
+def assert_provenance(event: dict[str, Any]) -> None:
+    if not event.get("runtime_session_id"):
+        raise AssertionError(f"event missing runtime_session_id: {event}")
+    expected_commit = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GIT_COMMIT_SHA") or os.getenv("SOURCE_VERSION") or "unknown"
+    if event.get("deployment_commit") != expected_commit:
+        raise AssertionError(f"local event deployment_commit should default to unknown: {event}")
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmpdir:
         config = load_event_bus_config()
@@ -55,6 +63,9 @@ def main() -> int:
         )
         if first["sequence"] != 1:
             raise AssertionError(f"publish one event should assign sequence 1, got {first}")
+        assert_provenance(first)
+        if first.get("payload") != {"bid": 2300.1, "ask": 2300.3}:
+            raise AssertionError(f"event payload structure changed: {first}")
 
         many = bus.publish_many(
             [
@@ -66,6 +77,8 @@ def main() -> int:
         )
         if [item["sequence"] for item in many] != [2, 3, 4, 5]:
             raise AssertionError(f"publish many did not preserve order: {many}")
+        for item in many:
+            assert_provenance(item)
 
         state = bus.get_latest_state()
         if (state.get("market") or {}).get("latest_tick", {}).get("bid") != 2300.1:
@@ -85,6 +98,13 @@ def main() -> int:
         projected = project_events([AurixEvent(**first)])
         if projected.last_sequence != 1:
             raise AssertionError("direct projector failed")
+
+        old = first.copy()
+        old.pop("runtime_session_id", None)
+        old.pop("deployment_commit", None)
+        parsed_old = AurixEvent(**old)
+        if parsed_old.runtime_session_id is not None or parsed_old.deployment_commit is not None:
+            raise AssertionError(f"old event rows should parse without provenance fields: {parsed_old}")
 
         reset = bus.reset_event_bus()
         if reset["event_count"] != 0 or bus.get_latest_state()["last_sequence"] != 0:

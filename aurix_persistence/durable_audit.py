@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
 
-from aurix_common import write_json_atomic
+from aurix_common import deployment_commit, write_json_atomic
 
 
 class DurableAuditError(RuntimeError):
@@ -41,7 +41,8 @@ def _json(value: Any) -> str:
 
 
 def _deployment_commit() -> str | None:
-    return os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GIT_COMMIT_SHA") or os.getenv("SOURCE_VERSION")
+    value = deployment_commit()
+    return None if value == "unknown" else value
 
 
 POSTGRES_SCHEMA = [

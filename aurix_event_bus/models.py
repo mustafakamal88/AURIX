@@ -80,6 +80,8 @@ class AurixEvent(BaseModel):
     correlation_id: Optional[str] = None
     causation_id: Optional[str] = None
     sequence: int = 0
+    runtime_session_id: Optional[str] = None
+    deployment_commit: Optional[str] = None
     payload: dict[str, Any] = Field(default_factory=dict)
     safety: EventSafety = Field(default_factory=EventSafety)
 

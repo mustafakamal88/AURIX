@@ -110,6 +110,27 @@ function pillHTML(value, colorClass) {
   return `<span class="pill ${cls}">${display}</span>`;
 }
 
+function provenanceDisplay(value) {
+  const raw = safeStr(value);
+  if (raw === "--") return { label: "UNKNOWN", color: "warn" };
+  const normalized = raw.toUpperCase();
+  if (normalized === "LEGACY_UNKNOWN") return { label: "LEGACY_UNKNOWN", color: "warn" };
+  if (normalized === "UNKNOWN") return { label: "UNKNOWN", color: "warn" };
+  return { label: raw, color: "" };
+}
+
+function setProvenanceValue(id, value) {
+  const display = provenanceDisplay(value);
+  const el = byId(id);
+  if (!el) return;
+  el.title = safeStr(value);
+  if (display.color) {
+    el.innerHTML = pillHTML(display.label, display.color);
+  } else {
+    el.textContent = display.label;
+  }
+}
+
 // Set a status badge in an rt-value element
 function setStatus(id, value, colorClass) {
   const el = byId(id);
@@ -279,6 +300,7 @@ function render(summary) {
   const symbol = summary.symbol || market.symbol;
   const tradingSession = session.trading_session || {};
   const sessionId = provenance.runtime_session_id;
+  const deploymentCommit = provenance.deployment_commit || provenance.latest_provenance_event?.deployment_commit || "unknown";
   const railwayBrokerEnabled = cockpit.railway_broker_execution === true;
   const eaBrokerEnabled = cockpit.ea_broker_execution === true;
   const matched = cockpit.broker_execution_matched;
@@ -499,7 +521,8 @@ function render(summary) {
   setTextTitle("brokerReconDetailReason", brokerReconReason);
 
   // ── Provenance ──────────────────────────────────────────────────
-  setText("runtimeSessionId",     sessionId);
+  setProvenanceValue("runtimeSessionId", sessionId);
+  setProvenanceValue("deploymentCommit", deploymentCommit);
   setText("runtimeStartedAt",     fmtTime(provenance.started_at));
   setText("runtimeUptime",        provenance.uptime_seconds != null
     ? `${Math.round(Number(provenance.uptime_seconds))}s`

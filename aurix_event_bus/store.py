@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from aurix_common import write_json_atomic, write_text_atomic
+from aurix_common import deployment_commit, write_json_atomic, write_text_atomic
 
 from .config import EventBusConfig
 from .models import AurixEvent, EventSafety, utc_now_iso
@@ -13,9 +15,18 @@ from .state import initial_runtime_state
 
 
 class EventBusStore:
-    def __init__(self, data_dir: str | Path = "data", config: EventBusConfig | None = None):
+    def __init__(
+        self,
+        data_dir: str | Path = "data",
+        config: EventBusConfig | None = None,
+        *,
+        runtime_session_id: str | None = None,
+        deployment_commit_value: str | None = None,
+    ):
         self.data_dir = Path(data_dir)
         self.config = config or EventBusConfig()
+        self.runtime_session_id = runtime_session_id or os.getenv("AURIX_RUNTIME_SESSION_ID") or uuid4().hex
+        self.deployment_commit = deployment_commit_value if deployment_commit_value is not None else deployment_commit()
         self.event_dir = self.data_dir / "event_bus"
         self.event_dir.mkdir(parents=True, exist_ok=True)
         self.events_file = self.event_dir / "events.jsonl"
@@ -79,6 +90,10 @@ class EventBusStore:
     def append_event(self, event: AurixEvent) -> AurixEvent:
         events = self._read_events()
         event.sequence = (events[-1].sequence if events else 0) + 1
+        if not event.runtime_session_id:
+            event.runtime_session_id = self.runtime_session_id
+        if not event.deployment_commit:
+            event.deployment_commit = self.deployment_commit or "unknown"
         validated = AurixEvent(**event.model_dump())
         events.append(validated)
         limit = max(int(self.config.event_history_limit or 1), 1)

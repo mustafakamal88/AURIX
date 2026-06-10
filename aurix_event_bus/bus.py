@@ -8,9 +8,16 @@ from .store import EventBusStore
 
 
 class AurixEventBus:
-    def __init__(self, data_dir: str = "data", config: EventBusConfig | None = None):
+    def __init__(
+        self,
+        data_dir: str = "data",
+        config: EventBusConfig | None = None,
+        *,
+        runtime_session_id: str | None = None,
+        deployment_commit: str | None = None,
+    ):
         self.config = config or EventBusConfig()
-        self.store = EventBusStore(data_dir, self.config)
+        self.store = EventBusStore(data_dir, self.config, runtime_session_id=runtime_session_id, deployment_commit_value=deployment_commit)
 
     def publish_event(self, event: AurixEvent | dict) -> dict:
         if not self.config.enabled:

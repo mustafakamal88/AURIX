@@ -12,6 +12,14 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def deployment_commit(default: str = "unknown") -> str:
+    for key in ("RAILWAY_GIT_COMMIT_SHA", "GIT_COMMIT_SHA", "SOURCE_VERSION"):
+        value = os.getenv(key)
+        if value:
+            return str(value)
+    return default
+
+
 def _parse_time(value: Any) -> datetime:
     if not value:
         return datetime.now(timezone.utc)
@@ -105,6 +113,7 @@ class RuntimeSession:
     def provenance_event(self) -> dict[str, Any]:
         return {
             "runtime_session_id": self.runtime_session_id,
+            "deployment_commit": deployment_commit(),
             "component": "aurix_bridge_server",
             "created_at": self.started_at,
             "source_module": "aurix_common.runtime_provenance",
@@ -116,6 +125,7 @@ class RuntimeSession:
     def payload(self) -> dict[str, Any]:
         return {
             "runtime_session_id": self.runtime_session_id,
+            "deployment_commit": deployment_commit(),
             "process_id": self.process_id,
             "started_at": self.started_at,
             "generated_at": utc_now_iso(),
@@ -134,6 +144,7 @@ def legacy_runtime_provenance(data_dir: str | Path = "data", *, mode: str = "UNK
     counters = collect_runtime_counters(data_dir)
     return {
         "runtime_session_id": "legacy_unknown",
+        "deployment_commit": "unknown",
         "process_id": os.getpid(),
         "started_at": None,
         "generated_at": utc_now_iso(),
@@ -154,5 +165,5 @@ def legacy_runtime_provenance(data_dir: str | Path = "data", *, mode: str = "UNK
             "changed_ea_settings": "unknown",
             "overall_safe": True,
         },
-        "latest_provenance_event": {"runtime_session_id": "legacy_unknown", "component": "legacy", "created_at": None},
+        "latest_provenance_event": {"runtime_session_id": "legacy_unknown", "deployment_commit": "unknown", "component": "legacy", "created_at": None},
     }

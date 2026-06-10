@@ -376,6 +376,9 @@ def main() -> int:
     require("Broker Execution</span><span class=\"rt-value\" id=\"safetyLiveExecution\"" not in index, "safety locks must not show contradictory Broker Execution row")
     require("Safety State" not in index, "decision strip should use Runtime Safety wording")
     require("Overall Session Safe" not in index, "runtime safety wording should not say Overall Session Safe")
+    require("id=\"deploymentCommit\"" in index, "dashboard must show deployment commit provenance")
+    require("setProvenanceValue(\"runtimeSessionId\"" in app_js, "runtime session provenance should render unknown/legacy as warning")
+    require("setProvenanceValue(\"deploymentCommit\"" in app_js, "deployment commit provenance should render unknown as warning")
 
     import aurix_demo_broker_execution.store as broker_store_module
 

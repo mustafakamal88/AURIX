@@ -146,8 +146,14 @@ evidence_monitor_config = load_evidence_monitor_config()
 evidence_monitor_store = EvidenceMonitorStore(DATA_DIR, evidence_monitor_config)
 signal_certifier_config = load_signal_certifier_config()
 signal_certifier_store = SignalCertifierStore(DATA_DIR, signal_certifier_config)
+decision_engine_config = load_decision_engine_config()
+runtime_session = RuntimeSession(
+    data_dir=DATA_DIR,
+    mode=decision_engine_config.mode,
+    symbol=decision_engine_config.symbol,
+)
 event_bus_config = load_event_bus_config()
-event_bus = AurixEventBus(DATA_DIR, event_bus_config)
+event_bus = AurixEventBus(DATA_DIR, event_bus_config, runtime_session_id=runtime_session.runtime_session_id)
 strategy_agents_config = load_strategy_agent_config()
 strategy_agent_registry = StrategyAgentRegistry(strategy_agents_config, DATA_DIR)
 strategy_agent_evaluator = StrategyAgentEvaluator(
@@ -182,7 +188,6 @@ demo_broker_execution_config = load_demo_broker_execution_config()
 demo_broker_execution_store = DemoBrokerExecutionStore(DATA_DIR)
 demo_broker_execution_gate = DemoBrokerExecutionGate(demo_broker_execution_config, demo_broker_execution_store)
 quick_validation_store = QuickValidationStore(DATA_DIR)
-decision_engine_config = load_decision_engine_config()
 decision_engine = AurixDecisionEngine(
     DATA_DIR,
     decision_engine_config,
@@ -193,11 +198,6 @@ decision_engine = AurixDecisionEngine(
     broker_reconciliation_store=broker_reconciler.store,
     demo_command_queue_store=demo_command_queue.store,
     risk_status_provider=lambda: risk_status(),
-)
-runtime_session = RuntimeSession(
-    data_dir=DATA_DIR,
-    mode=decision_engine_config.mode,
-    symbol=decision_engine_config.symbol,
 )
 durable_audit_store = DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
 trade_explanation_store = TradeExplanationStore(DATA_DIR)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -24,6 +26,14 @@ def count_rows(db_path: Path, table: str) -> int:
         conn.close()
 
 
+def fetch_one(db_path: Path, sql: str) -> tuple:
+    conn = sqlite3.connect(db_path)
+    try:
+        return conn.execute(sql).fetchone()
+    finally:
+        conn.close()
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="aurix-durable-audit-") as tmpdir:
         db_path = Path(tmpdir) / "audit.sqlite"
@@ -33,6 +43,8 @@ def main() -> int:
 
         event_id = store.append_event({"event_type": "SIGNAL_EVENT", "symbol": "XAUUSDm", "payload": {"ok": True}})
         require(event_id and count_rows(db_path, "aurix_events") == 1, "append-only event write failed")
+        event_row = fetch_one(db_path, "select runtime_session_id, deployment_commit from aurix_events")
+        require(event_row == ("test-runtime", "test"), f"durable event provenance missing: {event_row}")
 
         explanation_id = store.write_trade_explanation(
             {
@@ -73,6 +85,44 @@ def main() -> int:
             pass
         require(queued_commands == [], "DB write failure must not queue MT5 commands")
         require(failing.status()["durable_audit"] == "ERROR", f"failing DB did not set ERROR: {failing.status()}")
+
+    clean_env = os.environ.copy()
+    clean_env.pop("DATABASE_URL", None)
+    missing = subprocess.run(
+        [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py")],
+        cwd=PROJECT_ROOT,
+        env=clean_env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    require(missing.returncode == 0, f"missing local DATABASE_URL should exit 0: {missing.stdout} {missing.stderr}")
+    require("DATABASE_URL present: False" in missing.stdout, f"missing DATABASE_URL report unclear: {missing.stdout}")
+    require("local-only warning" in missing.stdout, f"missing DATABASE_URL warning absent: {missing.stdout}")
+
+    required_missing = subprocess.run(
+        [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py"), "--require-db"],
+        cwd=PROJECT_ROOT,
+        env=clean_env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    require(required_missing.returncode != 0, "--require-db should fail when DATABASE_URL is missing")
+
+    secret_url = "postgresql://user:super-secret-password@127.0.0.1:1/db"
+    secret_env = clean_env | {"DATABASE_URL": secret_url}
+    redacted = subprocess.run(
+        [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py")],
+        cwd=PROJECT_ROOT,
+        env=secret_env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    combined = redacted.stdout + redacted.stderr
+    require(redacted.returncode != 0, "invalid DATABASE_URL should fail connection/schema check")
+    require(secret_url not in combined and "super-secret-password" not in combined, f"health-check leaked DATABASE_URL: {combined}")
 
     print("OK: durable audit self-checks passed.")
     return 0

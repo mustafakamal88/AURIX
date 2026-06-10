@@ -9,7 +9,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from aurix_event_bus import AurixEventBus, AurixEventType, load_event_bus_config
+from aurix_event_bus import AurixEvent, AurixEventBus, AurixEventType, load_event_bus_config
 from aurix_strategy_agents import StrategyAgentEvaluator, StrategyAgentRegistry, load_strategy_agent_config
 from aurix_strategy_agents.config import StrategyAgentConfigEntry, StrategyAgentsConfig
 from aurix_strategy_agents.diagnostics import build_strategy_pipeline_snapshot
@@ -158,6 +158,19 @@ def assert_safety_false(status: dict[str, Any]) -> None:
         raise AssertionError(f"command queueing safety wrong: {status}")
 
 
+def assert_events_have_provenance(events: list[dict[str, Any]], event_types: set[str]) -> None:
+    missing = sorted(event_types - {str(event.get("event_type")) for event in events})
+    if missing:
+        raise AssertionError(f"diagnostic events missing: {missing} from {events}")
+    for event in events:
+        if str(event.get("event_type")) not in event_types:
+            continue
+        if not event.get("runtime_session_id"):
+            raise AssertionError(f"diagnostic event missing runtime_session_id: {event}")
+        if not event.get("deployment_commit"):
+            raise AssertionError(f"diagnostic event missing deployment_commit: {event}")
+
+
 def main() -> int:
     config = load_strategy_agent_config()
     if not config.enabled or config.allow_live_execution or config.allow_command_queueing:
@@ -203,6 +216,16 @@ def main() -> int:
         events = evaluator.event_bus.load_recent_events(20)
         if not any(event.get("event_type") == AurixEventType.STRATEGY_EVALUATION_EVENT.value for event in events):
             raise AssertionError("strategy evaluation event was not published")
+        assert_events_have_provenance(
+            events,
+            {
+                AurixEventType.STRATEGY_REGISTRY_LOADED.value,
+                AurixEventType.STRATEGY_EVALUATION_STARTED.value,
+                AurixEventType.STRATEGY_EVALUATION_COMPLETED.value,
+                AurixEventType.STRATEGY_SIGNAL_REJECTED.value,
+                AurixEventType.STRATEGY_SIGNAL_ACTIONABLE.value,
+            },
+        )
         signal_events = [event for event in events if event.get("event_type") == AurixEventType.SIGNAL_EVENT.value]
         if not signal_events:
             raise AssertionError("signal event was not published for mock signal")
@@ -345,6 +368,27 @@ def main() -> int:
             raise AssertionError(f"strategy exception should be visible in pipeline: {pipeline}")
         if (Path(tmpdir) / "commands.json").exists() and json.loads((Path(tmpdir) / "commands.json").read_text(encoding="utf-8")):
             raise AssertionError("strategy diagnostics exception queued commands")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        event_bus = AurixEventBus(tmpdir, load_event_bus_config())
+        diagnostic_types = {
+            AurixEventType.STRATEGY_REGISTRY_LOADED,
+            AurixEventType.STRATEGY_EVALUATION_STARTED,
+            AurixEventType.STRATEGY_EVALUATION_COMPLETED,
+            AurixEventType.STRATEGY_SIGNAL_REJECTED,
+            AurixEventType.STRATEGY_SIGNAL_CANDIDATE,
+            AurixEventType.STRATEGY_SIGNAL_ACTIONABLE,
+            AurixEventType.STRATEGY_PIPELINE_ERROR,
+        }
+        for event_type in diagnostic_types:
+            event_bus.publish_event(
+                AurixEvent(
+                    event_type=event_type,
+                    source="strategy_pipeline_diagnostics",
+                    payload={"diagnostic_event": event_type.value, "command_id": None},
+                )
+            )
+        assert_events_have_provenance(event_bus.load_recent_events(20), {event_type.value for event_type in diagnostic_types})
 
     for path in (PROJECT_ROOT / "aurix_strategy_agents").rglob("*.py"):
         if "/commands/open-market" in path.read_text(encoding="utf-8"):
