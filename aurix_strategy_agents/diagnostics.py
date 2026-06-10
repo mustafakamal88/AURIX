@@ -75,6 +75,8 @@ def result_state(result: dict[str, Any] | None, *, min_confidence: float = 0.60)
         return "NO_SETUP"
     if status == "SKIPPED":
         rejection = normalize_rejection_reason(result)
+        if rejection in {"INSUFFICIENT_CANDLES", "MARKET_DATA_MISSING"}:
+            return "WAITING_FOR_DATA"
         return "WAITING_FOR_NEXT_CANDLE" if rejection == "WAITING_FOR_NEXT_CANDLE" else "BLOCKED"
     if status == "ERROR":
         return "ERROR"
@@ -122,10 +124,15 @@ def strategy_diagnostic_row(result: dict[str, Any] | None, *, enabled: bool = Tr
         }
     state = result_state(result, min_confidence=min_confidence)
     trace = _dict(result.get("decision_trace"))
+    status_label = "RUNNING" if result else "NOT_RUNNING"
+    if state == "WAITING_FOR_DATA":
+        status_label = "WAITING_FOR_DATA"
+    elif state == "ERROR":
+        status_label = "ERROR"
     return {
         "strategy_name": result.get("strategy_name"),
         "enabled": True,
-        "status": "RUNNING" if result else "NOT_RUNNING",
+        "status": status_label,
         "evaluated_at": result.get("generated_at"),
         "market_symbol": result.get("symbol"),
         "timeframe": trace.get("timeframe"),
@@ -134,7 +141,7 @@ def strategy_diagnostic_row(result: dict[str, Any] | None, *, enabled: bool = Tr
         "score": result.get("score", result.get("confidence", 0.0)) if result else 0.0,
         "result": state,
         "rejection_reason": normalize_rejection_reason(result) or ("NO_ACTIONABLE_SIGNAL" if state == "NO_SETUP" else None),
-        "latest_error": result.get("error") if state == "ERROR" else None,
+        "latest_error": (result.get("error") or result.get("setup_reason")) if state == "ERROR" else None,
     }
 
 
@@ -153,6 +160,9 @@ def build_strategy_pipeline_snapshot(
     latest_evaluations = [item for item in _list(latest_evaluations) if isinstance(item, dict)]
     registered_count = int(registry_status.get("registered_count") or 0)
     enabled_count = int(registry_status.get("enabled_count") or 0)
+    config = _dict(registry_status.get("config"))
+    registered_entries = [item for item in _list(config.get("registered_agents")) if isinstance(item, dict)]
+    strategy_names = [str(item.get("source_strategy")) for item in registered_entries if item.get("source_strategy")]
     latest = latest_evaluations[-1] if latest_evaluations else {}
     latest_at = latest.get("generated_at") or registry_status.get("last_evaluation_at")
     latest_row = strategy_diagnostic_row(latest, enabled=enabled_count > 0, registered=registered_count > 0, min_confidence=min_confidence)
@@ -176,7 +186,9 @@ def build_strategy_pipeline_snapshot(
         "strategy_registry_loaded": registered_count > 0,
         "registered_strategy_count": registered_count,
         "enabled_strategy_count": enabled_count,
-        "evaluations_this_session": len(latest_evaluations),
+        "registered_strategy_names": strategy_names,
+        "evaluations_this_session": int(registry_status.get("evaluations_this_session") or len(latest_evaluations)),
+        "decision_loop_not_alive_reason": None if decision_loop_alive else "status file stale" if latest_at else "strategy loop not started",
         "latest_evaluation_at": latest_at,
         "latest_evaluation_age_seconds": _age_seconds(latest_at),
         "latest_strategy_name": latest_row.get("strategy_name"),

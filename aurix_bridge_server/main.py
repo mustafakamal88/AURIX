@@ -33,6 +33,7 @@ from aurix_dashboard_runtime.evidence_integrity import build_evidence_integrity_
 from aurix_evidence_monitor import EvidenceMonitorStore, load_evidence_monitor_config
 from aurix_evidence_gate import EvidenceGateStore, load_evidence_gate_config
 from aurix_event_bus import AurixEventBus, EVENT_TYPES, collect_observation_events, load_event_bus_config
+from aurix_event_bus.models import AurixEvent, AurixEventType, EventSafety
 from aurix_forward_test import ForwardTestStore, load_forward_test_config
 from aurix_journal import JournalReviewer, JournalStore, load_journal_config
 from aurix_long_run import LongForwardTestManager, load_long_forward_test_config
@@ -666,6 +667,71 @@ def log_snapshot(snapshot: dict[str, Any]) -> None:
     )
 
 
+def run_runtime_diagnostics_cycle(source: str = "runtime_snapshot") -> dict[str, Any]:
+    paper_before = len(paper_ledger.list_trades())
+    commands_before = len(store.list_commands())
+    oms_before = len(demo_oms.load_order_requests())
+    queue_payloads_before = len(demo_command_queue.load_payloads())
+    result: dict[str, Any] = {
+        "ok": True,
+        "source": source,
+        "observation_events": 0,
+        "strategy_evaluations": 0,
+        "decision_action": None,
+        "errors": [],
+    }
+    try:
+        observation = _event_bus_collect_payload()
+        result["observation_events"] = observation.get("published_count", 0)
+    except Exception as exc:
+        logger.exception("runtime observation collection failed")
+        result["errors"].append(f"observation collection failed: {exc}")
+
+    try:
+        strategy_results = strategy_agent_evaluator.evaluate_all_agents()
+        result["strategy_evaluations"] = len(strategy_results)
+    except Exception as exc:
+        logger.exception("strategy diagnostics cycle failed")
+        event_bus.publish_event(
+            AurixEvent(
+                event_type=AurixEventType.STRATEGY_PIPELINE_ERROR,
+                source="runtime_strategy_diagnostics",
+                symbol=strategy_agents_config.symbol,
+                payload={"diagnostic_event": "strategy_pipeline_error", "error": str(exc), "reason": "exception in strategy loop"},
+                safety=EventSafety(),
+            )
+        )
+        result["ok"] = False
+        result["errors"].append(f"strategy diagnostics failed: {exc}")
+
+    try:
+        decision = decision_engine.evaluate()
+        result["decision_action"] = decision.get("action")
+    except Exception as exc:
+        logger.exception("decision diagnostics cycle failed")
+        result["ok"] = False
+        result["errors"].append(f"decision evaluation failed: {exc}")
+
+    try:
+        build_demo_broker_execution_status()
+    except Exception as exc:
+        logger.exception("demo broker execution status refresh failed")
+        result["errors"].append(f"broker execution status failed: {exc}")
+
+    result["paper_trades_created"] = len(paper_ledger.list_trades()) - paper_before
+    result["commands_queued"] = len(store.list_commands()) - commands_before
+    result["order_requests_created"] = len(demo_oms.load_order_requests()) - oms_before
+    result["mt5_payloads_queued"] = len(demo_command_queue.load_payloads()) - queue_payloads_before
+    result["safety"] = {
+        "paper_trade_creation_allowed": False,
+        "order_request_creation_allowed": False,
+        "live_execution_allowed": False,
+        "command_queueing_allowed": False,
+        "mt5_commands_queued": False,
+    }
+    return result
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {
@@ -682,6 +748,7 @@ async def receive_snapshot(request: Request) -> dict[str, Any]:
     snapshot = normalize_snapshot(payload)
     store.save_snapshot(snapshot)
     market_recorder.record_snapshot(snapshot)
+    diagnostics = run_runtime_diagnostics_cycle("mt5_snapshot")
     log_snapshot(snapshot)
     tick = _dict_or_empty(snapshot.get("tick"))
     return {
@@ -689,6 +756,7 @@ async def receive_snapshot(request: Request) -> dict[str, Any]:
         "status": "snapshot_received",
         "terminal_id": snapshot.get("terminal_id"),
         "symbol": tick.get("symbol") or payload.get("symbol") or os.getenv("AURIX_SYMBOL", "XAUUSDm"),
+        "strategy_diagnostics": diagnostics,
     }
 
 

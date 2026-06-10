@@ -212,7 +212,7 @@ def main() -> int:
         "strategyAgentsLatestRejection",
         "fastRsiLatestResult",
         "fastRsiLatestRejection",
-        "hdrHealthReason",
+        "runtimeHealthReason",
         "hdrRuntimeSafety",
         "hdrTradingSession",
         "runtimeTradingSession",
@@ -222,8 +222,16 @@ def main() -> int:
     for field in required_fields:
         require(f'id="{field}"' in index or f"text(\"{field}\"" in app_js, f"missing dashboard field: {field}")
 
+    require('id="hdrHealthReason"' not in index, "header must not render long health reason in topbar")
+    require("Runtime Health Detail" in index, "dashboard should show health reason in a dedicated detail row")
+    require(".runtime-health-detail" in styles and "overflow-wrap: anywhere" in styles, "health detail should wrap normally")
+
     sys.path.insert(0, str(ROOT))
     import aurix_bridge_server.main as main_module
+    main_py = (ROOT / "aurix_bridge_server" / "main.py").read_text(encoding="utf-8")
+    require("run_runtime_diagnostics_cycle(\"mt5_snapshot\")" in main_py, "MT5 snapshot path must run strategy diagnostics cycle")
+    require("strategy_agent_evaluator.evaluate_all_agents()" in main_py, "runtime diagnostics cycle must evaluate strategy agents")
+    require("decision_engine.evaluate()" in main_py, "runtime diagnostics cycle must evaluate advisory decision engine")
 
     routes = {getattr(route, "path", "") for route in main_module.app.routes}
     require("/" in routes, "FastAPI root route missing")
@@ -296,6 +304,12 @@ def main() -> int:
         low_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
         require(low_summary["strategy_pipeline"]["latest_result"] == "LOW_CONFIDENCE", f"low confidence should be visible: {low_summary['strategy_pipeline']}")
         require(low_summary["strategy_pipeline"]["latest_confidence"] == 0.4, f"low confidence value missing: {low_summary['strategy_pipeline']}")
+
+        seed_runtime(temp_root, evaluations=[strategy_eval(status="SKIPPED", rejection_code="insufficient_m1_candles_for_rsi")], registered_count=3, enabled_count=3)
+        waiting_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(waiting_summary["strategy_pipeline"]["strategy_registry_loaded"] is True, f"registry should stay loaded with insufficient data: {waiting_summary['strategy_pipeline']}")
+        require(waiting_summary["strategy_pipeline"]["latest_result"] == "WAITING_FOR_DATA", f"insufficient data should be waiting: {waiting_summary['strategy_pipeline']}")
+        require(waiting_summary["fast_rsi"]["latest_result"] == "WAITING_FOR_DATA", f"Fast RSI should show waiting: {waiting_summary['fast_rsi']}")
 
         seed_runtime(temp_root, broker_execution=False, ea_execution=False, evaluations=[strategy_eval(status="SIGNAL", confidence=0.9, direction="BUY", rejection_code="")])
         actionable_false = build_runtime_dashboard_summary(temp_root, runtime_environment={"broker_execution_enabled": False, "data_dir": temp_dir}, runtime_provenance=runtime_provenance).model_dump(mode="json")

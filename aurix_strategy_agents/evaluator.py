@@ -10,7 +10,7 @@ from aurix_event_bus import AurixEvent, AurixEventBus, AurixEventType, EventSafe
 
 from .config import StrategyAgentsConfig
 from .diagnostics import build_strategy_pipeline_snapshot, result_state, write_strategy_pipeline_snapshot
-from .models import StrategyAgentSafety, StrategyEvaluationInput, StrategyEvaluationResult, utc_now_iso
+from .models import StrategyAgentSafety, StrategyEvaluationInput, StrategyEvaluationResult, StrategyRejectionReason, utc_now_iso
 from .registry import StrategyAgentRegistry
 
 
@@ -81,6 +81,7 @@ class StrategyAgentStore:
             counts[status] = counts.get(status, 0) + 1
         last_at = max([str(item.get("generated_at")) for item in latest if item.get("generated_at")] or [None])
         data = registry.get_registry_status(counts, last_at).model_dump()
+        data["evaluations_this_session"] = len(self.history())
         self._write_json_atomic(self.status_file, data)
         return data
 
@@ -179,7 +180,26 @@ class StrategyAgentEvaluator:
                 {"diagnostic_event": "strategy_pipeline_error", "agent_id": agent_id, "strategy_name": agent.spec.name, "error": str(exc)},
                 correlation_id=correlation_id,
             )
-            raise
+            result = StrategyEvaluationResult(
+                agent_id=agent.spec.id,
+                strategy_name=agent.spec.name,
+                strategy_version=agent.spec.version,
+                symbol=agent.spec.symbol,
+                mode=agent.spec.mode,
+                status="ERROR",
+                setup_reason=f"exception in strategy loop: {exc}",
+                rejection_reasons=[StrategyRejectionReason(code="strategy_pipeline_error", message=str(exc))],
+                decision_trace={"error": str(exc), "agent_id": agent_id},
+                correlation_id=correlation_id,
+                safety=StrategyAgentSafety(),
+            )
+            result.event_id = self._publish_events(result)
+            self._publish_diagnostic_event(
+                AurixEventType.STRATEGY_EVALUATION_COMPLETED,
+                {"diagnostic_event": "strategy_evaluation_completed", "agent_id": agent_id, "strategy_name": result.strategy_name, "result": "ERROR", "status": result.status},
+                correlation_id=result.correlation_id,
+            )
+            return result
         result.safety = StrategyAgentSafety()
         result.correlation_id = result.correlation_id or correlation_id
         result.event_id = self._publish_events(result)

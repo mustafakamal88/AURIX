@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from aurix_event_bus import AurixEventBus, AurixEventType, load_event_bus_config
 from aurix_strategy_agents import StrategyAgentEvaluator, StrategyAgentRegistry, load_strategy_agent_config
 from aurix_strategy_agents.config import StrategyAgentConfigEntry, StrategyAgentsConfig
+from aurix_strategy_agents.diagnostics import build_strategy_pipeline_snapshot
 
 
 def v1_signal(decision_trace: bool = False) -> dict[str, Any]:
@@ -211,6 +212,24 @@ def main() -> int:
         status = evaluator.status()
         if not status.get("latest_exists") or status.get("latest_status_counts", {}).get("SIGNAL") != 1:
             raise AssertionError(f"latest status was not updated after evaluation: {status}")
+        if status.get("registered_count") != 3 or status.get("enabled_count") != 3:
+            raise AssertionError(f"registry status should include all three strategies: {status}")
+        if status.get("evaluations_this_session", 0) < 3:
+            raise AssertionError(f"evaluations_this_session did not increment: {status}")
+        pipeline = build_strategy_pipeline_snapshot(
+            data_dir=tmpdir,
+            market_data_fresh=True,
+            decision_loop_alive=True,
+            registry_status=status,
+            latest_evaluations=evaluator.latest(),
+        )
+        if pipeline["strategy_registry_loaded"] is not True or pipeline["registered_strategy_count"] != 3 or pipeline["enabled_strategy_count"] != 3:
+            raise AssertionError(f"pipeline registry diagnostics wrong: {pipeline}")
+        for expected in ["xauusd_paper_v1", "xauusd_paper_v2", "fast_rsi_first_reversal"]:
+            if expected not in pipeline.get("registered_strategy_names", []):
+                raise AssertionError(f"pipeline registry names missing {expected}: {pipeline}")
+        if pipeline["decision_loop_alive"] is not True or pipeline["evaluations_this_session"] < 3:
+            raise AssertionError(f"pipeline loop diagnostics wrong: {pipeline}")
         reset = evaluator.reset()
         if reset.get("latest_exists"):
             raise AssertionError(f"reset failed: {reset}")
@@ -231,6 +250,18 @@ def main() -> int:
         insufficient = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         if insufficient.status != "SKIPPED" or insufficient.rejection_reasons[0].code != "insufficient_m1_candles_for_rsi":
             raise AssertionError(f"insufficient candles failed: {insufficient}")
+        evaluator.store.save_results([insufficient], evaluator.registry)
+        pipeline = build_strategy_pipeline_snapshot(
+            data_dir=tmpdir,
+            market_data_fresh=True,
+            decision_loop_alive=True,
+            registry_status=evaluator.status(),
+            latest_evaluations=evaluator.latest(),
+        )
+        if pipeline["strategy_registry_loaded"] is not True:
+            raise AssertionError(f"insufficient data should not unload registry: {pipeline}")
+        if pipeline["latest_result"] != "WAITING_FOR_DATA" or pipeline["latest_rejection_reason"] != "INSUFFICIENT_CANDLES":
+            raise AssertionError(f"insufficient candles should produce WAITING_FOR_DATA: {pipeline}")
 
         ref["closes"] = [100, 99, 98, 97, 96, 95, 94]
         below = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
@@ -285,6 +316,35 @@ def main() -> int:
         blocked = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         if blocked.status != "SKIPPED" or blocked.rejection_reasons[0].code != "spread_above_max":
             raise AssertionError(f"spread block failed: {blocked}")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ref = {"closes": [100, 99, 98, 97, 96, 95, 94]}
+        evaluator = make_fast_evaluator(tmpdir, ref)
+        agent = evaluator.registry.get_agent("fast_rsi_first_reversal_v1")
+        if agent is None:
+            raise AssertionError("Fast RSI agent missing for exception test")
+
+        def fail_evaluate(_evaluation_input: Any) -> Any:
+            raise RuntimeError("forced strategy diagnostics failure")
+
+        agent.evaluate = fail_evaluate  # type: ignore[method-assign]
+        results = evaluator.evaluate_all_agents()
+        if len(results) != 1 or results[0].status != "ERROR":
+            raise AssertionError(f"strategy exception should produce ERROR result: {results}")
+        events = evaluator.event_bus.load_recent_events(20)
+        if not any(event.get("event_type") == AurixEventType.STRATEGY_PIPELINE_ERROR.value for event in events):
+            raise AssertionError(f"strategy_pipeline_error event missing: {events}")
+        pipeline = build_strategy_pipeline_snapshot(
+            data_dir=tmpdir,
+            market_data_fresh=True,
+            decision_loop_alive=True,
+            registry_status=evaluator.status(),
+            latest_evaluations=evaluator.latest(),
+        )
+        if pipeline["latest_result"] != "ERROR" or not pipeline["latest_error"]:
+            raise AssertionError(f"strategy exception should be visible in pipeline: {pipeline}")
+        if (Path(tmpdir) / "commands.json").exists() and json.loads((Path(tmpdir) / "commands.json").read_text(encoding="utf-8")):
+            raise AssertionError("strategy diagnostics exception queued commands")
 
     for path in (PROJECT_ROOT / "aurix_strategy_agents").rglob("*.py"):
         if "/commands/open-market" in path.read_text(encoding="utf-8"):

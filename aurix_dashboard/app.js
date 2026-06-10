@@ -236,7 +236,7 @@ function render(summary) {
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
   setStatus("hdrHealth", summary.health);
-  setText("hdrHealthReason", summary.health_reason);
+  setText("runtimeHealthReason", summary.health_reason);
   setStatus("hdrRuntimeSafety", assertion.overall_safe === true ? "SAFE" : assertion.overall_safe === false ? "UNSAFE" : summary.health === "STALE" ? "STALE" : "UNKNOWN", assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
   setStatus("hdrTradingSession", tradingSession.name || "UNKNOWN");
   setText("hdrSession", shortId(sessionId));
