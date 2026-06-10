@@ -41,6 +41,7 @@ from aurix_operator import build_operator_summary, build_operator_status
 from aurix_orchestrator import SessionOrchestrator, load_orchestrator_config
 from aurix_paper_trading import PaperLedger, PaperTradingEngine, load_paper_trading_config
 from aurix_paper_risk_audit import PaperRiskAuditStore, load_paper_risk_audit_config
+from aurix_quick_validation import QuickValidationRunner, QuickValidationStore
 from aurix_research import ResearchStore, load_research_config
 from aurix_risk_governor import RiskGovernor, load_risk_config
 from aurix_risk_governor.checks import as_dict, as_float, as_list
@@ -166,6 +167,7 @@ demo_command_queue = DemoCommandQueueAdapter(
 demo_broker_execution_config = load_demo_broker_execution_config()
 demo_broker_execution_store = DemoBrokerExecutionStore(DATA_DIR)
 demo_broker_execution_gate = DemoBrokerExecutionGate(demo_broker_execution_config, demo_broker_execution_store)
+quick_validation_store = QuickValidationStore(DATA_DIR)
 decision_engine_config = load_decision_engine_config()
 decision_engine = AurixDecisionEngine(
     DATA_DIR,
@@ -299,6 +301,8 @@ def root() -> dict[str, Any]:
         "broker_reconciliation_status": "/broker-reconciliation/status",
         "demo_command_queue_status": "/demo-command-queue/status",
         "demo_broker_execution_status": "/demo-broker-execution/status",
+        "quick_validation_status": "/quick-validation/status",
+        "quick_validation_run": "/quick-validation/run",
         "decision_engine_status": "/decision-engine/status",
         "evidence_integrity_status": "/evidence-integrity/status",
         "healthz": "/healthz",
@@ -718,6 +722,132 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
 @app.get("/demo-broker-execution/status")
 def demo_broker_execution_status() -> dict[str, Any]:
     return build_demo_broker_execution_status()
+
+
+def quick_validation_providers() -> dict[str, Any]:
+    def context_for_validation() -> dict[str, Any]:
+        latest = context_engine.latest()
+        if latest is not None:
+            return latest
+        context = context_engine.evaluate(
+            snapshot=store.latest_snapshot(),
+            recorded_candles=market_recorder.list_candles(),
+            market_quality=market_recorder.quality(),
+        )
+        return context.model_dump()
+
+    def strategy_v1_for_validation() -> dict[str, Any]:
+        signal = evaluate_xauusd_paper_v1(
+            snapshot=store.latest_snapshot(),
+            context=context_for_validation(),
+            candles=market_recorder.list_candles(),
+            previous_signals=store.list_strategy_signals(),
+            config=xauusd_paper_v1_config,
+        )
+        return signal.model_dump()
+
+    def strategy_v2_for_validation() -> dict[str, Any]:
+        signal = evaluate_xauusd_paper_v2(
+            snapshot=store.latest_snapshot(),
+            context=context_for_validation(),
+            candles=market_recorder.list_candles(),
+            market_quality=market_recorder.quality(),
+            previous_signals=store.list_strategy_signals(),
+            config=xauusd_paper_v2_config,
+        )
+        data = signal.model_dump()
+        data["command_id"] = None
+        return data
+
+    def analytics_for_validation() -> dict[str, Any]:
+        trades, signals, contexts, quality = performance_store.read_inputs()
+        return generate_paper_performance_report(trades, signals, contexts, quality).model_dump()
+
+    def journal_for_validation() -> dict[str, Any]:
+        trades, signals, contexts, quality, _ = journal_store.read_inputs()
+        return {
+            "paper_trade_reviews": len(journal_reviewer.review_paper_trades(trades, signals, contexts, quality)),
+            "signal_reviews": len(journal_reviewer.review_signals(signals, trades, contexts, quality)),
+        }
+
+    def ai_review_for_validation() -> dict[str, Any]:
+        report = ai_review_reviewer.generate(ai_review_store.read_inputs())
+        return {**report.model_dump(), "external_llm_used": False, "allow_external_llm": ai_review_config.allow_external_llm}
+
+    def evidence_for_validation() -> dict[str, Any]:
+        status = _build_operator_status(include_evidence=False)
+        summary = build_operator_summary(status).model_dump()
+        report = evidence_gate_store.evaluate(evidence_gate_store.read_inputs(status.model_dump(), summary))
+        return report.model_dump()
+
+    def readiness_for_validation() -> dict[str, Any]:
+        status = _build_operator_status(include_evidence=True, include_live_readiness=False)
+        summary = build_operator_summary(status).model_dump()
+        report = live_readiness_store.evaluate(live_readiness_store.read_inputs(status.model_dump(), summary))
+        return report.model_dump()
+
+    return {
+        "latest_snapshot": store.latest_snapshot,
+        "market_quality": market_recorder.quality,
+        "context": context_for_validation,
+        "strategy_v1": strategy_v1_for_validation,
+        "strategy_v2": strategy_v2_for_validation,
+        "paper_status": paper_status,
+        "paper_analytics": analytics_for_validation,
+        "journal_review": journal_for_validation,
+        "ai_review": ai_review_for_validation,
+        "evidence_gate": evidence_for_validation,
+        "live_readiness": readiness_for_validation,
+        "runtime_summary": lambda: build_runtime_dashboard_summary(
+            DATA_DIR,
+            runtime_provenance=runtime_session.payload(),
+            evidence_integrity=evidence_integrity_payload(),
+            runtime_environment=runtime_environment_payload(),
+        ).model_dump(mode="json"),
+        "mt5_command": lambda: mt5_next_command(DEFAULT_TERMINAL_ID),
+        "operator_summary": operator_summary,
+        "dashboard_self_check": lambda: {"ok": True, "source": "runtime-summary-read-only"},
+    }
+
+
+def build_quick_validation_runner() -> QuickValidationRunner:
+    return QuickValidationRunner(DATA_DIR, providers=quick_validation_providers())
+
+
+@app.get("/quick-validation/status")
+def quick_validation_status() -> dict[str, Any]:
+    latest = quick_validation_store.latest()
+    if latest is None:
+        return {"ok": True, "status": "NOT_RUN", "report": None}
+    return {
+        "ok": True,
+        "status": latest.get("status"),
+        "generated_at": latest.get("generated_at"),
+        "summary": latest.get("summary") or {},
+        "safety": latest.get("safety") or {},
+        "blocking_reasons": latest.get("blocking_reasons") or [],
+        "warnings": latest.get("warnings") or [],
+        "recommendations": latest.get("recommendations") or [],
+    }
+
+
+@app.get("/quick-validation/latest")
+def quick_validation_latest() -> dict[str, Any]:
+    latest = quick_validation_store.latest()
+    if latest is None:
+        raise HTTPException(status_code=404, detail="No quick validation report yet.")
+    return latest
+
+
+@app.post("/quick-validation/run")
+def quick_validation_run() -> dict[str, Any]:
+    return build_quick_validation_runner().run().model_dump(mode="json")
+
+
+@app.post("/quick-validation/reset")
+def quick_validation_reset() -> dict[str, Any]:
+    quick_validation_store.reset()
+    return {"ok": True, "status": "RESET"}
 
 
 @app.get("/state/latest")

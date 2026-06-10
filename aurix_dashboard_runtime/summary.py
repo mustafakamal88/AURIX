@@ -152,6 +152,7 @@ def build_runtime_dashboard_summary(
     evidence_growth = _dict(store.read_json("evidence_growth_report.json", {}))
     signal_cert = _dict(store.read_json("signal_path_certification_report.json", {}))
     paper_risk = _list(store.read_json("paper_risk_decisions.json", []))
+    quick_validation = _dict(store.read_json("quick_validation_report.json", {}))
     context_items = _list(store.read_json("context_snapshots.json", []))
     operator_summary = _dict(store.read_json("operator_summary.json", {}))
 
@@ -254,6 +255,7 @@ def build_runtime_dashboard_summary(
         evidence_growth=evidence_growth,
         signal_certification=signal_cert,
         paper_risk_audit=_dict(paper_risk[-1]) if paper_risk else {},
+        quick_validation=quick_validation,
         runtime_provenance=runtime_provenance,
         evidence_integrity=evidence_integrity,
         runtime_environment=runtime_environment,

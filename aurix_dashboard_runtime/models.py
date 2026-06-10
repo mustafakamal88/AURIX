@@ -48,6 +48,7 @@ class AurixRuntimeDashboardSummary(BaseModel):
     evidence_growth: dict[str, Any] = Field(default_factory=dict)
     signal_certification: dict[str, Any] = Field(default_factory=dict)
     paper_risk_audit: dict[str, Any] = Field(default_factory=dict)
+    quick_validation: dict[str, Any] = Field(default_factory=dict)
     runtime_provenance: dict[str, Any] = Field(default_factory=dict)
     evidence_integrity: dict[str, Any] = Field(default_factory=dict)
     runtime_environment: dict[str, Any] = Field(default_factory=dict)

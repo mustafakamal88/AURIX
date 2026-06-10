@@ -354,6 +354,22 @@ Stop broker execution by setting `AURIX_BROKER_EXECUTION=false` in Railway and i
 
 Real-money live execution remains unsupported and disabled.
 
+## Quick Paper Forward Validation
+
+Run the paper-only safety/proof harness before considering broker execution:
+
+```bash
+python3 scripts/run_quick_validation.py
+```
+
+Check the latest saved report:
+
+```bash
+python3 scripts/check_quick_validation.py
+```
+
+The report is stored at `data/quick_validation_report.json` and is also visible through `/quick-validation/status`, `/quick-validation/latest`, and the read-only dashboard runtime summary. This harness does not call `/commands/open-market`, does not queue MT5 commands, does not use external AI, and keeps `AURIX_BROKER_EXECUTION=false`.
+
 List open commands:
 
 ```bash

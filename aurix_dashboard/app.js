@@ -209,6 +209,9 @@ function render(summary) {
   const assertion            = provenance.safety_assertion    || {};
   const evidenceIntegrity    = summary.evidence_integrity     || {};
   const runtimeEnvironment   = summary.runtime_environment    || {};
+  const quickValidation      = summary.quick_validation       || {};
+  const quickValidationSafety = quickValidation.safety         || {};
+  const quickValidationSummary = quickValidation.summary       || {};
   const demoBrokerConfig     = demoBroker.config || {};
   const demoAccount          = demoBroker.demo_account_verification || {};
   const demoGate             = demoBroker.latest_gate_decision || {};
@@ -363,6 +366,14 @@ function render(summary) {
   setStatus("signalCertStatus",     signalCertification.status);
   setStatus("paperRiskStatus",      paperRiskAudit.risk_status || paperRiskAudit.status);
   setText("session", session.name);
+
+  // ── Quick Validation ─────────────────────────────────────────────
+  setStatus("quickValidationStatus", quickValidation.status || "NOT_RUN");
+  setText("quickValidationCounts", `${quickValidationSummary.pass_count ?? 0} / ${quickValidationSummary.fail_count ?? 0} / ${quickValidationSummary.warning_count ?? 0}`);
+  setStatus("quickValidationPaperOnly", quickValidationSafety.paper_only === true ? "TRUE" : "--");
+  setStatus("quickValidationBrokerExecution", quickValidationSafety.broker_execution_enabled ? "ENABLED" : "DISABLED");
+  setStatus("quickValidationMt5Commands", quickValidationSafety.mt5_commands_queued ? "QUEUED" : "NONE");
+  setText("quickValidationRecommendation", Array.isArray(quickValidation.recommendations) ? quickValidation.recommendations[0] : "--");
 
   // ── Demo OMS ─────────────────────────────────────────────────────
   setText("demoOmsMode",             demoOms.mode);
