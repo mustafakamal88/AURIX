@@ -19,17 +19,18 @@
         <span class="topbar-subtitle">Autonomous Trading Operations</span>
       </div>
 
-      <div class="topbar-pills">
-        <span id="bannerBrokerExecution" class="pill safe">BROKER EXECUTION DISABLED</span>
-        <span id="bannerEaExecution" class="pill safe">EA EXECUTION DISABLED</span>
-        <span id="bannerExecutionMatch" class="pill neutral">EXECUTION STATE UNKNOWN</span>
-        <span id="bannerDurableAudit" class="pill neutral">DURABLE AUDIT --</span>
-        <span id="bannerReadOnly" class="pill safe">READ-ONLY DASHBOARD</span>
-        <span id="bannerNoCommands" class="pill safe">NO COMMANDS FROM DASHBOARD</span>
-        <span id="dashboardSessionStatus" class="pill safe">Authenticated</span>
-        <button id="dashboardLogout" class="link-button" type="button">Log out</button>
-      </div>
     </header>
+
+    <section class="topbar-pills" aria-label="Safety status">
+      <span id="bannerBrokerExecution" class="pill safe">BROKER EXECUTION DISABLED</span>
+      <span id="bannerEaExecution" class="pill safe">EA EXECUTION DISABLED</span>
+      <span id="bannerExecutionMatch" class="pill neutral">EXECUTION STATE UNKNOWN</span>
+      <span id="bannerDurableAudit" class="pill neutral hidden">DURABLE AUDIT --</span>
+      <span id="bannerReadOnly" class="pill safe">READ-ONLY DASHBOARD</span>
+      <span id="bannerNoCommands" class="pill safe">NO COMMANDS FROM DASHBOARD</span>
+      <span id="dashboardSessionStatus" class="pill safe">Authenticated</span>
+      <button id="dashboardLogout" class="link-button" type="button">Log out</button>
+    </section>
 
     <section class="meta-strip" aria-label="Runtime ticker">
       <span><span class="label">Symbol</span> <span id="hdrSymbol" class="mono">--</span></span>
@@ -652,6 +653,26 @@
           const sp = num((document.getElementById("spread") || {}).textContent);
           const mx = num((document.getElementById("maxSpread") || {}).textContent);
           setMeter("spreadMeter", sp, mx);
+
+          // Durable audit pill — mirror durableAuditState; hide when empty
+          const da = document.getElementById("durableAuditState");
+          const dap = document.getElementById("bannerDurableAudit");
+          if (da && dap) {
+            const txt = (da.textContent || "").trim();
+            if (!txt || txt === "--") {
+              dap.classList.add("hidden");
+            } else {
+              dap.classList.remove("hidden");
+              const upper = txt.toUpperCase();
+              dap.textContent = "DURABLE AUDIT " + upper;
+              dap.classList.remove("good", "warn", "danger", "neutral", "safe");
+              const cls = /OK|ENABLED|CONNECTED|HEALTHY/.test(upper) ? "good"
+                       : /ERROR|FAIL|DISCONNECTED/.test(upper) ? "danger"
+                       : /WARN|DEGRADED|STALE/.test(upper) ? "warn"
+                       : "neutral";
+              dap.classList.add("pill", cls);
+            }
+          }
         }
 
         // Run shortly after each refresh cycle (app.js polls every 4s).
