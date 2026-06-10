@@ -65,15 +65,48 @@ def snapshot(age_seconds: int, *, broker_execution: bool = True, spread_points: 
     }
 
 
-def seed_runtime(root: Path, *, snapshot_age: int = 1, broker_execution: bool = True, ea_execution: bool = True, spread_points: float = 20.0) -> None:
+def strategy_eval(strategy_name: str = "fast_rsi_first_reversal", status: str = "NO_SIGNAL", *, confidence: float = 0.0, direction: str | None = None, rejection_code: str = "no_fast_rsi_first_reversal_setup") -> dict[str, object]:
+    return {
+        "generated_at": iso_age(1),
+        "agent_id": f"{strategy_name}_v1",
+        "strategy_name": strategy_name,
+        "strategy_version": "1.0.0",
+        "symbol": "XAUUSDm",
+        "status": status,
+        "direction": direction,
+        "confidence": confidence,
+        "decision_trace": {"timeframe": "M1", "rsi_current": 42.0, "rsi_sma_current": 44.0, "evaluated_bar_time": iso_age(1), "rule_checks": {"enough_candles": True}},
+        "rejection_reasons": [{"code": rejection_code, "message": rejection_code}],
+    }
+
+
+def seed_runtime(
+    root: Path,
+    *,
+    snapshot_age: int = 1,
+    broker_execution: bool = True,
+    ea_execution: bool = True,
+    spread_points: float = 20.0,
+    evaluations: list[dict[str, object]] | None = None,
+    registered_count: int = 1,
+    enabled_count: int = 1,
+) -> None:
     write_json(root, "latest_snapshot.json", snapshot(snapshot_age, broker_execution=ea_execution, spread_points=spread_points))
     write_json(root, "event_bus/status.json", {"updated_at": iso_age(1), "event_count": 1, "last_sequence": 1, "last_event_type": "AURIX_DECISION_EVENT"})
     write_json(root, "event_bus/state_snapshot.json", {"generated_at": iso_age(1)})
-    write_jsonl(root, "event_bus/events.jsonl", [{"event_type": "AURIX_DECISION_EVENT", "event_id": "evt-1", "payload": {"action": "WAIT"}}])
+    write_jsonl(
+        root,
+        "event_bus/events.jsonl",
+        [
+            {"event_type": "AURIX_DECISION_EVENT", "event_id": "evt-1", "payload": {"action": "WAIT"}},
+            {"event_type": "strategy_signal_rejected", "event_id": "evt-2", "payload": {"diagnostic_event": "strategy_signal_rejected"}},
+        ],
+    )
     write_json(root, "decision_engine/status.json", {"latest_action": "WAIT", "latest_status": "WAITING", "top_blocking_reason": "no actionable signal", "updated_at": iso_age(1)})
     write_json(root, "decision_engine/report.json", {"action": "WAIT", "generated_at": iso_age(1), "blocking_reasons": [{"message": "no actionable signal"}], "warnings": []})
-    write_json(root, "strategy_agents/status.json", {"registered_count": 1, "enabled_count": 1, "latest_signal": {"status": "NO_SIGNAL", "direction": None}})
-    write_json(root, "strategy_agents/latest_evaluations.json", [{"strategy_name": "xauusd_paper_v2", "status": "NO_SIGNAL", "direction": None}])
+    evaluations = evaluations if evaluations is not None else [{"strategy_name": "xauusd_paper_v2", "status": "NO_SIGNAL", "direction": None, "generated_at": iso_age(1), "confidence": 0.0}]
+    write_json(root, "strategy_agents/status.json", {"registered_count": registered_count, "enabled_count": enabled_count, "latest_signal": next((item for item in evaluations if item.get("status") == "SIGNAL"), None)})
+    write_json(root, "strategy_agents/latest_evaluations.json", evaluations)
     write_json(root, "risk_status.json", {"config": {"max_spread_points": 270}})
     write_json(root, "demo_command_queue/status.json", {"mode": "READ_ONLY", "preview_count": 0, "payload_count": 0})
     write_json(root, "demo_oms/status.json", {"mode": "READ_ONLY", "order_intent_count": 0, "order_request_count": 0})
@@ -167,6 +200,18 @@ def main() -> int:
         "gateRiskModel",
         "validationQuickStatus",
         "validationReadinessStatus",
+        "pipelineMarketFresh",
+        "pipelineDecisionAlive",
+        "pipelineRegistryLoaded",
+        "pipelineRegistered",
+        "pipelineEnabled",
+        "pipelineEvaluations",
+        "pipelineLastResult",
+        "pipelineLastRejection",
+        "strategyAgentsLatestResult",
+        "strategyAgentsLatestRejection",
+        "fastRsiLatestResult",
+        "fastRsiLatestRejection",
         "hdrHealthReason",
         "hdrRuntimeSafety",
         "hdrTradingSession",
@@ -218,9 +263,12 @@ def main() -> int:
         temp_root = Path(temp_dir)
         runtime_env = {"broker_execution_enabled": True, "data_dir": temp_dir}
         runtime_provenance = {"generated_at": iso_age(1), "safety_assertion": {"overall_safe": True}, "runtime_session_id": "test"}
-        seed_runtime(temp_root, snapshot_age=1, broker_execution=True, ea_execution=True)
+        seed_runtime(temp_root, snapshot_age=1, broker_execution=True, ea_execution=True, evaluations=[])
         true_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
         cockpit = true_summary["broker_execution_cockpit"]
+        pipeline = true_summary["strategy_pipeline"]
+        require(pipeline["latest_result"] == "STRATEGY_EVALUATION_MISSING", f"expected missing strategy evaluation, got {pipeline}")
+        require(pipeline["latest_rejection_reason"] == "STRATEGY_NOT_RUNNING", f"expected strategy not running, got {pipeline}")
         require(cockpit["broker_execution_matched"] is True, "broker execution true + EA true should match")
         require(cockpit["latest_primary_block"] == "no actionable signal", f"expected no actionable signal, got {cockpit}")
         require(cockpit["signal_gate_state"] == "BLOCKED", f"signal gate should be blocked, got {cockpit}")
@@ -232,6 +280,32 @@ def main() -> int:
         require(true_summary["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "dashboard summary should not create an MT5 command")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
         require(true_summary["session"]["trading_session"]["name"] in {"ASIA", "LONDON", "NEW_YORK", "OFF_SESSION"}, f"trading session missing: {true_summary['session']}")
+
+        seed_runtime(temp_root, evaluations=[], registered_count=1, enabled_count=0)
+        disabled_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(disabled_summary["strategy_pipeline"]["latest_result"] == "STRATEGY_DISABLED", f"disabled strategy state wrong: {disabled_summary['strategy_pipeline']}")
+        require(disabled_summary["decision"]["action"] == "WAIT", f"disabled strategy should keep decision WAIT: {disabled_summary['decision']}")
+
+        seed_runtime(temp_root, evaluations=[strategy_eval(rejection_code="no_fast_rsi_first_reversal_setup")])
+        rejected_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(rejected_summary["strategy_pipeline"]["latest_result"] == "NO_SETUP", f"rejected setup should be NO_SETUP: {rejected_summary['strategy_pipeline']}")
+        require(rejected_summary["strategy_pipeline"]["latest_rejection_reason"] == "NO_TRACE_PATTERN", f"rejection reason should be visible: {rejected_summary['strategy_pipeline']}")
+        require(rejected_summary["event_bus"]["event_count"] == 1, f"diagnostic event should increment event count in fixture: {rejected_summary['event_bus']}")
+
+        seed_runtime(temp_root, evaluations=[strategy_eval(status="SIGNAL", confidence=0.4, direction="BUY", rejection_code="")])
+        low_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(low_summary["strategy_pipeline"]["latest_result"] == "LOW_CONFIDENCE", f"low confidence should be visible: {low_summary['strategy_pipeline']}")
+        require(low_summary["strategy_pipeline"]["latest_confidence"] == 0.4, f"low confidence value missing: {low_summary['strategy_pipeline']}")
+
+        seed_runtime(temp_root, broker_execution=False, ea_execution=False, evaluations=[strategy_eval(status="SIGNAL", confidence=0.9, direction="BUY", rejection_code="")])
+        actionable_false = build_runtime_dashboard_summary(temp_root, runtime_environment={"broker_execution_enabled": False, "data_dir": temp_dir}, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(actionable_false["strategy_pipeline"]["latest_result"] == "ACTIONABLE", f"actionable signal should be visible: {actionable_false['strategy_pipeline']}")
+        require(actionable_false["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "actionable signal with broker execution false should not queue MT5 command")
+
+        seed_runtime(temp_root, broker_execution=True, ea_execution=True, evaluations=[strategy_eval(status="SIGNAL", confidence=0.9, direction="BUY", rejection_code="")])
+        actionable_true = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(actionable_true["strategy_pipeline"]["latest_result"] == "ACTIONABLE", f"actionable signal should be visible read-only: {actionable_true['strategy_pipeline']}")
+        require(actionable_true["runtime_provenance"]["safety_assertion"]["overall_safe"] is True, "dashboard summary must remain read-only safe")
 
         seed_runtime(temp_root, snapshot_age=1, broker_execution=True, ea_execution=True, spread_points=999.0)
         spread_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")

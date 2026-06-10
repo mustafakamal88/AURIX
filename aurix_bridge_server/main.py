@@ -501,6 +501,7 @@ def dashboard_runtime_summary() -> dict[str, Any]:
             "evidence_growth": {},
             "signal_certification": {},
             "paper_risk_audit": {},
+            "strategy_pipeline": {},
             "runtime_provenance": runtime_session.payload(),
             "evidence_integrity": {"status": "ERROR", "notes": [str(exc)]},
             "runtime_environment": runtime_environment_payload(),

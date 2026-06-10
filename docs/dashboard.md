@@ -70,6 +70,8 @@ Runtime health is based on freshness of the bridge/runtime summary, MT5 snapshot
 
 Safety Locks are permission and runtime-safety indicators, not another broker execution switch. Broker Order Permission can be `BLOCKED` with a reason such as `no actionable signal` even when the configured broker execution switch and EA input are both enabled. Legacy Gate Status is displayed as `IGNORED / RETIRED` when that legacy gate is not active runtime logic. Queue Permission includes a separate queue block reason, such as `signal gate blocked: no actionable signal`.
 
+Strategy Pipeline diagnostics are read-only runtime telemetry. The dashboard reads `strategy_pipeline/status.json` from the configured AURIX data directory and shows whether market data is fresh, the decision loop is alive, the strategy registry is loaded, how many strategies are registered/enabled, and the latest evaluation result, confidence, direction, rejection reason, or error. These diagnostics explain whether V1, V2, and Fast RSI are evaluating or blocked; they do not create paper trades, MT5 commands, broker orders, or strategy config changes.
+
 The header shows Runtime Safety separately from Trading Session. Runtime Safety is the read-only runtime safety assertion. Trading Session is calculated from the AURIX context session config in `config/context.yaml` using `Europe/London` timezone handling and is normalized to `ASIA`, `LONDON`, `NEW_YORK`, `OFF_SESSION`, or `UNKNOWN`.
 
 MT5 account login determines whether the account is demo or live. The dashboard does not expose separate demo/live execution controls.

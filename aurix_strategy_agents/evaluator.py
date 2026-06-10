@@ -9,6 +9,7 @@ from aurix_common import write_json_atomic, write_text_atomic
 from aurix_event_bus import AurixEvent, AurixEventBus, AurixEventType, EventSafety
 
 from .config import StrategyAgentsConfig
+from .diagnostics import build_strategy_pipeline_snapshot, result_state, write_strategy_pipeline_snapshot
 from .models import StrategyAgentSafety, StrategyEvaluationInput, StrategyEvaluationResult, utc_now_iso
 from .registry import StrategyAgentRegistry
 
@@ -60,7 +61,17 @@ class StrategyAgentStore:
         existing.extend(rows)
         existing = existing[-1000:]
         write_text_atomic(self.history_file, "".join(json.dumps(item, default=str) + "\n" for item in existing))
-        self._write_json_atomic(self.status_file, self.status(registry))
+        status = self.status(registry)
+        self._write_json_atomic(self.status_file, status)
+        write_strategy_pipeline_snapshot(
+            self.data_dir,
+            build_strategy_pipeline_snapshot(
+                data_dir=self.data_dir,
+                registry_status=status,
+                latest_evaluations=rows,
+                fast_rsi_state=self._read_json(self.store_dir / "fast_rsi_first_reversal_state.json", {}),
+            ),
+        )
 
     def status(self, registry: StrategyAgentRegistry) -> dict[str, Any]:
         latest = self.latest()
@@ -115,6 +126,21 @@ class StrategyAgentEvaluator:
         matches = [item for item in signals if isinstance(item, dict) and item.get("strategy_name") == source_strategy]
         return matches[-1] if matches else None
 
+    def _publish_diagnostic_event(self, event_type: AurixEventType, payload: dict[str, Any], *, correlation_id: str | None = None) -> Optional[str]:
+        if not self.config.publish_to_event_bus or self.event_bus is None:
+            return None
+        event = self.event_bus.publish_event(
+            AurixEvent(
+                event_type=event_type,
+                source="strategy_pipeline_diagnostics",
+                symbol=str(payload.get("symbol") or self.config.symbol),
+                correlation_id=correlation_id,
+                payload=payload,
+                safety=EventSafety(),
+            )
+        )
+        return event.get("event_id")
+
     def evaluate_agent(self, agent_id: str) -> StrategyEvaluationResult:
         agent = self.registry.get_agent(agent_id)
         if agent is None:
@@ -130,24 +156,75 @@ class StrategyAgentEvaluator:
                 setup_reason="agent disabled",
             )
         source = self.registry.source_strategy(agent_id)
-        result = agent.evaluate(
-            StrategyEvaluationInput(
-                agent_id=agent_id,
-                symbol=self.config.symbol,
-                runtime_state=self._runtime_state(),
-                latest_signal=self._latest_for_source(source),
-                candles=self.candles(),
-                context=self.context(),
-            )
+        correlation_id = uuid4().hex
+        self._publish_diagnostic_event(
+            AurixEventType.STRATEGY_EVALUATION_STARTED,
+            {"diagnostic_event": "strategy_evaluation_started", "agent_id": agent_id, "strategy_name": agent.spec.name, "symbol": self.config.symbol},
+            correlation_id=correlation_id,
         )
+        try:
+            result = agent.evaluate(
+                StrategyEvaluationInput(
+                    agent_id=agent_id,
+                    symbol=self.config.symbol,
+                    runtime_state=self._runtime_state(),
+                    latest_signal=self._latest_for_source(source),
+                    candles=self.candles(),
+                    context=self.context(),
+                )
+            )
+        except Exception as exc:
+            self._publish_diagnostic_event(
+                AurixEventType.STRATEGY_PIPELINE_ERROR,
+                {"diagnostic_event": "strategy_pipeline_error", "agent_id": agent_id, "strategy_name": agent.spec.name, "error": str(exc)},
+                correlation_id=correlation_id,
+            )
+            raise
         result.safety = StrategyAgentSafety()
-        result.correlation_id = result.correlation_id or uuid4().hex
+        result.correlation_id = result.correlation_id or correlation_id
         result.event_id = self._publish_events(result)
+        state = result_state(result.model_dump())
+        self._publish_diagnostic_event(
+            AurixEventType.STRATEGY_EVALUATION_COMPLETED,
+            {"diagnostic_event": "strategy_evaluation_completed", "agent_id": agent_id, "strategy_name": result.strategy_name, "result": state, "status": result.status},
+            correlation_id=result.correlation_id,
+        )
+        if state == "ACTIONABLE":
+            diagnostic_type = AurixEventType.STRATEGY_SIGNAL_ACTIONABLE
+            diagnostic_name = "strategy_signal_actionable"
+        elif state == "LOW_CONFIDENCE":
+            diagnostic_type = AurixEventType.STRATEGY_SIGNAL_CANDIDATE
+            diagnostic_name = "strategy_signal_candidate"
+        else:
+            diagnostic_type = AurixEventType.STRATEGY_SIGNAL_REJECTED
+            diagnostic_name = "strategy_signal_rejected"
+        self._publish_diagnostic_event(
+            diagnostic_type,
+            {
+                "diagnostic_event": diagnostic_name,
+                "agent_id": agent_id,
+                "strategy_name": result.strategy_name,
+                "result": state,
+                "status": result.status,
+                "direction": result.direction,
+                "confidence": result.confidence,
+                "rejection_reasons": [reason.model_dump() for reason in result.rejection_reasons],
+            },
+            correlation_id=result.correlation_id,
+        )
         return result
 
     def evaluate_all_agents(self) -> list[StrategyEvaluationResult]:
         if not self.config.enabled:
             return []
+        self._publish_diagnostic_event(
+            AurixEventType.STRATEGY_REGISTRY_LOADED,
+            {
+                "diagnostic_event": "strategy_registry_loaded",
+                "registered_count": len(self.registry.list_registered_agents()),
+                "enabled_count": len(self.registry.get_enabled_agents()),
+            },
+        )
         results = [self.evaluate_agent(agent.spec.id) for agent in self.registry.get_enabled_agents()]
         self.store.save_results(results, self.registry)
         return results

@@ -6,6 +6,7 @@ from aurix_broker_reconciliation import BrokerReconciliationStore
 from aurix_demo_command_queue import DemoCommandQueueStore
 from aurix_demo_oms import DemoOmsStore
 from aurix_event_bus import AurixEventBus
+from aurix_strategy_agents.diagnostics import build_strategy_pipeline_snapshot, write_strategy_pipeline_snapshot
 from aurix_strategy_agents.evaluator import StrategyAgentStore
 
 from .autonomy import apply_autonomy
@@ -52,6 +53,7 @@ class AurixDecisionEngine:
         demo_command_queue_store: DemoCommandQueueStore | None = None,
         risk_status_provider: Any | None = None,
     ):
+        self.data_dir = data_dir
         self.config = config or DecisionEngineConfig()
         self.store = DecisionEngineStore(data_dir, self.config)
         self.event_bus = event_bus
@@ -105,6 +107,18 @@ class AurixDecisionEngine:
         _, decision_event = publish_decision_events(self.event_bus, report)
         if decision_event:
             report.event_id = decision_event.get("event_id")
+        data = self.build_input()
+        write_strategy_pipeline_snapshot(
+            self.data_dir,
+            build_strategy_pipeline_snapshot(
+                data_dir=self.data_dir,
+                registry_status=data.strategy_agents_status,
+                latest_evaluations=data.strategy_agent_latest,
+                market_data_fresh=bool(data.snapshot),
+                decision_loop_alive=True,
+                min_confidence=float(self.config.min_signal_confidence),
+            ),
+        )
         return self.store.add_report(report)
 
     def build_input(self) -> AurixDecisionInput:

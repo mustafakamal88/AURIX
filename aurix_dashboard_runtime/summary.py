@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from aurix_common import legacy_runtime_provenance
 from aurix_context_engine import load_context_config
 from aurix_context_engine.session import classify_session
+from aurix_strategy_agents.diagnostics import build_strategy_pipeline_snapshot, normalize_rejection_reason, write_strategy_pipeline_snapshot
 
 from .evidence_integrity import build_evidence_integrity_status
 from .models import AurixRuntimeDashboardSummary, RuntimeDashboardSafety
@@ -97,16 +98,31 @@ def _fast_rsi(latest: list[dict[str, Any]], state: dict[str, Any]) -> dict[str, 
     item = next((row for row in reversed(latest) if row.get("strategy_name") == "fast_rsi_first_reversal"), latest[-1] if latest else {})
     trace = _dict(item.get("decision_trace"))
     indicators = _dict(trace.get("indicators"))
+    rule_checks = _dict(trace.get("rule_checks"))
+    status = item.get("status")
+    rejection = normalize_rejection_reason(item) if item else None
+    latest_result = "ACTIONABLE" if status == "SIGNAL" else "NO_SETUP" if status == "NO_SIGNAL" else "WAITING_FOR_DATA" if status == "SKIPPED" else "UNKNOWN"
+    if not item:
+        latest_result = "STRATEGY_EVALUATION_MISSING"
+        rejection = "STRATEGY_NOT_RUNNING"
+    elif rejection == "INSUFFICIENT_CANDLES" or rule_checks.get("enough_candles") is False:
+        latest_result = "WAITING_FOR_DATA"
+        rejection = "INSUFFICIENT_CANDLES"
     return {
-        "status": item.get("status"),
-        "direction": item.get("direction"),
-        "rsi_current": indicators.get("rsi_current") or item.get("rsi_current"),
-        "rsi_sma_current": indicators.get("rsi_sma_current") or item.get("rsi_sma_current"),
+        "status": "RUNNING" if item else "NOT_RUNNING",
+        "direction": item.get("direction") or "NONE",
+        "rsi_current": trace.get("rsi_current") or indicators.get("rsi_current") or item.get("rsi_current"),
+        "rsi_sma_current": trace.get("rsi_sma_current") or indicators.get("rsi_sma_current") or item.get("rsi_sma_current"),
+        "buy_extreme_threshold": trace.get("buy_extreme_level") or 30.0,
+        "sell_extreme_threshold": trace.get("sell_extreme_level") or 70.0,
         "buy_extreme_state": trace.get("buy_extreme_state") or state.get("buy_extreme_state"),
         "sell_extreme_state": trace.get("sell_extreme_state") or state.get("sell_extreme_state"),
         "rejection_reasons": _list(item.get("rejection_reasons")),
-        "last_evaluated_bar": trace.get("last_evaluated_bar") or state.get("last_evaluated_bar"),
+        "last_evaluated_bar": trace.get("evaluated_bar_time") or trace.get("last_evaluated_bar") or state.get("last_evaluated_bar_time") or state.get("last_evaluated_bar"),
+        "last_evaluation_age_seconds": _age_seconds(item.get("generated_at")),
         "decision_trace_available": bool(item.get("decision_trace")),
+        "latest_result": latest_result,
+        "latest_rejection_reason": rejection,
         "setup_reason": item.get("setup_reason"),
     }
 
@@ -262,6 +278,24 @@ def build_runtime_dashboard_summary(
     runtime_provenance = runtime_provenance or legacy_runtime_provenance(data_dir, mode=str(decision.get("mode") or "UNKNOWN"), symbol=str(market.get("symbol") or "XAUUSDm"))
     evidence_integrity = evidence_integrity or build_evidence_integrity_status(data_dir)
     runtime_environment = runtime_environment or {}
+    market_data_fresh = (market.get("snapshot_age_seconds") is not None and float(market.get("snapshot_age_seconds") or 999999) <= 180)
+    decision_age = _age_seconds(decision_status.get("updated_at") or decision_report.get("generated_at"))
+    pipeline_status = _dict(store.read_json("strategy_pipeline/status.json", {}))
+    synthesized_pipeline = build_strategy_pipeline_snapshot(
+        data_dir=data_dir,
+        session_id=str(runtime_provenance.get("runtime_session_id") or "unknown"),
+        market_data_fresh=market_data_fresh,
+        decision_loop_alive=decision_age is not None and decision_age <= 180,
+        registry_status=strategy_status,
+        latest_evaluations=strategy_latest,
+        fast_rsi_state=fast_state,
+        min_confidence=float(_dict(decision_status.get("config")).get("min_signal_confidence") or 0.60),
+    )
+    if not pipeline_status or _age_seconds(pipeline_status.get("generated_at")) is None:
+        pipeline_status = synthesized_pipeline
+    else:
+        pipeline_status = {**pipeline_status, **synthesized_pipeline}
+    write_strategy_pipeline_snapshot(data_dir, pipeline_status)
     health, health_reason = _health(event_bus_status, event_bus_state, snapshot, runtime_provenance, decision_status, decision_report)
     if evidence_integrity.get("status") == "ERROR":
         health = "ERROR"
@@ -332,6 +366,29 @@ def build_runtime_dashboard_summary(
 
     broker_execution_cockpit["legacy_gate_status"] = "IGNORED / RETIRED"
     broker_execution_cockpit["dashboard_order_capability"] = "READ_ONLY / CANNOT_CREATE_COMMANDS"
+    pipeline_result = str(pipeline_status.get("latest_result") or "UNKNOWN")
+    if pipeline_result in {"STRATEGY_EVALUATION_MISSING", "STRATEGY_NOT_REGISTERED"} and market_data_fresh:
+        decision["action"] = decision.get("action") or "WAIT"
+        decision["confidence"] = decision.get("confidence") if decision.get("confidence") is not None else 0
+        decision["score"] = decision.get("score") if decision.get("score") is not None else 0
+        decision["strategy"] = decision.get("strategy") or "none"
+        decision["setup_reason"] = "STRATEGY_NOT_RUNNING"
+        decision["top_blocking_reason"] = "strategy evaluation missing"
+        blocks = ["strategy evaluation missing", "market data fresh but no strategy result found"] + [item for item in blocks if item not in {"strategy evaluation missing", "market data fresh but no strategy result found"}]
+        next_action = "Check strategy daemon/decision loop."
+    elif pipeline_result in {"NO_SETUP", "BLOCKED", "WAITING_FOR_NEXT_CANDLE"}:
+        decision["action"] = decision.get("action") or "WAIT"
+        decision["strategy"] = decision.get("strategy") or pipeline_status.get("latest_strategy_name")
+        decision["confidence"] = decision.get("confidence") if decision.get("confidence") is not None else pipeline_status.get("latest_confidence")
+        decision["setup_reason"] = decision.get("setup_reason") or pipeline_status.get("latest_rejection_reason")
+        decision["top_blocking_reason"] = decision.get("top_blocking_reason") or "no actionable signal"
+    elif pipeline_result == "LOW_CONFIDENCE":
+        decision["action"] = "WAIT"
+        decision["strategy"] = pipeline_status.get("latest_strategy_name")
+        decision["confidence"] = pipeline_status.get("latest_confidence")
+        decision["setup_reason"] = "LOW_CONFIDENCE"
+        decision["top_blocking_reason"] = "low confidence"
+        blocks = ["low confidence"] + [item for item in blocks if item != "low confidence"]
 
     return AurixRuntimeDashboardSummary(
         symbol=market.get("symbol") or decision_report.get("symbol") or strategy_status.get("symbol"),
@@ -396,6 +453,7 @@ def build_runtime_dashboard_summary(
         signal_certification=signal_cert,
         paper_risk_audit=_dict(paper_risk[-1]) if paper_risk else {},
         quick_validation=quick_validation,
+        strategy_pipeline=pipeline_status,
         broker_execution_cockpit=broker_execution_cockpit,
         runtime_provenance=runtime_provenance,
         evidence_integrity=evidence_integrity,

@@ -58,8 +58,8 @@ function fmtTime(value) {
 function statusColor(value) {
   if (value === undefined || value === null || value === "" || value === "--") return "";
   const v = String(value).toUpperCase().trim();
-  const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY", "READ_ONLY", "CANNOT_CREATE_COMMANDS"]);
-  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING"]);
+  const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY", "READ_ONLY", "CANNOT_CREATE_COMMANDS", "RUNNING", "ACTIONABLE"]);
+  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "NEUTRAL", "NONE"]);
   const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING", "UNKNOWN"]);
   const BLUE_SET = new Set(["RUNNING", "WAITING", "MONITORING", "EVALUATING", "SCANNING", "ACTIVE", "LIVE"]);
 
@@ -215,6 +215,7 @@ function render(summary) {
   const evidenceIntegrity    = summary.evidence_integrity     || {};
   const runtimeEnvironment   = summary.runtime_environment    || {};
   const quickValidation      = summary.quick_validation       || {};
+  const pipeline             = summary.strategy_pipeline      || {};
   const cockpit              = summary.broker_execution_cockpit || {};
   const quickValidationSafety = quickValidation.safety         || {};
   const quickValidationSummary = quickValidation.summary       || {};
@@ -330,17 +331,39 @@ function render(summary) {
   setText("fastRsiDirection",      fastRsi.direction);
   setText("fastRsiRsi",            fastRsi.rsi_current);
   setText("fastRsiSma",            fastRsi.rsi_sma_current);
+  setText("fastRsiBuyThreshold",   fastRsi.buy_extreme_threshold);
+  setText("fastRsiSellThreshold",  fastRsi.sell_extreme_threshold);
   setText("fastRsiBuyExtreme",     fastRsi.buy_extreme_state);
   setText("fastRsiSellExtreme",    fastRsi.sell_extreme_state);
   setText("fastRsiRejections",     joinItems((fastRsi.rejection_reasons || []).map(r => r.message || r.code || r)));
   setText("fastRsiLastBar",        fmtTime(fastRsi.last_evaluated_bar));
+  setText("fastRsiEvalAge",        fastRsi.last_evaluation_age_seconds != null ? `${Math.round(Number(fastRsi.last_evaluation_age_seconds))}s` : "--");
   setText("fastRsiTrace",          fastRsi.decision_trace_available != null ? String(fastRsi.decision_trace_available) : "--");
+  setStatus("fastRsiLatestResult", fastRsi.latest_result);
+  setStatus("fastRsiLatestRejection", fastRsi.latest_rejection_reason);
+
+  // ── Strategy Pipeline ───────────────────────────────────────────
+  setStatus("pipelineMarketFresh", pipeline.market_data_fresh === true ? "TRUE" : "FALSE", pipeline.market_data_fresh === true ? "good" : "danger");
+  setStatus("pipelineDecisionAlive", pipeline.decision_loop_alive === true ? "TRUE" : "FALSE", pipeline.decision_loop_alive === true ? "good" : "danger");
+  setStatus("pipelineRegistryLoaded", pipeline.strategy_registry_loaded === true ? "TRUE" : "FALSE", pipeline.strategy_registry_loaded === true ? "good" : "danger");
+  setText("pipelineRegistered", pipeline.registered_strategy_count);
+  setText("pipelineEnabled", pipeline.enabled_strategy_count);
+  setText("pipelineEvaluations", pipeline.evaluations_this_session);
+  setText("pipelineEvalAge", pipeline.latest_evaluation_age_seconds != null ? `${Math.round(Number(pipeline.latest_evaluation_age_seconds))}s` : "--");
+  setText("pipelineLastStrategy", pipeline.latest_strategy_name || "none");
+  setStatus("pipelineLastResult", pipeline.latest_result);
+  setStatus("pipelineLastDirection", pipeline.latest_direction_candidate);
+  setText("pipelineLastConfidence", pipeline.latest_confidence);
+  setStatus("pipelineLastRejection", pipeline.latest_rejection_reason);
+  setText("pipelineLastError", pipeline.latest_error);
 
   // ── Strategy Agents ─────────────────────────────────────────────
   setText("strategyAgentsRegistered",    agents.registered_count);
   setText("strategyAgentsEnabled",       agents.enabled_count);
-  setText("strategyAgentsLatestStrategy",agents.latest_signal_strategy);
-  setText("strategyAgentsSignal",        agents.latest_signal_direction);
+  setText("strategyAgentsLatestStrategy",agents.latest_signal_strategy || pipeline.latest_strategy_name || "none");
+  setText("strategyAgentsSignal",        agents.latest_signal_direction || pipeline.latest_direction_candidate || "NONE");
+  setStatus("strategyAgentsLatestResult", pipeline.latest_result || "UNKNOWN");
+  setStatus("strategyAgentsLatestRejection", pipeline.latest_rejection_reason || "--");
   setExecLock("strategyAgentsPaperAllowed",  agents.paper_trade_creation_allowed);
   setExecLock("strategyAgentsOrderAllowed",  agents.order_request_creation_allowed);
   renderStrategyAgentStatuses(agents.latest_statuses);
