@@ -57,9 +57,7 @@ def main() -> int:
         "AURIX_REQUIRE_API_KEY_FOR_REMOTE",
         "AURIX_API_KEY",
         "AURIX_DASHBOARD_READ_ONLY",
-        "AURIX_LIVE_EXECUTION_ENABLED",
-        "AURIX_DEMO_BROKER_EXECUTION_ENABLED",
-        "AURIX_COMMAND_QUEUE_ENABLED",
+        "AURIX_BROKER_EXECUTION",
         "AURIX_DATA_DIR",
         "AURIX_LOG_DIR",
     ]:
@@ -91,9 +89,7 @@ def main() -> int:
         fail("EA-compatible MT5 bridge routes missing")
 
     safety_expectations = {
-        "AURIX_LIVE_EXECUTION_ENABLED=false": "live execution false",
-        "AURIX_DEMO_BROKER_EXECUTION_ENABLED=false": "demo broker execution false",
-        "AURIX_COMMAND_QUEUE_ENABLED=false": "command queue false",
+        "AURIX_BROKER_EXECUTION=false": "broker execution false",
         "AURIX_DASHBOARD_READ_ONLY=true": "dashboard read-only true",
     }
     for needle, label in safety_expectations.items():

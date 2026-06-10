@@ -81,11 +81,9 @@ AURIX_PUBLIC_BASE_URL=https://your-app.up.railway.app
 AURIX_REQUIRE_API_KEY_FOR_REMOTE=true
 AURIX_API_KEY=replace-with-a-long-random-secret
 AURIX_DASHBOARD_READ_ONLY=true
-AURIX_LIVE_EXECUTION_ENABLED=false
-AURIX_DEMO_BROKER_EXECUTION_ENABLED=false
-AURIX_COMMAND_QUEUE_ENABLED=false
 AURIX_SYMBOL=XAUUSDm
 AURIX_TERMINAL_ID=AURIX-VPS-001
+AURIX_BROKER_EXECUTION=false
 AURIX_DATA_DIR=/data
 AURIX_LOG_DIR=/data/logs
 ```
@@ -185,8 +183,8 @@ ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
 PollSeconds=2
-AllowLiveTrading=false
-MaxVolume=0.01
+BrokerExecutionEnabled=false
+EmergencyMaxVolume=0.01
 ```
 
 In MT5 WebRequest settings, allow the Railway base URL.
@@ -195,12 +193,10 @@ In MT5 WebRequest settings, allow the Railway base URL.
 
 - `AURIX_REQUIRE_API_KEY_FOR_REMOTE=true`
 - `AURIX_API_KEY` is set and secret
-- `AURIX_LIVE_EXECUTION_ENABLED=false`
-- `AURIX_DEMO_BROKER_EXECUTION_ENABLED=false`
-- `AURIX_COMMAND_QUEUE_ENABLED=false`
+- `AURIX_BROKER_EXECUTION=false`
 - Dashboard opens only with API key
-- EA input `AllowLiveTrading=false`
-- EA input `MaxVolume=0.01`
+- EA input `BrokerExecutionEnabled=false`
+- EA input `EmergencyMaxVolume=0.01`
 - No public firewall or proxy bypasses Railway auth
 - `/dashboard/runtime-summary` shows `session_overall_safe=true`
 
@@ -211,7 +207,7 @@ To stop Railway bridge:
 1. Open the Railway project.
 2. Stop the service deployment or remove the service.
 3. Leave MT5 running or remove the EA from the chart.
-4. Do not change `AllowLiveTrading`.
+4. Do not change `BrokerExecutionEnabled`.
 
 To roll back code:
 
@@ -229,21 +225,17 @@ To roll back code:
 - Order request creation by this deployment pack.
 - EA trading permission changes.
 
-## Enabling Demo Broker Execution
+## Enabling Broker Execution
 
-Part 38 can enable Exness MT5 demo-account broker execution only. It never enables real-money live execution.
+Part 38.2 uses one Railway operator switch for broker execution.
 
-Set these Railway variables intentionally:
+Set this Railway variable intentionally:
 
 ```env
-AURIX_DEMO_BROKER_EXECUTION_ENABLED=true
-AURIX_COMMAND_QUEUE_ENABLED=true
-AURIX_LIVE_EXECUTION_ENABLED=false
-AURIX_MAX_DEMO_VOLUME=0.01
-AURIX_MAX_SPREAD_POINTS=250
-AURIX_DAILY_LOSS_LIMIT_GBP=5.00
-AURIX_DAILY_DRAWDOWN_PERCENT=5.0
+AURIX_BROKER_EXECUTION=true
 ```
+
+Spread threshold, command queue behavior, strategy selection, and risk defaults are internal AURIX engine config and should not be exposed as Railway operator variables.
 
 Required EA inputs:
 
@@ -252,29 +244,18 @@ BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
 ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
-AllowDemoBrokerTrading=true
-AllowLiveTrading=false
-MaxVolume=0.01
+BrokerExecutionEnabled=true
+EmergencyMaxVolume=0.01
 ```
 
 Demo execution remains blocked unless AURIX can positively verify the MT5 account is demo, the symbol is `XAUUSDm`, spread is within limit, SL/TP are present, daily loss/drawdown guards pass, and there is no existing broker position.
 
-To stop demo execution, set either:
+To stop broker execution, set:
 
 ```env
-AURIX_DEMO_BROKER_EXECUTION_ENABLED=false
+AURIX_BROKER_EXECUTION=false
 ```
 
-or:
-
-```env
-AURIX_COMMAND_QUEUE_ENABLED=false
-```
-
-The EA can also stop execution by setting:
-
-```text
-AllowDemoBrokerTrading=false
-```
+The EA can also stop execution by setting `BrokerExecutionEnabled=false`.
 
 Never set real-money live flags for this deployment.

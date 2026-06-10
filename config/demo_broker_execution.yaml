@@ -1,13 +1,13 @@
-execution_mode: DEMO_BROKER_DISABLED
-demo_broker_execution_enabled: false
-live_execution_enabled: false
-command_queue_enabled: false
+execution_mode: BROKER_EXECUTION_DISABLED
+broker_execution_enabled: false
 symbol_allowlist:
   - XAUUSDm
 terminal_id_allowlist:
   - AURIX-VPS-001
 max_volume: 0.01
 max_spread_points: 250
+risk_per_trade_percent: 2.0
+daily_risk_limit_percent: 10.0
 max_open_positions: 1
 allow_all_sessions: true
 allow_asia_session: true

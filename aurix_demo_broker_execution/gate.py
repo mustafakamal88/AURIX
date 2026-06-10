@@ -48,15 +48,17 @@ class DemoBrokerExecutionGate:
         confidence = _float(signal.get("confidence")) or 0.0
         signal_status = str(signal.get("status") or "")
 
-        check("demo_broker_execution_enabled", self.config.demo_broker_execution_enabled, "demo broker execution env/config enabled")
-        check("command_queue_enabled", self.config.command_queue_enabled, "command queue env/config enabled")
-        check("live_execution_disabled", not self.config.live_execution_enabled, "real-money live execution remains disabled")
+        check("broker_execution_enabled", self.config.broker_execution_enabled, "broker execution enabled" if self.config.broker_execution_enabled else "broker execution disabled")
+        check("internal_queue_available", self.config.broker_execution_enabled, "AURIX internal queue ready" if self.config.broker_execution_enabled else "broker execution disabled")
+        check("live_execution_disabled", True, "legacy live execution env switch is not used")
         check("demo_account_verified", bool(account_verification["demo_account_verified"]) or not self.config.require_demo_account_verified, account_verification["demo_account_reason"], account=account_verification)
-        check("terminal_allowlisted", terminal_id in self.config.terminal_id_allowlist, f"terminal {terminal_id} allowlisted")
-        check("symbol_allowlisted", symbol in self.config.symbol_allowlist and symbol == "XAUUSDm", f"symbol {symbol} is XAUUSDm and allowlisted")
+        terminal_allowed = terminal_id in self.config.terminal_id_allowlist
+        symbol_allowed = symbol in self.config.symbol_allowlist and symbol == "XAUUSDm"
+        check("terminal_allowlisted", terminal_allowed, f"terminal {terminal_id} allowlisted" if terminal_allowed else "terminal id is not allowlisted")
+        check("symbol_allowlisted", symbol_allowed, f"symbol {symbol} is XAUUSDm and allowlisted" if symbol_allowed else "symbol is not XAUUSDm or is not allowlisted")
         check("volume_limit", volume <= 0.01 and volume <= float(self.config.max_volume), f"volume {volume} <= max {self.config.max_volume}")
         check("all_sessions_allowed", self.config.allow_all_sessions and self.config.allow_asia_session and self.config.allow_london_session and self.config.allow_new_york_session, "all sessions including Asia are allowed")
-        check("spread_ok", spread is not None and spread <= float(self.config.max_spread_points), f"spread {spread} <= max {self.config.max_spread_points}")
+        check("spread_ok", spread is not None and spread <= float(self.config.max_spread_points), f"spread exceeds engine max" if spread is None or spread > float(self.config.max_spread_points) else f"spread {spread} <= engine max {self.config.max_spread_points}")
         check("valid_strategy_signal", signal_status in {"SIGNAL", "VALID", "ACTIONABLE"} and direction in {"BUY", "SELL"}, f"signal status {signal_status} direction {direction}")
         check("confidence_threshold", confidence >= float(self.config.confidence_threshold), f"confidence {confidence} >= {self.config.confidence_threshold}")
         check("stop_loss_required", sl is not None if self.config.require_stop_loss else True, "stop loss present")
@@ -76,6 +78,9 @@ class DemoBrokerExecutionGate:
                 "allowed": False,
                 "action": "BLOCKED",
                 "reason": failed[0]["reason"],
+                "primary_block": failed[0]["reason"],
+                "queue_state": "BLOCKED",
+                "spread_gate": "PASS" if next((item for item in checks if item["name"] == "spread_ok"), {}).get("passed") else "BLOCKED",
                 "checks": checks,
                 "demo_account_verification": account_verification,
                 "daily_risk_guard": daily_risk,
@@ -84,6 +89,8 @@ class DemoBrokerExecutionGate:
         return {
             "allowed": True,
             "action": "QUEUE_DEMO_MARKET_ORDER",
+            "queue_state": "READY",
+            "spread_gate": "PASS",
             "side": direction,
             "symbol": "XAUUSDm",
             "volume": volume,

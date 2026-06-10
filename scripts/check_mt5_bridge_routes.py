@@ -96,7 +96,7 @@ def main() -> int:
             print_pass(f"POST /mt5/snapshot returned {status}: {snapshot_response.get('status')}")
             status, command_response = request_json(args.base_url, "/mt5/command?terminal_id=AURIX-ROUTE-CHECK", api_key=args.api_key)
             print_pass(f"GET /mt5/command returned {status}: {command_response.get('status')}")
-            if command_response.get("command") is not None or command_response.get("command_queue_enabled") is not False:
+            if command_response.get("command") is not None or command_response.get("status") != "NO_COMMAND":
                 failures.append("GET /mt5/command did not return safe NO_COMMAND response")
                 print_fail("GET /mt5/command did not return safe NO_COMMAND response")
         except urllib.error.HTTPError as exc:

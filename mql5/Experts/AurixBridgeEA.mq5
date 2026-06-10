@@ -11,9 +11,8 @@ input string BridgeBaseUrl    = "http://127.0.0.1:8765";
 input string ApiKey           = "";
 input string TradeSymbol      = "XAUUSDm";
 input int    PollSeconds      = 2;
-input bool   AllowDemoBrokerTrading = false;
-input bool   AllowLiveTrading = false;
-input double MaxVolume        = 0.01;
+input bool   BrokerExecutionEnabled = false;
+input double EmergencyMaxVolume     = 0.01;
 input int    MagicNumber      = 880001;
 input int    DeviationPoints  = 20;
 
@@ -337,8 +336,8 @@ void SendSnapshot()
    payload += "\"deals\":" + DealsJson() + ",";
    payload += "\"raw\":{";
    payload += "\"ea\":\"AurixBridgeEA\",";
-   payload += "\"allow_live_trading\":" + (AllowLiveTrading ? "true" : "false") + ",";
-   payload += "\"allow_demo_broker_trading\":" + (AllowDemoBrokerTrading ? "true" : "false") + ",";
+   payload += "\"broker_execution_enabled\":" + (BrokerExecutionEnabled ? "true" : "false") + ",";
+   payload += "\"emergency_max_volume\":" + Num(EmergencyMaxVolume, 2) + ",";
    payload += "\"magic\":" + IntegerToString(MagicNumber);
    payload += "}";
    payload += "}";
@@ -356,7 +355,7 @@ int SplitPipe(string text, string &parts[])
 //+------------------------------------------------------------------+
 bool ConfirmAllowed(string confirm)
 {
-   if(!AllowLiveTrading)
+   if(!BrokerExecutionEnabled)
       return false;
 
    if(confirm != "I_ACCEPT_LIVE_RISK")
@@ -484,9 +483,9 @@ void ExecuteDemoBrokerMarketJson(string response)
       SendExecutionResult(command_id, "BLOCKED_BY_EA", -21, "Command mode/action blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
    }
-   if(!AllowDemoBrokerTrading)
+   if(!BrokerExecutionEnabled)
    {
-      SendExecutionResult(command_id, "BLOCKED_BY_EA", -22, "AllowDemoBrokerTrading is false", 0, 0, symbol, side, volume, 0, sl, tp);
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -22, "BrokerExecutionEnabled is false", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
    }
    if(!IsDemoAccount())
@@ -499,7 +498,7 @@ void ExecuteDemoBrokerMarketJson(string response)
       SendExecutionResult(command_id, "BLOCKED_BY_EA", -24, "Symbol blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
    }
-   if(volume <= 0 || volume > MaxVolume || volume > 0.01)
+   if(volume <= 0 || volume > EmergencyMaxVolume || volume > 0.01)
    {
       SendExecutionResult(command_id, "BLOCKED_BY_EA", -25, "Volume blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
@@ -551,9 +550,9 @@ void ExecuteOpenMarket(string &parts[])
       return;
    }
 
-   if(volume <= 0 || volume > MaxVolume)
+   if(volume <= 0 || volume > EmergencyMaxVolume)
    {
-      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -2, "Volume blocked by MaxVolume", 0, 0, symbol, dir, volume, 0, sl, tp);
+      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -2, "Volume blocked by EmergencyMaxVolume", 0, 0, symbol, dir, volume, 0, sl, tp);
       return;
    }
 

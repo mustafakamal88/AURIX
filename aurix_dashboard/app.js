@@ -386,12 +386,12 @@ function render(summary) {
   setText("demoCommandQueueBrokerOrderId",   queue.broker_order_id);
 
   // ── Demo Broker Execution ────────────────────────────────────────
-  setExecLock("demoBrokerEnabled", demoBrokerConfig.demo_broker_execution_enabled);
-  setExecLock("demoBrokerQueueEnabled", demoBrokerConfig.command_queue_enabled);
-  setExecLock("demoBrokerLiveLocked", demoBrokerConfig.live_execution_enabled);
-  setStatus("demoBrokerOnePosition", demoBrokerConfig.max_open_positions === 1 ? "OK" : "BLOCKED");
-  setStatus("demoBrokerGate", demoGate.allowed ? "ALLOWED" : "BLOCKED", demoGate.allowed ? "good" : "danger");
-  setText("demoBrokerReason", demoGate.reason);
+  setStatus("demoBrokerEnabled", demoBroker.broker_execution || (demoBrokerConfig.broker_execution_enabled ? "ENABLED" : "DISABLED"));
+  setStatus("demoBrokerQueueEnabled", demoBroker.queue_state || demoGate.queue_state || "--");
+  setStatus("demoBrokerLiveLocked", demoBroker.spread_gate || demoGate.spread_gate || "--");
+  setText("demoBrokerOnePosition", demoBroker.engine_max_spread_points != null ? `${demoBroker.engine_max_spread_points} points` : "--");
+  setText("demoBrokerGate", demoBroker.risk_model ? `${demoBroker.risk_model.risk_per_trade_percent}% per trade / ${demoBroker.risk_model.daily_risk_limit_percent}% daily` : "--");
+  setText("demoBrokerReason", demoBroker.latest_gate_block || demoGate.primary_block || demoGate.reason);
   setOverallSafe("demoAccountVerified", demoAccount.demo_account_verified);
   setText("demoAccountReason", demoAccount.demo_account_reason);
   setText("demoAccountServer", demoAccount.account_server);
@@ -438,9 +438,9 @@ function render(summary) {
   setText("vpsTerminalId", runtimeEnvironment.mt5_terminal_id || summary.terminal_id || "--");
   setText("vpsSymbol",     symbol);
   setOverallSafe("vpsDashboardReadOnly", runtimeEnvironment.dashboard_read_only !== false);
-  setExecLock("vpsLiveLocked", runtimeEnvironment.live_execution_enabled);
-  setExecLock("vpsDemoDisabled", runtimeEnvironment.demo_broker_execution_enabled);
-  setExecLock("vpsCommandDisabled", runtimeEnvironment.command_queue_enabled);
+  setStatus("vpsLiveLocked", runtimeEnvironment.broker_execution_enabled ? "ENABLED" : "DISABLED");
+  setText("vpsDemoDisabled", demoBroker.strategy_engine);
+  setText("vpsCommandDisabled", demoBroker.selected_strategy || agents.latest_strategy);
 
   // ── Footer ───────────────────────────────────────────────────────
   setText("updatedAt", `Updated ${new Date().toLocaleTimeString()} · polling every ${REFRESH_MS / 1000}s · read-only`);

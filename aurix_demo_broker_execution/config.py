@@ -58,10 +58,8 @@ def _parse_simple_yaml(path: Path) -> dict[str, Any]:
 
 @dataclass
 class DemoBrokerExecutionConfig:
-    execution_mode: str = "DEMO_BROKER_DISABLED"
-    demo_broker_execution_enabled: bool = False
-    live_execution_enabled: bool = False
-    command_queue_enabled: bool = False
+    execution_mode: str = "BROKER_EXECUTION_DISABLED"
+    broker_execution_enabled: bool = False
     symbol_allowlist: list[str] = field(default_factory=lambda: ["XAUUSDm"])
     terminal_id_allowlist: list[str] = field(default_factory=lambda: ["AURIX-VPS-001"])
     max_volume: float = 0.01
@@ -82,11 +80,22 @@ class DemoBrokerExecutionConfig:
     command_ttl_seconds: int = 45
     magic_number: int = 880001
 
+    @property
+    def demo_broker_execution_enabled(self) -> bool:
+        return self.broker_execution_enabled
+
+    @property
+    def command_queue_enabled(self) -> bool:
+        return self.broker_execution_enabled
+
+    @property
+    def live_execution_enabled(self) -> bool:
+        return False
+
     def safety_flags(self) -> dict[str, Any]:
         return {
-            "demo_broker_execution_enabled": self.demo_broker_execution_enabled,
-            "command_queue_enabled": self.command_queue_enabled,
-            "live_execution_enabled": self.live_execution_enabled,
+            "broker_execution_enabled": self.broker_execution_enabled,
+            "internal_queue_controlled_by_broker_execution": True,
             "max_volume": self.max_volume,
             "max_spread_points": self.max_spread_points,
             "max_open_positions": self.max_open_positions,
@@ -98,11 +107,12 @@ class DemoBrokerExecutionConfig:
 
 def load_demo_broker_execution_config(path: Union[str, Path] = CONFIG_PATH) -> DemoBrokerExecutionConfig:
     raw = _parse_simple_yaml(Path(path))
+    broker_execution_default = bool(
+        raw.get("broker_execution_enabled", raw.get("demo_broker_execution_enabled", False))
+    )
     config = DemoBrokerExecutionConfig(
-        execution_mode=str(raw.get("execution_mode", "DEMO_BROKER_DISABLED")),
-        demo_broker_execution_enabled=bool(raw.get("demo_broker_execution_enabled", False)),
-        live_execution_enabled=bool(raw.get("live_execution_enabled", False)),
-        command_queue_enabled=bool(raw.get("command_queue_enabled", False)),
+        execution_mode=str(raw.get("execution_mode", "BROKER_EXECUTION_DISABLED")),
+        broker_execution_enabled=broker_execution_default,
         symbol_allowlist=list(raw.get("symbol_allowlist") or ["XAUUSDm"]),
         terminal_id_allowlist=list(raw.get("terminal_id_allowlist") or ["AURIX-VPS-001"]),
         max_volume=_float(raw.get("max_volume"), 0.01),
@@ -120,13 +130,8 @@ def load_demo_broker_execution_config(path: Union[str, Path] = CONFIG_PATH) -> D
         require_take_profit=bool(raw.get("require_take_profit", True)),
         require_demo_account_verified=bool(raw.get("require_demo_account_verified", True)),
     )
-    config.demo_broker_execution_enabled = _bool(os.getenv("AURIX_DEMO_BROKER_EXECUTION_ENABLED", config.demo_broker_execution_enabled))
-    config.command_queue_enabled = _bool(os.getenv("AURIX_COMMAND_QUEUE_ENABLED", config.command_queue_enabled))
-    config.live_execution_enabled = _bool(os.getenv("AURIX_LIVE_EXECUTION_ENABLED", config.live_execution_enabled))
-    config.max_volume = _float(os.getenv("AURIX_MAX_DEMO_VOLUME"), config.max_volume)
-    config.max_spread_points = _float(os.getenv("AURIX_MAX_SPREAD_POINTS"), config.max_spread_points)
+    config.broker_execution_enabled = _bool(os.getenv("AURIX_BROKER_EXECUTION", config.broker_execution_enabled))
     config.daily_loss_limit_gbp = _float(os.getenv("AURIX_DAILY_LOSS_LIMIT_GBP"), config.daily_loss_limit_gbp)
     config.daily_drawdown_percent = _float(os.getenv("AURIX_DAILY_DRAWDOWN_PERCENT"), config.daily_drawdown_percent)
-    if config.demo_broker_execution_enabled:
-        config.execution_mode = "DEMO_BROKER_ENABLED"
+    config.execution_mode = "BROKER_EXECUTION_ENABLED" if config.broker_execution_enabled else "BROKER_EXECUTION_DISABLED"
     return config

@@ -10,9 +10,7 @@ Use this checklist after copying or pulling AURIX onto the Windows Forex VPS.
 - [ ] Dependencies installed with `pip install -r requirements.txt`
 - [ ] `.env.example` copied to `.env`
 - [ ] `.env` keeps `AURIX_HOST=127.0.0.1`
-- [ ] `.env` keeps `AURIX_LIVE_EXECUTION_ENABLED=false`
-- [ ] `.env` keeps `AURIX_DEMO_BROKER_EXECUTION_ENABLED=false`
-- [ ] `.env` keeps `AURIX_COMMAND_QUEUE_ENABLED=false`
+- [ ] `.env` keeps `AURIX_BROKER_EXECUTION=false` unless intentionally enabling broker execution
 - [ ] Server starts with `.\scripts\windows\start_aurix_server.ps1`
 - [ ] Dashboard opens at `http://127.0.0.1:8765/dashboard`
 - [ ] `AurixBridgeEA.mq5` copied into MT5 `MQL5\Experts`
@@ -26,6 +24,4 @@ Use this checklist after copying or pulling AURIX onto the Windows Forex VPS.
 - [ ] `python scripts\check_windows_vps_preflight.py` passes required checks
 - [ ] Startup task installed with `.\scripts\windows\install_aurix_startup_task.ps1`
 - [ ] After reboot/logon, AURIX starts again
-- [ ] Live execution remains false
-- [ ] Demo execution remains false
-- [ ] Command queueing remains false
+- [ ] Broker execution remains false unless intentionally enabled

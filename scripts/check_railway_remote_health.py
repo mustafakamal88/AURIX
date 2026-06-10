@@ -49,28 +49,29 @@ def main() -> int:
     provenance = summary.get("runtime_provenance") or {}
     safety = summary.get("safety") or {}
     market = summary.get("market") or {}
+    demo_broker = summary.get("demo_broker_execution") or {}
+    gate = demo_broker.get("latest_gate_decision") or {}
 
     print(f"runtime_profile: {runtime_env.get('runtime_profile') or healthz.get('runtime_profile')}")
     print(f"health: {summary.get('health')}")
     print(f"symbol: {summary.get('symbol')}")
     print(f"runtime_session_id: {provenance.get('runtime_session_id') or healthz.get('runtime_session_id')}")
     print(f"mt5_snapshot_age_seconds: {market.get('snapshot_age_seconds')}")
-    print(f"live_execution_enabled: {healthz.get('live_execution_enabled')}")
-    print(f"demo_broker_execution_enabled: {healthz.get('demo_broker_execution_enabled')}")
-    print(f"command_queue_enabled: {healthz.get('command_queue_enabled')}")
-    print(f"live_execution_allowed: {safety.get('live_execution_allowed')}")
-    print(f"demo_execution_allowed: {safety.get('demo_execution_allowed')}")
-    print(f"command_queueing_allowed: {safety.get('demo_command_queueing_allowed') or safety.get('mt5_command_queueing_allowed')}")
+    print(f"broker_execution: {healthz.get('broker_execution_enabled')}")
+    print(f"internal_queue_state: {demo_broker.get('queue_state')}")
+    print(f"internal_engine_spread_limit: {demo_broker.get('engine_max_spread_points')}")
+    print(f"current_spread: {market.get('spread_points')}")
+    print(f"spread_gate: {demo_broker.get('spread_gate') or gate.get('spread_gate')}")
+    print(f"risk_model: {demo_broker.get('risk_model')}")
+    print(f"selected_strategy: {demo_broker.get('selected_strategy')}")
+    print(f"selected_signal: {demo_broker.get('selected_signal')}")
+    print(f"primary_block_reason: {demo_broker.get('latest_gate_block') or gate.get('primary_block') or gate.get('reason')}")
     print(f"evidence_integrity_status: {evidence.get('status')}")
 
     if not args.api_key:
         failures.append("--api-key is required for remote Railway checks")
-    if not safety_false(healthz.get("live_execution_enabled")) or not safety_false(safety.get("live_execution_allowed")):
-        failures.append("live execution is not false")
-    if not safety_false(healthz.get("demo_broker_execution_enabled")) or not safety_false(safety.get("demo_execution_allowed")):
-        failures.append("demo broker execution is not false")
-    if not safety_false(healthz.get("command_queue_enabled")):
-        failures.append("command queue env flag is not false")
+    if not safety_false(healthz.get("broker_execution_enabled")):
+        failures.append("broker execution is not false")
     if bool(safety.get("demo_command_queueing_allowed")) or bool(safety.get("mt5_command_queueing_allowed")):
         failures.append("runtime summary reports command queueing allowed")
 

@@ -110,10 +110,10 @@ Keep these safety values:
 ```env
 AURIX_HOST=127.0.0.1
 AURIX_DASHBOARD_READ_ONLY=true
-AURIX_LIVE_EXECUTION_ENABLED=false
-AURIX_DEMO_BROKER_EXECUTION_ENABLED=false
-AURIX_COMMAND_QUEUE_ENABLED=false
+AURIX_BROKER_EXECUTION=false
 ```
+
+Broker execution is controlled by this single switch only. Demo/live routing is not a Railway or environment concept; AURIX keeps spread limits, queue behavior, risk defaults, and strategy selection inside internal engine config.
 
 ## Start AURIX Bridge Manually
 
@@ -366,9 +366,8 @@ Before any later gated demo-execution part:
 
 - Confirm the account is demo.
 - Confirm `AllowLiveTrading=false` unless a later part explicitly requires changing it.
-- Confirm `AURIX_LIVE_EXECUTION_ENABLED=false`.
-- Confirm `AURIX_DEMO_BROKER_EXECUTION_ENABLED=false`.
-- Confirm `AURIX_COMMAND_QUEUE_ENABLED=false`.
+- Confirm `AURIX_BROKER_EXECUTION=false` unless intentionally enabling broker execution.
+- Confirm there are no demo/live broker execution environment switches.
 - Confirm broker positions and orders are expected.
 - Confirm dashboard safety assertion is safe.
 - Confirm no public firewall rule exposes port `8765`.

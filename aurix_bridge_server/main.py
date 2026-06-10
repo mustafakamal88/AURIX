@@ -65,9 +65,6 @@ DEFAULT_TERMINAL_ID = os.getenv("AURIX_TERMINAL_ID", "AURIX-MAC-001")
 REQUIRE_API_KEY_FOR_REMOTE = os.getenv("AURIX_REQUIRE_API_KEY_FOR_REMOTE", "false").lower() in {"1", "true", "yes"}
 API_KEY = os.getenv("AURIX_API_KEY", "")
 DASHBOARD_READ_ONLY = os.getenv("AURIX_DASHBOARD_READ_ONLY", "true").lower() in {"1", "true", "yes"}
-LIVE_EXECUTION_ENABLED = os.getenv("AURIX_LIVE_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
-DEMO_BROKER_EXECUTION_ENABLED = os.getenv("AURIX_DEMO_BROKER_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
-COMMAND_QUEUE_ENABLED = os.getenv("AURIX_COMMAND_QUEUE_ENABLED", "false").lower() in {"1", "true", "yes"}
 DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "aurix_dashboard"
 RAILWAY_VOLUME_DETECTED = Path(DATA_DIR).is_mount() if Path(DATA_DIR).exists() else False
 
@@ -241,9 +238,7 @@ def runtime_environment_payload() -> dict[str, Any]:
         "railway_volume_detected": RAILWAY_VOLUME_DETECTED if RUNTIME_PROFILE == "RAILWAY_CLOUD_BRIDGE" else "unknown",
         "mt5_terminal_id": DEFAULT_TERMINAL_ID,
         "dashboard_read_only": DASHBOARD_READ_ONLY,
-        "live_execution_enabled": demo_broker_execution_config.live_execution_enabled,
-        "demo_broker_execution_enabled": demo_broker_execution_config.demo_broker_execution_enabled,
-        "command_queue_enabled": demo_broker_execution_config.command_queue_enabled,
+        "broker_execution_enabled": demo_broker_execution_config.broker_execution_enabled,
     }
 
 
@@ -316,9 +311,7 @@ def healthz() -> dict[str, Any]:
         "status": "ok",
         "runtime_profile": RUNTIME_PROFILE,
         "dashboard_read_only": DASHBOARD_READ_ONLY,
-        "live_execution_enabled": demo_broker_execution_config.live_execution_enabled,
-        "demo_broker_execution_enabled": demo_broker_execution_config.demo_broker_execution_enabled,
-        "command_queue_enabled": demo_broker_execution_config.command_queue_enabled,
+        "broker_execution_enabled": demo_broker_execution_config.broker_execution_enabled,
         "runtime_session_id": runtime_session.runtime_session_id,
     }
 
@@ -585,18 +578,27 @@ def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> d
             "command": None,
             "status": "NO_COMMAND",
             "terminal_id": terminal_id,
-            "command_queue_enabled": False,
-            "block_reason": "terminal id is not allowlisted",
+            "reason": "execution gate blocked",
+            "primary_block": "terminal id is not allowlisted",
         }
-    if not demo_broker_execution_config.command_queue_enabled or not demo_broker_execution_config.demo_broker_execution_enabled or demo_broker_execution_config.live_execution_enabled:
-        gate_status = build_demo_broker_execution_status()
+    if not demo_broker_execution_config.broker_execution_enabled:
+        build_demo_broker_execution_status(
+            latest_gate_decision={
+                "allowed": False,
+                "action": "BROKER_EXECUTION_DISABLED",
+                "reason": "broker execution disabled",
+                "primary_block": "broker execution disabled",
+                "queue_state": "BLOCKED",
+                "spread_gate": "BLOCKED",
+                "checks": [],
+            }
+        )
         return {
             "ok": True,
             "command": None,
             "status": "NO_COMMAND",
             "terminal_id": terminal_id,
-            "command_queue_enabled": False,
-            "block_reason": gate_status.get("latest_gate_decision", {}).get("reason") or "demo broker execution or command queueing disabled",
+            "reason": "broker execution disabled",
         }
     pending = demo_broker_execution_store.pending_for_terminal(terminal_id)
     if pending is None:
@@ -624,8 +626,8 @@ def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> d
                 "command": None,
                 "status": "NO_COMMAND",
                 "terminal_id": terminal_id,
-                "command_queue_enabled": False,
-                "block_reason": gate.get("reason"),
+                "reason": "execution gate blocked",
+                "primary_block": gate.get("primary_block") or gate.get("reason"),
             }
     delivered = demo_broker_execution_store.mark_delivered(str(pending.get("command_id"))) or pending
     return {
@@ -633,7 +635,6 @@ def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> d
         "command": command_for_ea(delivered),
         "status": "COMMAND_AVAILABLE",
         "terminal_id": terminal_id,
-        "command_queue_enabled": True,
     }
 
 
@@ -687,15 +688,26 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
             "generated_at": utc_now_iso(),
             "execution_mode": demo_broker_execution_config.execution_mode,
             "config": demo_broker_execution_config.safety_flags(),
+            "broker_execution": "ENABLED" if demo_broker_execution_config.broker_execution_enabled else "DISABLED",
+            "queue_state": latest_gate_decision.get("queue_state") or ("READY" if latest_gate_decision.get("allowed") else "BLOCKED"),
+            "spread_gate": latest_gate_decision.get("spread_gate") or "BLOCKED",
+            "engine_max_spread_points": demo_broker_execution_config.max_spread_points,
+            "risk_model": {
+                "risk_per_trade_percent": 2.0,
+                "daily_risk_limit_percent": 10.0,
+            },
+            "strategy_engine": "v1 / v2 / Fast RSI",
+            "selected_strategy": latest_gate_decision.get("strategy_id"),
+            "selected_signal": latest_gate_decision.get("signal_id"),
+            "latest_gate_block": latest_gate_decision.get("primary_block") or latest_gate_decision.get("reason"),
             "demo_account_verification": account_verification,
             "latest_gate_decision": latest_gate_decision,
             "daily_risk_guard": latest_gate_decision.get("daily_risk_guard"),
             "latest_command": demo_broker_execution_store.latest_command(),
             "latest_execution_result": demo_broker_execution_store.latest_execution_result(),
             "safety": {
-                "live_execution_enabled": demo_broker_execution_config.live_execution_enabled,
-                "demo_broker_execution_enabled": demo_broker_execution_config.demo_broker_execution_enabled,
-                "command_queue_enabled": demo_broker_execution_config.command_queue_enabled,
+                "broker_execution_enabled": demo_broker_execution_config.broker_execution_enabled,
+                "internal_queue_controlled_by_broker_execution": True,
                 "real_money_live_path_added": False,
                 "max_volume": demo_broker_execution_config.max_volume,
             },

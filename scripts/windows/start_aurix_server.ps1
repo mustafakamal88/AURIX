@@ -32,9 +32,7 @@ if (Test-Path $venvPython) {
 $env:AURIX_HOST = if ($env:AURIX_HOST) { $env:AURIX_HOST } else { "127.0.0.1" }
 $env:AURIX_PORT = if ($env:AURIX_PORT) { $env:AURIX_PORT } else { "8765" }
 $env:AURIX_DASHBOARD_READ_ONLY = "true"
-$env:AURIX_LIVE_EXECUTION_ENABLED = "false"
-$env:AURIX_DEMO_BROKER_EXECUTION_ENABLED = "false"
-$env:AURIX_COMMAND_QUEUE_ENABLED = "false"
+$env:AURIX_BROKER_EXECUTION = "false"
 
 $existing = Get-CimInstance Win32_Process |
     Where-Object {
