@@ -58,13 +58,15 @@ NO COMMANDS FROM DASHBOARD
 
 The cockpit compares:
 
-- Railway `AURIX_BROKER_EXECUTION`
+- configured `AURIX_BROKER_EXECUTION`
 - EA `AURIX_BROKER_EXECUTION` from the latest snapshot raw fields
 - execution state match/mismatch
 - latest `/mt5/command` state, reason, and primary block
 - AURIX queue state, spread gate, engine max spread, risk model, selected strategy, and latest signal status
 
 For this XAUUSDm Exness setup, the default internal engine spread threshold is 270 points, so the cockpit should display `Engine Max Spread: 270 points`. Spread control belongs to AURIX internal engine/broker config, not Railway environment variables or MT5 EA inputs.
+
+Runtime health is based on freshness of the bridge/runtime summary, MT5 snapshot, and event bus/runtime state. Broker execution being enabled or disabled does not make the dashboard healthy or stale by itself. Evidence/readiness files are shown as readiness warnings with expected paths when missing; they are not active trading blocks unless an explicit live execution gate requires them.
 
 MT5 account login determines whether the account is demo or live. The dashboard does not expose separate demo/live execution controls.
 

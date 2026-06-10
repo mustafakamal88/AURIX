@@ -71,7 +71,7 @@ def build_evidence_integrity_status(data_dir: str | Path = "data", *, stale_temp
     notes: list[str] = []
     for label, value in [("paper ledger", paper), ("journal ledger", journal), ("evidence monitor", evidence_monitor), ("live readiness", live_readiness), ("signal certification", signal_cert)]:
         if value.get("status") != "OK":
-            notes.append(f"{label}: {value.get('note')}")
+            notes.append(f"{label}: {value.get('note')} at {value.get('path')}")
     if stale_temp:
         notes.append(f"stale temp files: {len(stale_temp)}")
     if corrupt:

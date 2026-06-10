@@ -20,8 +20,10 @@ def evaluate_daily_risk(snapshot: Optional[dict[str, Any]], config: Any, store: 
         return {"status": "BLOCKED", "allowed": False, "reason": "account equity baseline unavailable", "baseline": baseline}
     equity_loss = max(0.0, start_equity - equity)
     drawdown_percent = (equity_loss / start_equity) * 100.0
-    loss_ok = equity_loss <= float(config.daily_loss_limit_gbp)
-    drawdown_ok = drawdown_percent <= float(config.daily_drawdown_percent)
+    daily_risk_limit_percent = float(getattr(config, "daily_risk_limit_percent", 10.0))
+    daily_loss_limit = start_equity * (daily_risk_limit_percent / 100.0)
+    loss_ok = equity_loss <= daily_loss_limit
+    drawdown_ok = drawdown_percent <= daily_risk_limit_percent
     allowed = loss_ok and drawdown_ok
     return {
         "status": "OK" if allowed else "BLOCKED",
@@ -31,6 +33,6 @@ def evaluate_daily_risk(snapshot: Optional[dict[str, Any]], config: Any, store: 
         "current_equity": equity,
         "equity_loss": round(equity_loss, 4),
         "drawdown_percent": round(drawdown_percent, 4),
-        "daily_loss_limit_gbp": config.daily_loss_limit_gbp,
-        "daily_drawdown_percent": config.daily_drawdown_percent,
+        "daily_loss_limit": round(daily_loss_limit, 4),
+        "daily_risk_limit_percent": daily_risk_limit_percent,
     }

@@ -22,6 +22,7 @@
       <div class="topbar-meta">
         <span><span class="label">Symbol</span> <span id="hdrSymbol" class="mono">--</span></span>
         <span><span class="label">Health</span> <span id="hdrHealth">--</span></span>
+        <span><span class="label">Reason</span> <span id="hdrHealthReason">--</span></span>
         <span><span class="label">Session</span> <span id="hdrSession" class="mono">--</span></span>
         <span><span class="label">Uptime</span> <span id="hdrUptime" class="mono">--</span></span>
       </div>
@@ -69,7 +70,7 @@
         <article class="card wide">
           <h2>Execution Control State</h2>
           <div class="row-table">
-            <div class="rt-row"><span class="rt-label">Railway AURIX_BROKER_EXECUTION</span><span class="rt-value" id="cockpitRailwayExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">AURIX_BROKER_EXECUTION</span><span class="rt-value" id="cockpitRailwayExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">EA AURIX_BROKER_EXECUTION</span><span class="rt-value" id="cockpitEaExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">Execution Match</span><span class="rt-value" id="cockpitExecutionMatch">--</span></div>
             <div class="rt-row"><span class="rt-label">Terminal ID</span><span class="rt-value" id="cockpitTerminalId">--</span></div>
@@ -236,9 +237,9 @@
 
           <div class="card-section-label">Execution Permissions</div>
           <div class="row-table">
-            <div class="rt-row"><span class="rt-label">Broker Execution</span><span class="rt-value" id="safetyLiveExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Readiness Execution</span><span class="rt-value" id="safetyLiveExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">Live Arming</span><span class="rt-value" id="safetyLiveArming">--</span></div>
-            <div class="rt-row"><span class="rt-label">Legacy Execution Gate</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Legacy Gate Disabled / Ignored</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">AURIX Queue</span><span class="rt-value" id="safetyCommandQueueing">--</span></div>
             <div class="rt-row"><span class="rt-label">MT5 Commands Queued</span><span class="rt-value" id="safetyMt5Commands">--</span></div>
             <div class="rt-row"><span class="rt-label">Broker Order Created</span><span class="rt-value" id="safetyBrokerOrder">--</span></div>
@@ -396,6 +397,14 @@
             <div class="why-block">
               <div class="why-block-label">Secondary Blocks</div>
               <div class="why-block-value" id="whySecondary">--</div>
+            </div>
+            <div class="why-block">
+              <div class="why-block-label">Signal Gate</div>
+              <div class="why-block-value" id="whySignalGate">--</div>
+            </div>
+            <div class="why-block">
+              <div class="why-block-label">Queue</div>
+              <div class="why-block-value" id="whyQueue">--</div>
             </div>
             <div class="why-block">
               <div class="why-block-label">Warnings</div>

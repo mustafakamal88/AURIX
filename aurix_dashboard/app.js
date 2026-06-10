@@ -234,6 +234,7 @@ function render(summary) {
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
   setStatus("hdrHealth", summary.health);
+  setText("hdrHealthReason", summary.health_reason);
   setText("hdrSession", shortId(sessionId));
   setText("hdrUptime", provenance.uptime_seconds != null
     ? `${Math.round(Number(provenance.uptime_seconds))}s`
@@ -297,7 +298,7 @@ function render(summary) {
   setStatus("gateSpreadState", cockpit.spread_gate_state);
   setText("gateEngineMaxSpread", cockpit.engine_max_spread != null ? `${cockpit.engine_max_spread} points` : "--");
   setText("gateCurrentSpread", cockpit.current_spread);
-  setText("gateRiskModel", cockpit.risk_model ? `${cockpit.risk_model.risk_per_trade_percent ?? "--"}% per trade / ${cockpit.risk_model.daily_risk_limit_percent ?? "--"}% daily` : "--");
+  setText("gateRiskModel", cockpit.risk_model ? `${cockpit.risk_model.risk_per_trade_percent ?? "--"}% per trade / ${cockpit.risk_model.daily_risk_limit_percent ?? "--"}% daily${cockpit.risk_model.risk_amount != null ? ` / risk ${cockpit.risk_model.risk_amount}` : ""}` : "--");
   setText("gateSelectedStrategy", cockpit.selected_strategy);
   setStatus("gateLatestSignalStatus", cockpit.latest_signal_status);
 
@@ -369,10 +370,10 @@ function render(summary) {
   setText("sessionOmsRequests",  sessionCounters.oms_requests);
 
   // ── Safety Locks ─────────────────────────────────────────────────
-  setExecLock("safetyLiveExecution",   safety.live_execution_allowed);
+  setStatus("safetyLiveExecution",   safety.live_execution_allowed ? "ALLOWED" : "BLOCKED", safety.live_execution_allowed ? "danger" : "good");
   setExecLock("safetyLiveArming",      safety.live_arming_allowed);
-  setExecLock("safetyDemoExecution",   safety.demo_execution_allowed);
-  setStatus("safetyCommandQueueing", demoBroker.queue_state || demoGate.queue_state || "--");
+  setStatus("safetyDemoExecution",   "IGNORED", "neutral");
+  setStatus("safetyCommandQueueing", cockpit.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--");
   setSessionBool("safetyMt5Commands",  safety.mt5_commands_queued);
   setSessionBool("safetyBrokerOrder",  safety.broker_order_created);
   setSessionBool("safetyPaperTrade",   safety.paper_trade_created);
@@ -443,7 +444,7 @@ function render(summary) {
   setStatus("demoBrokerLiveLocked", demoBroker.spread_gate || demoGate.spread_gate || "--");
   setText("demoBrokerOnePosition", demoBroker.engine_max_spread_points != null ? `${demoBroker.engine_max_spread_points} points` : "--");
   setStatus("demoBrokerGate", dailyRisk.status || (demoGate.daily_risk_guard ? demoGate.daily_risk_guard.status : "--"));
-  setStatus("demoBrokerSignalGate", demoGate.allowed ? "PASS" : (demoGate.primary_block === "no actionable signal" || demoGate.primary_block === "signal direction missing" ? "BLOCKED" : "--"));
+  setStatus("demoBrokerSignalGate", cockpit.signal_gate_state || (demoGate.allowed ? "PASS" : (demoGate.primary_block === "no actionable signal" || demoGate.primary_block === "signal direction missing" ? "BLOCKED" : "--")));
   setText("demoBrokerReason", demoBroker.latest_gate_block || demoGate.primary_block || demoGate.reason);
   setText("demoBrokerSelectedStrategy", cockpit.selected_strategy || demoBroker.selected_strategy);
   setText("demoBrokerSignalDirection", cockpit.latest_signal_direction || demoBroker.latest_signal_direction);
@@ -473,6 +474,8 @@ function render(summary) {
   // ── Why No Trade ─────────────────────────────────────────────────
   setText("whyPrimary",   summary.top_blocks?.[0]                       || decision.top_blocking_reason || "--");
   setText("whySecondary", joinItems((summary.top_blocks || []).slice(1)));
+  setStatus("whySignalGate", cockpit.signal_gate_state || "--");
+  setText("whyQueue", cockpit.aurix_queue_state ? `${cockpit.aurix_queue_state}${cockpit.aurix_queue_reason ? ` because ${cockpit.aurix_queue_reason}` : ""}` : "--");
   setText("whyWarnings",  joinItems(summary.top_warnings || []));
   setText("whyNext",      summary.next_expected_action || decision.next_expected_action || "--");
 

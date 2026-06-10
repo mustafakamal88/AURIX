@@ -54,6 +54,7 @@ class AurixRuntimeDashboardSummary(BaseModel):
     runtime_environment: dict[str, Any] = Field(default_factory=dict)
     safety: RuntimeDashboardSafety = Field(default_factory=RuntimeDashboardSafety)
     health: str = "HEALTHY"
+    health_reason: str = "runtime freshness not evaluated"
     top_blocks: list[str] = Field(default_factory=list)
     top_warnings: list[str] = Field(default_factory=list)
     next_expected_action: str = "Monitor runtime state."

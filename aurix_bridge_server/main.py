@@ -524,6 +524,7 @@ def dashboard_runtime_summary() -> dict[str, Any]:
                 "strategy_config_mutated": False,
             },
             "health": "ERROR",
+            "health_reason": "runtime summary degraded after unexpected runtime read failure",
             "top_blocks": [str(exc)],
             "top_warnings": [],
             "next_expected_action": "Runtime summary degraded; inspect server logs.",
@@ -832,6 +833,14 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
     latest_gate_decision = latest_gate_decision or evaluate_demo_broker_execution_gate()
     snapshot = store.latest_snapshot()
     account_verification = verify_demo_account(snapshot)
+    account = (snapshot or {}).get("account") or {}
+    balance = account.get("balance")
+    try:
+        balance_value = float(balance)
+    except (TypeError, ValueError):
+        balance_value = None
+    risk_per_trade = float(demo_broker_execution_config.risk_per_trade_percent)
+    daily_risk_limit = float(demo_broker_execution_config.daily_risk_limit_percent)
     return demo_broker_execution_store.write_status(
         {
             "generated_at": utc_now_iso(),
@@ -842,8 +851,11 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
             "spread_gate": latest_gate_decision.get("spread_gate") or "BLOCKED",
             "engine_max_spread_points": demo_broker_execution_config.max_spread_points,
             "risk_model": {
-                "risk_per_trade_percent": 2.0,
-                "daily_risk_limit_percent": 10.0,
+                "risk_per_trade_percent": risk_per_trade,
+                "daily_risk_limit_percent": daily_risk_limit,
+                "risk_amount": round(balance_value * (risk_per_trade / 100.0), 4) if balance_value is not None else None,
+                "daily_loss_limit": round(balance_value * (daily_risk_limit / 100.0), 4) if balance_value is not None else None,
+                "source": "account_balance",
             },
             "strategy_engine": "v1 / v2 / Fast RSI",
             "selected_strategy": latest_gate_decision.get("strategy_id"),
@@ -858,7 +870,6 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
                 "broker_execution_enabled": demo_broker_execution_config.broker_execution_enabled,
                 "internal_queue_controlled_by_broker_execution": True,
                 "real_money_live_path_added": False,
-                "max_volume": demo_broker_execution_config.max_volume,
             },
         }
     )

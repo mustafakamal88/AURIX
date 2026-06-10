@@ -108,17 +108,53 @@ def _fast_rsi(latest: list[dict[str, Any]], state: dict[str, Any]) -> dict[str, 
     }
 
 
-def _health(decision: dict[str, Any], event_bus: dict[str, Any], snapshot: dict[str, Any] | None, warnings: list[str]) -> str:
-    action = str(decision.get("action") or "")
-    if action.startswith("BLOCKED"):
-        return "BLOCKED"
-    event_age = _age_seconds(event_bus.get("updated_at") or event_bus.get("runtime_state_generated_at"))
+def _freshness_label(name: str, age: float | None, threshold: int) -> tuple[bool, str]:
+    if age is None:
+        return False, f"{name} missing"
+    rounded = round(age, 1)
+    if age > threshold:
+        return False, f"{name} stale: last update {rounded} seconds ago"
+    return True, f"{name} fresh"
+
+
+def _health(
+    event_bus_status: dict[str, Any],
+    event_bus_state: dict[str, Any],
+    snapshot: dict[str, Any] | None,
+    runtime_provenance: dict[str, Any],
+    *,
+    threshold_seconds: int = 180,
+) -> tuple[str, str]:
+    runtime_age = _age_seconds(runtime_provenance.get("generated_at"))
+    event_age = _age_seconds(
+        event_bus_status.get("updated_at")
+        or event_bus_status.get("generated_at")
+        or event_bus_status.get("runtime_state_generated_at")
+        or event_bus_state.get("generated_at")
+    )
     snap_age = _age_seconds(_dict(snapshot).get("received_at"))
-    if (event_age is not None and event_age > 180) or (snap_age is not None and snap_age > 180):
-        return "STALE"
-    if warnings:
-        return "WARNING"
-    return "HEALTHY"
+    checks = [
+        _freshness_label("runtime summary", runtime_age, threshold_seconds),
+        _freshness_label("MT5 snapshot", snap_age, threshold_seconds),
+        _freshness_label("event bus", event_age, threshold_seconds),
+    ]
+    stale = [reason for ok, reason in checks if not ok]
+    if stale:
+        return "STALE", "; ".join(stale)
+    return "HEALTHY", ", ".join(reason for _, reason in checks)
+
+
+def _has_no_actionable_signal(cockpit: dict[str, Any], decision: dict[str, Any]) -> bool:
+    signal_status = str(cockpit.get("latest_signal_status") or "").upper()
+    signal_direction = cockpit.get("latest_signal_direction")
+    action = str(decision.get("action") or "").upper()
+    latest_block = str(cockpit.get("latest_primary_block") or "").lower()
+    return (
+        "NO_SIGNAL" in action
+        or latest_block in {"no actionable signal", "signal direction missing"}
+        or signal_status not in {"SIGNAL", "VALID", "ACTIONABLE"}
+        or signal_direction is None
+    )
 
 
 def build_runtime_dashboard_summary(
@@ -175,7 +211,6 @@ def build_runtime_dashboard_summary(
         warnings.insert(0, str(decision.get("top_warning")))
     for source in (live_readiness, evidence_growth, signal_cert):
         warnings.extend(str(item) for item in _list(source.get("warnings")))
-        blocks.extend(str(_dict(item).get("message") or item) for item in _list(source.get("blocking_reasons") or source.get("failed_checks")))
     blocks = list(dict.fromkeys([item for item in blocks if item]))
     warnings = list(dict.fromkeys([item for item in warnings if item]))
 
@@ -187,11 +222,13 @@ def build_runtime_dashboard_summary(
     runtime_provenance = runtime_provenance or legacy_runtime_provenance(data_dir, mode=str(decision.get("mode") or "UNKNOWN"), symbol=str(market.get("symbol") or "XAUUSDm"))
     evidence_integrity = evidence_integrity or build_evidence_integrity_status(data_dir)
     runtime_environment = runtime_environment or {}
-    health = _health(decision, event_bus_status, snapshot, warnings)
+    health, health_reason = _health(event_bus_status, event_bus_state, snapshot, runtime_provenance)
     if evidence_integrity.get("status") == "ERROR":
         health = "ERROR"
-    elif evidence_integrity.get("status") == "WARNING" and health == "HEALTHY":
-        health = "WARNING"
+        health_reason = "evidence integrity error: " + "; ".join(str(item) for item in _list(evidence_integrity.get("notes")))
+    elif evidence_integrity.get("status") == "WARNING":
+        warnings.extend(str(item) for item in _list(evidence_integrity.get("notes")))
+        warnings = list(dict.fromkeys([item for item in warnings if item]))
     primary = blocks[0] if blocks else None
     next_action = "Wait for spread to normalize and a valid Fast RSI signal." if primary else "Continue monitoring; no dashboard action is available."
     raw = _dict(_dict(snapshot).get("raw"))
@@ -232,6 +269,19 @@ def build_runtime_dashboard_summary(
         "read_only_dashboard": True,
         "no_commands_from_dashboard": True,
     }
+    no_actionable_signal = _has_no_actionable_signal(broker_execution_cockpit, decision)
+    if no_actionable_signal:
+        if "no actionable signal" not in blocks:
+            blocks.insert(0, "no actionable signal")
+        broker_execution_cockpit["latest_primary_block"] = "no actionable signal"
+        broker_execution_cockpit["signal_gate_state"] = "BLOCKED"
+        broker_execution_cockpit["aurix_queue_state"] = "BLOCKED"
+        broker_execution_cockpit["aurix_queue_reason"] = "signal gate blocked"
+        broker_execution_cockpit["latest_command_reason"] = broker_execution_cockpit.get("latest_command_reason") or "queue blocked because signal gate blocked"
+        next_action = "Continue monitoring."
+    else:
+        broker_execution_cockpit["signal_gate_state"] = latest_gate.get("signal_gate") or ("PASS" if latest_gate.get("allowed") else "UNKNOWN")
+        broker_execution_cockpit["aurix_queue_reason"] = latest_gate.get("reason") or broker_execution_cockpit.get("latest_command_reason")
 
     return AurixRuntimeDashboardSummary(
         symbol=market.get("symbol") or decision_report.get("symbol") or strategy_status.get("symbol"),
@@ -275,7 +325,8 @@ def build_runtime_dashboard_summary(
             "latest_preview_status": demo_queue_status.get("latest_preview_status") or latest_preview.get("status"),
             "latest_payload_status": demo_queue_status.get("latest_payload_status") or latest_payload.get("status"),
             "broker_execution_enabled": runtime_environment.get("broker_execution_enabled"),
-            "aurix_queue_state": demo_broker_execution.get("queue_state"),
+            "aurix_queue_state": broker_execution_cockpit.get("aurix_queue_state"),
+            "aurix_queue_reason": broker_execution_cockpit.get("aurix_queue_reason"),
             "mt5_delivery_state": latest_command.get("status") or "NO_COMMAND",
             "mt5_command_id": latest_payload.get("mt5_command_id"),
             "broker_order_id": latest_payload.get("broker_order_id"),
@@ -300,6 +351,7 @@ def build_runtime_dashboard_summary(
         runtime_environment=runtime_environment,
         safety=safety,
         health=health,
+        health_reason=health_reason,
         top_blocks=blocks[:5],
         top_warnings=warnings[:5],
         next_expected_action=next_action,

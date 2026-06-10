@@ -64,6 +64,8 @@ class DemoBrokerExecutionConfig:
     terminal_id_allowlist: list[str] = field(default_factory=lambda: ["AURIX-VPS-001"])
     max_volume: float = 0.01
     max_spread_points: float = 270.0
+    risk_per_trade_percent: float = 2.0
+    daily_risk_limit_percent: float = 10.0
     max_open_positions: int = 1
     allow_all_sessions: bool = True
     allow_asia_session: bool = True
@@ -96,12 +98,11 @@ class DemoBrokerExecutionConfig:
         return {
             "broker_execution_enabled": self.broker_execution_enabled,
             "internal_queue_controlled_by_broker_execution": True,
-            "max_volume": self.max_volume,
             "max_spread_points": self.max_spread_points,
+            "risk_per_trade_percent": self.risk_per_trade_percent,
+            "daily_risk_limit_percent": self.daily_risk_limit_percent,
             "max_open_positions": self.max_open_positions,
             "one_trade_per_day_limit": self.one_trade_per_day_limit,
-            "daily_loss_limit_gbp": self.daily_loss_limit_gbp,
-            "daily_drawdown_percent": self.daily_drawdown_percent,
         }
 
 
@@ -117,6 +118,8 @@ def load_demo_broker_execution_config(path: Union[str, Path] = CONFIG_PATH) -> D
         terminal_id_allowlist=list(raw.get("terminal_id_allowlist") or ["AURIX-VPS-001"]),
         max_volume=_float(raw.get("max_volume"), 0.01),
         max_spread_points=_float(raw.get("max_spread_points"), 270.0),
+        risk_per_trade_percent=_float(raw.get("risk_per_trade_percent"), 2.0),
+        daily_risk_limit_percent=_float(raw.get("daily_risk_limit_percent"), 10.0),
         max_open_positions=int(raw.get("max_open_positions") or 1),
         allow_all_sessions=bool(raw.get("allow_all_sessions", True)),
         allow_asia_session=bool(raw.get("allow_asia_session", True)),
@@ -131,7 +134,5 @@ def load_demo_broker_execution_config(path: Union[str, Path] = CONFIG_PATH) -> D
         require_demo_account_verified=bool(raw.get("require_demo_account_verified", True)),
     )
     config.broker_execution_enabled = _bool(os.getenv("AURIX_BROKER_EXECUTION", config.broker_execution_enabled))
-    config.daily_loss_limit_gbp = _float(os.getenv("AURIX_DAILY_LOSS_LIMIT_GBP"), config.daily_loss_limit_gbp)
-    config.daily_drawdown_percent = _float(os.getenv("AURIX_DAILY_DRAWDOWN_PERCENT"), config.daily_drawdown_percent)
     config.execution_mode = "BROKER_EXECUTION_ENABLED" if config.broker_execution_enabled else "BROKER_EXECUTION_DISABLED"
     return config
