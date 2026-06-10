@@ -47,8 +47,20 @@ function displayAlias(value) {
     NO_ACTIONABLE_SIGNAL: "NO_SIGNAL",
     WAITING_FOR_DATA: "WAITING_DATA",
     BLOCKED_BY_NO_SIGNAL: "NO_SIGNAL",
+    INSUFFICIENT_CANDLES: "INSUFF_CANDLES",
+    NO_TRACE_PATTERN: "NO_TRACE",
+    STRATEGY_NOT_REGISTERED: "NOT_REGISTERED",
+    STRATEGY_EVALUATION_MISSING: "EVAL_MISSING",
+    DURABLE_AUDIT_WRITE_FAILED: "AUDIT_FAIL",
+    RISK_PER_TRADE_EXCEEDED: "RISK_EXCEEDED",
+    MIN_VOLUME_EXCEEDS_RISK_LIMIT: "MIN_VOL_BLOCK",
   };
   return aliases[raw] || raw;
+}
+
+function joinAliasedItems(items) {
+  if (!Array.isArray(items) || !items.length) return "--";
+  return items.map(displayAlias).join("; ");
 }
 
 function setTextTitle(id, value, titleValue) {
@@ -214,7 +226,7 @@ function renderStrategyAgentStatuses(latestStatuses) {
   }
   container.innerHTML = `<div class="card-section-label" style="margin-top:8px">Agent Statuses</div>` +
     Object.entries(latestStatuses).map(([name, status]) =>
-      `<div class="agent-row"><span class="agent-name">${name}</span>${pillHTML(status, statusColor(String(status || "").toUpperCase()))}</div>`
+      `<div class="agent-row"><span class="agent-name">${name}</span><span title="${safeStr(status)}">${pillHTML(displayAlias(status), statusColor(String(status || "").toUpperCase()))}</span></div>`
     ).join("");
 }
 
@@ -298,6 +310,7 @@ function render(summary) {
   setText("runtimeHealthReason", summary.health_reason);
   setStatus("hdrRuntimeSafety", runtimeSafetyLabel, assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
   setStatus("hdrTradingSession", tradingSession.name || "UNKNOWN");
+  setStatus("marketTradingSession", tradingSession.name || "UNKNOWN");
   setText("hdrSession", shortId(sessionId));
   setText("hdrUptime", provenance.uptime_seconds != null
     ? `${Math.round(Number(provenance.uptime_seconds))}s`
@@ -442,12 +455,13 @@ function render(summary) {
   setText("fastRsiSellThreshold",  fastRsi.sell_extreme_threshold);
   setText("fastRsiBuyExtreme",     fastRsi.buy_extreme_state);
   setText("fastRsiSellExtreme",    fastRsi.sell_extreme_state);
-  setText("fastRsiRejections",     joinItems((fastRsi.rejection_reasons || []).map(r => r.message || r.code || r)));
+  const fastRsiRejectionValues = (fastRsi.rejection_reasons || []).map(r => r.message || r.code || r);
+  setTextTitle("fastRsiRejections", joinAliasedItems(fastRsiRejectionValues), joinItems(fastRsiRejectionValues));
   setText("fastRsiLastBar",        fmtTime(fastRsi.last_evaluated_bar));
   setText("fastRsiEvalAge",        fastRsi.last_evaluation_age_seconds != null ? `${Math.round(Number(fastRsi.last_evaluation_age_seconds))}s` : "--");
   setText("fastRsiTrace",          fastRsi.decision_trace_available != null ? String(fastRsi.decision_trace_available) : "--");
   setStatus("fastRsiLatestResult", fastRsi.latest_result);
-  setStatus("fastRsiLatestRejection", fastRsi.latest_rejection_reason);
+  setStatusAlias("fastRsiLatestRejection", fastRsi.latest_rejection_reason);
 
   // ── Strategy Pipeline ───────────────────────────────────────────
   setStatus("pipelineMarketFresh", pipeline.market_data_fresh === true ? "TRUE" : "FALSE", pipeline.market_data_fresh === true ? "good" : "danger");
@@ -461,7 +475,7 @@ function render(summary) {
   setStatus("pipelineLastResult", pipeline.latest_result);
   setStatus("pipelineLastDirection", pipeline.latest_direction_candidate);
   setText("pipelineLastConfidence", pipeline.latest_confidence);
-  setStatus("pipelineLastRejection", pipeline.latest_rejection_reason);
+  setStatusAlias("pipelineLastRejection", pipeline.latest_rejection_reason);
   setText("pipelineLastError", pipeline.latest_error);
 
   // ── Strategy Agents ─────────────────────────────────────────────
@@ -470,7 +484,7 @@ function render(summary) {
   setText("strategyAgentsLatestStrategy",agents.latest_signal_strategy || pipeline.latest_strategy_name || "none");
   setText("strategyAgentsSignal",        agents.latest_signal_direction || pipeline.latest_direction_candidate || "NONE");
   setStatus("strategyAgentsLatestResult", pipeline.latest_result || "UNKNOWN");
-  setStatus("strategyAgentsLatestRejection", pipeline.latest_rejection_reason || "--");
+  setStatusAlias("strategyAgentsLatestRejection", pipeline.latest_rejection_reason || "--");
   setExecLock("strategyAgentsPaperAllowed",  agents.paper_trade_creation_allowed);
   setExecLock("strategyAgentsOrderAllowed",  agents.order_request_creation_allowed);
   renderStrategyAgentStatuses(agents.latest_statuses);
