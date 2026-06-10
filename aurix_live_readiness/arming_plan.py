@@ -9,7 +9,7 @@ def build_manual_checklist(config: LiveReadinessConfig) -> list[str]:
     return [
         "confirm GitHub checkpoint pushed",
         "confirm live trading disabled",
-        "confirm EA AllowLiveTrading=false",
+        "confirm EA AURIX_BROKER_EXECUTION=false",
         "confirm evidence gate not blocked",
         f"confirm {config.require_min_closed_paper_trades}+ closed paper trades",
         f"confirm {config.require_min_forward_days}+ forward-test days",

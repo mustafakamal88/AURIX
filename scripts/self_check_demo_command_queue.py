@@ -21,7 +21,7 @@ def snapshot(*, positions: list[dict[str, Any]] | None = None, orders: list[dict
         "tick": {"symbol": "XAUUSDm", "spread_points": spread},
         "positions": positions or [],
         "orders": orders or [],
-        "raw": {"allow_live_trading": ea_live},
+        "raw": {"broker_execution_enabled": ea_live},
     }
 
 

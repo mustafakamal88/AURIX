@@ -20,7 +20,7 @@ def snapshot(spread: float = 20.0, currency: str = "GBP", ea_live: bool = False)
         "tick": {"symbol": "XAUUSDm", "bid": 2300.1, "ask": 2300.3, "spread_points": spread},
         "positions": [],
         "orders": [],
-        "raw": {"allow_live_trading": ea_live},
+        "raw": {"broker_execution_enabled": ea_live},
     }
 
 

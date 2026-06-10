@@ -8,7 +8,7 @@ POST /commands/open-market
   -> Risk Governor checks latest snapshot and risk config
   -> persist risk decision
   -> queue command only if approved
-  -> EA still enforces AllowLiveTrading=false by default
+  -> EA still enforces AURIX_BROKER_EXECUTION=false by default
 ```
 
 The Risk Governor does not build strategy logic, AI reasoning, or autonomous execution. It only approves or blocks commands.
@@ -93,4 +93,4 @@ Blocked output includes:
 BLOCKED: Risk Governor rejected the test command.
 ```
 
-The EA remains safe by default. Do not set `AllowLiveTrading=true` during Part 2 bridge/risk testing.
+The EA remains safe by default. Do not set `AURIX_BROKER_EXECUTION=true` during Part 2 bridge/risk testing.

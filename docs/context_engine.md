@@ -85,4 +85,4 @@ Run local self-checks:
 python3 scripts/self_check_context.py
 ```
 
-Keep `AllowLiveTrading=false` in the EA.
+Keep `AURIX_BROKER_EXECUTION=false` in the EA.

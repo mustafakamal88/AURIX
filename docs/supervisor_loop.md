@@ -95,4 +95,4 @@ This file is runtime state and should not be committed.
 - No AI reasoning.
 - No learning engine.
 - No live auto execution.
-- EA `AllowLiveTrading=false` remains unchanged.
+- EA `AURIX_BROKER_EXECUTION=false` remains unchanged.

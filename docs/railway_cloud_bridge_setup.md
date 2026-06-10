@@ -182,9 +182,8 @@ BridgeBaseUrl=https://your-app.up.railway.app
 ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
-PollSeconds=2
-BrokerExecutionEnabled=false
-EmergencyMaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
 In MT5 WebRequest settings, allow the Railway base URL.
@@ -195,8 +194,7 @@ In MT5 WebRequest settings, allow the Railway base URL.
 - `AURIX_API_KEY` is set and secret
 - `AURIX_BROKER_EXECUTION=false`
 - Dashboard opens only with API key
-- EA input `BrokerExecutionEnabled=false`
-- EA input `EmergencyMaxVolume=0.01`
+- EA input `AURIX_BROKER_EXECUTION=false`
 - No public firewall or proxy bypasses Railway auth
 - `/dashboard/runtime-summary` shows `session_overall_safe=true`
 
@@ -207,7 +205,7 @@ To stop Railway bridge:
 1. Open the Railway project.
 2. Stop the service deployment or remove the service.
 3. Leave MT5 running or remove the EA from the chart.
-4. Do not change `BrokerExecutionEnabled`.
+4. Do not change `AURIX_BROKER_EXECUTION`.
 
 To roll back code:
 
@@ -244,11 +242,11 @@ BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
 ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
-BrokerExecutionEnabled=true
-EmergencyMaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
-Demo execution remains blocked unless AURIX can positively verify the MT5 account is demo, the symbol is `XAUUSDm`, spread is within limit, SL/TP are present, daily loss/drawdown guards pass, and there is no existing broker position.
+Broker execution remains blocked unless AURIX validates the command, including symbol, spread, SL/TP, daily risk guards, and position state.
 
 To stop broker execution, set:
 
@@ -256,6 +254,6 @@ To stop broker execution, set:
 AURIX_BROKER_EXECUTION=false
 ```
 
-The EA can also stop execution by setting `BrokerExecutionEnabled=false`.
+The EA can also stop execution by setting `AURIX_BROKER_EXECUTION=false`.
 
 Never set real-money live flags for this deployment.

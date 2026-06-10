@@ -23,7 +23,7 @@ def main() -> int:
                 "volume": 0.01,
                 "ticket": 0,
                 "error_code": -22,
-                "error_message": "AllowDemoBrokerTrading is false",
+                "error_message": "broker execution disabled in EA",
             }
         )
         latest = store.latest_execution_result()

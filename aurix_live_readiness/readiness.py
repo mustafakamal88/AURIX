@@ -297,10 +297,10 @@ def _warnings(
 
 def _ea_live_trading_disabled(operator_status: dict[str, Any], snapshot: dict[str, Any]) -> bool:
     safety = _as_dict(operator_status.get("safety"))
-    seen = safety.get("ea_allow_live_trading_seen")
+    seen = safety.get("ea_broker_execution_seen")
     if seen is not None:
         return seen is False
-    raw = _find_key(snapshot, {"allowlivetrading", "allow_live_trading", "ealivetrading", "ea_allow_live_trading"})
+    raw = _find_key(snapshot, {"aurix_broker_execution", "broker_execution_enabled", "ea_broker_execution"})
     if raw is None:
         return False
     if isinstance(raw, bool):

@@ -101,9 +101,9 @@ def validate_order_intent(
         reasons.append(_reason("live_arming_enabled", "live arming must remain disabled"))
 
     raw = _as_dict(snapshot_data.get("raw"))
-    ea_allow_live = raw.get("allow_live_trading")
-    if config.require_ea_live_trading_disabled_now and ea_allow_live is True:
-        reasons.append(_reason("ea_live_trading_enabled", "EA reports AllowLiveTrading=true"))
+    ea_broker_execution = raw.get("broker_execution_enabled")
+    if config.require_ea_live_trading_disabled_now and ea_broker_execution is True:
+        reasons.append(_reason("ea_live_trading_enabled", "EA reports AURIX_BROKER_EXECUTION=true"))
 
     risk_checked = spread_points is not None and bool(account or snapshot_data or runtime)
     risk_approved = risk_checked and not any(reason.code in {"risk_governor_validation_unavailable", "spread_above_max"} for reason in reasons)

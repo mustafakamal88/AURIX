@@ -176,15 +176,15 @@ class BrokerReconciler:
         else:
             check("symbol", "PASS", f"symbol is {symbol}")
 
-        ea_allow_live = raw.get("allow_live_trading")
-        if self.config.require_ea_live_trading_disabled_now and ea_allow_live is True:
-            mismatch("ea_live_trading_enabled", "EA reports AllowLiveTrading=true", "BLOCKED")
-            check("ea_live_trading_disabled", "BLOCKED", "EA live trading is enabled")
-        elif ea_allow_live is False:
-            check("ea_live_trading_disabled", "PASS", "EA live trading is disabled")
+        ea_broker_execution = raw.get("broker_execution_enabled")
+        if self.config.require_ea_live_trading_disabled_now and ea_broker_execution is True:
+            mismatch("ea_live_trading_enabled", "EA reports AURIX_BROKER_EXECUTION=true", "BLOCKED")
+            check("ea_live_trading_disabled", "BLOCKED", "EA broker execution is enabled")
+        elif ea_broker_execution is False:
+            check("ea_live_trading_disabled", "PASS", "EA broker execution is disabled")
         else:
-            warnings.append("EA AllowLiveTrading state unavailable")
-            check("ea_live_trading_disabled", "WARN", "EA live trading state unavailable")
+            warnings.append("EA broker execution state unavailable")
+            check("ea_live_trading_disabled", "WARN", "EA broker execution state unavailable")
 
         positions = [BrokerPositionSnapshot(ticket=item.get("ticket"), symbol=item.get("symbol"), type=item.get("type"), direction=item.get("direction"), volume=_as_float(item.get("volume")), price_open=_as_float(item.get("price_open")), profit=_as_float(item.get("profit")), raw=item) for item in positions_raw if isinstance(item, dict)]
         orders = [BrokerOrderSnapshot(ticket=item.get("ticket"), symbol=item.get("symbol"), type=item.get("type"), direction=item.get("direction"), volume=_as_float(item.get("volume")), price_open=_as_float(item.get("price_open")), raw=item) for item in orders_raw if isinstance(item, dict)]

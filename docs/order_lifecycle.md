@@ -106,4 +106,4 @@ Run local lifecycle self-checks:
 python3 scripts/self_check_lifecycle.py
 ```
 
-The EA live-trading gate remains unchanged. Keep `AllowLiveTrading=false` during lifecycle testing.
+The EA broker-execution gate remains unchanged. Keep `AURIX_BROKER_EXECUTION=false` during lifecycle testing.

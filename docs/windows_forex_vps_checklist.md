@@ -16,8 +16,7 @@ Use this checklist after copying or pulling AURIX onto the Windows Forex VPS.
 - [ ] `AurixBridgeEA.mq5` copied into MT5 `MQL5\Experts`
 - [ ] EA compiled in MetaEditor
 - [ ] EA attached to `XAUUSDm`
-- [ ] EA input `AllowLiveTrading=false`
-- [ ] EA input `MaxVolume=0.01`
+- [ ] EA input `AURIX_BROKER_EXECUTION=false`
 - [ ] MT5 WebRequest allows `http://127.0.0.1:8765`
 - [ ] Snapshots received by the bridge
 - [ ] `.\scripts\windows\check_aurix_server.ps1` prints runtime summary fields

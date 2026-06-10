@@ -18,7 +18,7 @@ from aurix_strategy_agents.evaluator import StrategyAgentStore
 
 
 def snapshot(spread: float = 20.0, ea_live: bool = False) -> dict[str, Any]:
-    return {"account": {"balance": 100.0, "equity": 100.0, "currency": "GBP"}, "tick": {"symbol": "XAUUSDm", "bid": 2300.0, "ask": 2300.2, "spread_points": spread}, "positions": [], "orders": [], "raw": {"allow_live_trading": ea_live}}
+    return {"account": {"balance": 100.0, "equity": 100.0, "currency": "GBP"}, "tick": {"symbol": "XAUUSDm", "bid": 2300.0, "ask": 2300.2, "spread_points": spread}, "positions": [], "orders": [], "raw": {"broker_execution_enabled": ea_live}}
 
 
 def seed_strategy(tmpdir: str, items: list[dict[str, Any]]) -> StrategyAgentStore:

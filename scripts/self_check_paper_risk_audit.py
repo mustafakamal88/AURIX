@@ -79,7 +79,7 @@ def certifier_inputs(with_decision: bool = True) -> dict:
         ],
         "paper_risk_decisions": [d] if with_decision else [],
         "paper_analytics": {"open_trades": 1, "closed_trades": 0, "expectancy_r": 0.0},
-        "operator_status": {"commands": {"open_count": 0}, "bridge": {"positions_count": 0}, "safety": {"ea_allow_live_trading_seen": False}},
+        "operator_status": {"commands": {"open_count": 0}, "bridge": {"positions_count": 0}, "safety": {"ea_broker_execution_seen": False}},
         "operator_summary": {"mode": "PAPER", "paper_open_count": 1},
         "live_readiness_report": {"live_execution_allowed": False, "live_arming_allowed": False},
         "paper_config": {"enabled": True, "max_open_paper_trades": 1, "allow_multiple_same_direction": False, "default_stop_points": 300, "default_take_profit_points": 600},

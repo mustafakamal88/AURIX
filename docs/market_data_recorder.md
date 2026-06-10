@@ -93,4 +93,4 @@ data/exports/market_ticks.csv
 data/exports/market_candles_m1.csv
 ```
 
-Keep `AllowLiveTrading=false` in the EA.
+Keep `AURIX_BROKER_EXECUTION=false` in the EA.

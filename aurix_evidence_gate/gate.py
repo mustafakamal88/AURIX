@@ -330,7 +330,7 @@ def _live_trading_disabled(operator_status: dict[str, Any]) -> bool:
     safety = _as_dict(operator_status.get("safety"))
     if safety.get("live_trading_enabled") is not False:
         return False
-    if safety.get("ea_allow_live_trading_seen") is True:
+    if safety.get("ea_broker_execution_seen") is True:
         return False
     return True
 

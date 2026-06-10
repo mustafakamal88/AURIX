@@ -18,7 +18,7 @@ def sample_inputs(open_commands: int = 0, ea_live: bool = False) -> dict:
         "operator_status": {
             "paper": {"open_trades": 0, "closed_trades": 50},
             "commands": {"open_count": open_commands, "open": [{}] * open_commands},
-            "safety": {"ea_allow_live_trading_seen": ea_live},
+            "safety": {"ea_broker_execution_seen": ea_live},
             "journal": {"entries_count": 1},
         },
         "operator_summary": {"ok": True, "market_quality_ok": True, "paper_closed_trades": 50, "paper_open_count": 0},
@@ -28,7 +28,7 @@ def sample_inputs(open_commands: int = 0, ea_live: bool = False) -> dict:
         "research_sweep": {"total_variants": 1},
         "journal_status": {"entries_count": 1},
         "ai_review_report": {"summary": "local review"},
-        "latest_snapshot": {"ea": {"AllowLiveTrading": ea_live}},
+        "latest_snapshot": {"ea": {"broker_execution_enabled": ea_live}},
         "recorded_candles": 1000,
         "forward_days": 10,
         "open_command_count": open_commands,

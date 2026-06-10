@@ -7,14 +7,15 @@
 #include <Trade/Trade.mqh>
 
 input string TerminalId       = "AURIX-VPS-001";
-input string BridgeBaseUrl    = "http://127.0.0.1:8765";
+input string BridgeBaseUrl    = "https://web-production-bc7d4.up.railway.app";
 input string ApiKey           = "";
 input string TradeSymbol      = "XAUUSDm";
-input int    PollSeconds      = 2;
-input bool   BrokerExecutionEnabled = false;
-input double EmergencyMaxVolume     = 0.01;
+input bool   AURIX_BROKER_EXECUTION = false;
 input int    MagicNumber      = 880001;
-input int    DeviationPoints  = 20;
+
+int POLL_SECONDS = 2;
+int DEVIATION_POINTS = 20;
+// Demo/live status is determined by the MT5 account currently logged in, not by EA inputs.
 
 CTrade trade;
 string ProcessedCommandIds[100];
@@ -24,8 +25,8 @@ int ProcessedCommandCount = 0;
 int OnInit()
 {
    trade.SetExpertMagicNumber(MagicNumber);
-   trade.SetDeviationInPoints(DeviationPoints);
-   EventSetTimer(PollSeconds);
+   trade.SetDeviationInPoints(DEVIATION_POINTS);
+   EventSetTimer(POLL_SECONDS);
    Print("AURIX Bridge EA started. TerminalId=", TerminalId, " Bridge=", BridgeBaseUrl);
    return(INIT_SUCCEEDED);
 }
@@ -336,8 +337,7 @@ void SendSnapshot()
    payload += "\"deals\":" + DealsJson() + ",";
    payload += "\"raw\":{";
    payload += "\"ea\":\"AurixBridgeEA\",";
-   payload += "\"broker_execution_enabled\":" + (BrokerExecutionEnabled ? "true" : "false") + ",";
-   payload += "\"emergency_max_volume\":" + Num(EmergencyMaxVolume, 2) + ",";
+   payload += "\"broker_execution_enabled\":" + (AURIX_BROKER_EXECUTION ? "true" : "false") + ",";
    payload += "\"magic\":" + IntegerToString(MagicNumber);
    payload += "}";
    payload += "}";
@@ -355,12 +355,8 @@ int SplitPipe(string text, string &parts[])
 //+------------------------------------------------------------------+
 bool ConfirmAllowed(string confirm)
 {
-   if(!BrokerExecutionEnabled)
+   if(!AURIX_BROKER_EXECUTION)
       return false;
-
-   if(confirm != "I_ACCEPT_LIVE_RISK")
-      return false;
-
    return true;
 }
 
@@ -454,13 +450,7 @@ void RememberProcessed(string command_id)
 }
 
 //+------------------------------------------------------------------+
-bool IsDemoAccount()
-{
-   return AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO;
-}
-
-//+------------------------------------------------------------------+
-void ExecuteDemoBrokerMarketJson(string response)
+void ExecuteBrokerMarketJson(string response)
 {
    string command_id = JsonStringValue(response, "command_id");
    string mode = JsonStringValue(response, "mode");
@@ -478,29 +468,19 @@ void ExecuteDemoBrokerMarketJson(string response)
    }
    RememberProcessed(command_id);
 
-   if(mode != "DEMO_BROKER" || action != "OPEN_MARKET")
+   if(mode != "BROKER" || action != "OPEN_MARKET")
    {
       SendExecutionResult(command_id, "BLOCKED_BY_EA", -21, "Command mode/action blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
    }
-   if(!BrokerExecutionEnabled)
+   if(!AURIX_BROKER_EXECUTION)
    {
-      SendExecutionResult(command_id, "BLOCKED_BY_EA", -22, "BrokerExecutionEnabled is false", 0, 0, symbol, side, volume, 0, sl, tp);
-      return;
-   }
-   if(!IsDemoAccount())
-   {
-      SendExecutionResult(command_id, "BLOCKED_BY_EA", -23, "Account is not demo", 0, 0, symbol, side, volume, 0, sl, tp);
+      SendExecutionResult(command_id, "BLOCKED_BY_EA", -22, "broker execution disabled in EA", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
    }
    if(symbol != TradeSymbol || symbol != "XAUUSDm")
    {
       SendExecutionResult(command_id, "BLOCKED_BY_EA", -24, "Symbol blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
-      return;
-   }
-   if(volume <= 0 || volume > EmergencyMaxVolume || volume > 0.01)
-   {
-      SendExecutionResult(command_id, "BLOCKED_BY_EA", -25, "Volume blocked by EA", 0, 0, symbol, side, volume, 0, sl, tp);
       return;
    }
    if(sl <= 0 || tp <= 0)
@@ -546,13 +526,7 @@ void ExecuteOpenMarket(string &parts[])
 
    if(!ConfirmAllowed(confirm))
    {
-      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -1, "Live trading blocked by EA safety gate", 0, 0, symbol, dir, volume, 0, sl, tp);
-      return;
-   }
-
-   if(volume <= 0 || volume > EmergencyMaxVolume)
-   {
-      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -2, "Volume blocked by EmergencyMaxVolume", 0, 0, symbol, dir, volume, 0, sl, tp);
+      SendExecutionResult(cmd_id, "BLOCKED_BY_EA", -1, "broker execution disabled in EA", 0, 0, symbol, dir, volume, 0, sl, tp);
       return;
    }
 
@@ -610,9 +584,9 @@ void ExecuteClosePosition(string &parts[])
 
    bool ok;
    if(volume > 0 && volume < pos_volume)
-      ok = trade.PositionClosePartial(ticket, volume, DeviationPoints);
+      ok = trade.PositionClosePartial(ticket, volume, DEVIATION_POINTS);
    else
-      ok = trade.PositionClose(ticket, DeviationPoints);
+      ok = trade.PositionClose(ticket, DEVIATION_POINTS);
 
    int retcode = (int)trade.ResultRetcode();
    string msg = trade.ResultRetcodeDescription();
@@ -641,7 +615,7 @@ void ExecuteKillSwitch(string &parts[])
    {
       ulong ticket = PositionGetTicket(i);
       if(ticket == 0) continue;
-      if(!trade.PositionClose(ticket, DeviationPoints))
+      if(!trade.PositionClose(ticket, DEVIATION_POINTS))
          all_ok = false;
    }
 
@@ -663,9 +637,9 @@ void PollCommand()
    if(response == "" || response == "NOOP" || StringFind(response, "\"status\":\"NO_COMMAND\"") >= 0 || StringFind(response, "\"command\":null") >= 0)
       return;
 
-   if(StringFind(response, "\"mode\":\"DEMO_BROKER\"") >= 0 || StringFind(response, "\"mode\": \"DEMO_BROKER\"") >= 0)
+   if(StringFind(response, "\"mode\":\"BROKER\"") >= 0 || StringFind(response, "\"mode\": \"BROKER\"") >= 0)
    {
-      ExecuteDemoBrokerMarketJson(response);
+      ExecuteBrokerMarketJson(response);
       return;
    }
 

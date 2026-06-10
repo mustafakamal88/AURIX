@@ -31,7 +31,7 @@ def snapshot(
         "positions": positions or [],
         "orders": orders or [],
         "deals": deals or [{"ticket": 1, "symbol": "XAUUSDm"}],
-        "raw": {"allow_live_trading": ea_live},
+        "raw": {"broker_execution_enabled": ea_live},
     }
 
 

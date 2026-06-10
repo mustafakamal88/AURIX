@@ -23,7 +23,7 @@ def sample_snapshot() -> dict[str, Any]:
         "positions": [],
         "orders": [],
         "deals": [],
-        "raw": {"allow_live_trading": False},
+        "raw": {"broker_execution_enabled": False},
     }
 
 

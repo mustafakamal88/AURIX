@@ -40,9 +40,9 @@ def age_seconds(value: Any) -> Optional[float]:
     return (datetime.now(timezone.utc) - parsed).total_seconds()
 
 
-def read_ea_allow_live_trading(snapshot: Optional[dict[str, Any]]) -> Optional[bool]:
+def read_ea_broker_execution(snapshot: Optional[dict[str, Any]]) -> Optional[bool]:
     raw = as_dict(snapshot.get("raw")) if snapshot else {}
-    value = raw.get("allow_live_trading")
+    value = raw.get("broker_execution_enabled")
     if isinstance(value, bool):
         return value
     if isinstance(value, str):

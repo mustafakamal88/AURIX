@@ -91,7 +91,7 @@ def sample(command_id=None, linked=True, live_exec=False, live_arm=False, open_c
         "strategy_signals": [signal],
         "paper_trades": [trade],
         "paper_analytics": {"open_trades": 1, "closed_trades": 0, "expectancy_r": 0.0},
-        "operator_status": {"commands": {"open_count": open_commands}, "bridge": {"positions_count": 0}, "safety": {"ea_allow_live_trading_seen": False}},
+        "operator_status": {"commands": {"open_count": open_commands}, "bridge": {"positions_count": 0}, "safety": {"ea_broker_execution_seen": False}},
         "operator_summary": {"mode": "PAPER", "paper_open_count": 1},
         "live_readiness_report": {"status": "BLOCKED", "live_execution_allowed": live_exec, "live_arming_allowed": live_arm},
         "evidence_growth_report": {"status": "COLLECTING"},

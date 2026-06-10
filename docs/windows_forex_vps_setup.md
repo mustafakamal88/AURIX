@@ -183,8 +183,8 @@ MQL5\Experts\AurixBridgeEA.mq5
 4. Keep:
 
 ```text
-AllowLiveTrading=false
-MaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
 5. In MT5 WebRequest settings, allow:
@@ -365,7 +365,7 @@ If needed, start manually:
 Before any later gated demo-execution part:
 
 - Confirm the account is demo.
-- Confirm `AllowLiveTrading=false` unless a later part explicitly requires changing it.
+- Confirm EA input `AURIX_BROKER_EXECUTION=false` unless intentionally enabling broker execution.
 - Confirm `AURIX_BROKER_EXECUTION=false` unless intentionally enabling broker execution.
 - Confirm there are no demo/live broker execution environment switches.
 - Confirm broker positions and orders are expected.

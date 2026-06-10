@@ -18,7 +18,7 @@ class ForwardTestConfig(BaseModel):
     minimum_sessions_covered: int = 3
     require_daemon_runs: bool = True
     require_operator_ok: bool = True
-    allow_live_trading: bool = False
+    allow_broker_execution: bool = False
 
 
 def load_forward_test_config(path: Union[str, Path] = "config/forward_test.yaml") -> ForwardTestConfig:

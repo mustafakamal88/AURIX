@@ -472,10 +472,10 @@ def _find_paper_risk_decision(decisions: list[dict[str, Any]], signal: dict[str,
 
 
 def _ea_live_disabled(snapshot: dict[str, Any], operator_status: dict[str, Any]) -> bool | None:
-    seen = as_dict(operator_status.get("safety")).get("ea_allow_live_trading_seen")
+    seen = as_dict(operator_status.get("safety")).get("ea_broker_execution_seen")
     if seen is not None:
         return seen is False
-    raw = find_key(snapshot, {"allowlivetrading", "allow_live_trading", "ealivetrading", "ea_allow_live_trading"})
+    raw = find_key(snapshot, {"aurix_broker_execution", "broker_execution_enabled", "ea_broker_execution"})
     if raw is None:
         return None
     if isinstance(raw, bool):

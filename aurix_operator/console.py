@@ -5,7 +5,7 @@ from typing import Any
 from aurix_bridge_server.models import utc_now_iso
 from aurix_market_data.quality import build_quality_report
 
-from .health import age_seconds, as_dict, as_float, as_list, read_ea_allow_live_trading
+from .health import age_seconds, as_dict, as_float, as_list, read_ea_broker_execution
 from .models import OperatorStatus, OperatorSummary
 
 
@@ -59,11 +59,11 @@ def build_operator_status(
     latest_v2_signal = v2_signals[-1] if v2_signals else {}
     market_quality = build_quality_report(snapshot, market_config)
     latest_context = context_engine.latest()
-    ea_allow_live_trading = read_ea_allow_live_trading(snapshot)
+    ea_broker_execution = read_ea_broker_execution(snapshot)
     safety = {
         "live_trading_enabled": False,
         "paper_only": True,
-        "ea_allow_live_trading_seen": ea_allow_live_trading,
+        "ea_broker_execution_seen": ea_broker_execution,
         "command_queueing_from_supervisor": bool(as_dict(supervisor_status.get("safety")).get("allow_command_queueing", False)),
         "strategy_command_id_present": bool(latest_signal.get("command_id")),
         "open_market_execution_added": False,
@@ -198,8 +198,8 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         warnings.append(f"open commands present: {status.commands.get('open_count')}")
     if status.safety.get("live_trading_enabled") is not False:
         warnings.append("live trading safety flag is not false")
-    if status.safety.get("ea_allow_live_trading_seen") is True:
-        warnings.append("EA reports allow_live_trading=true")
+    if status.safety.get("ea_broker_execution_seen") is True:
+        warnings.append("EA reports broker_execution_enabled=true")
     if status.safety.get("command_queueing_from_supervisor"):
         warnings.append("supervisor command queueing is enabled")
     if status.safety.get("strategy_command_id_present"):

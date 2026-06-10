@@ -34,7 +34,7 @@ Each report carries a safety section confirming no broker or MT5 command side ef
 
 `NO_BROKER_DATA` means no local MT5 snapshot/account data is available.
 
-`BLOCKED` means a safety invariant is violated, such as live execution enabled, command queueing enabled, broker order mutation enabled, or EA `AllowLiveTrading=true`.
+`BLOCKED` means a safety invariant is violated, such as broker execution enabled unexpectedly, command queueing enabled unexpectedly, or broker order mutation enabled.
 
 `MISMATCH` means broker state conflicts with dry-run expectations, such as an unexpected `XAUUSDm` broker position/order or a Demo OMS dry-run request containing a broker order ID.
 

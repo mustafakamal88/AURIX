@@ -38,7 +38,7 @@ target_sessions: ["LONDON", "NY_PRE_MARKET", "NY_OPEN", "NY_LATE"]
 minimum_sessions_covered: 3
 require_daemon_runs: true
 require_operator_ok: true
-allow_live_trading: false
+allow_broker_execution: false
 ```
 
 ## API

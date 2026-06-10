@@ -123,8 +123,8 @@ The safety section includes:
 
 - `live_trading_enabled: false`
 - `paper_only: true`
-- `ea_allow_live_trading_seen` from snapshot `raw.allow_live_trading` when available
+- `ea_broker_execution_seen` from snapshot `raw.broker_execution_enabled` when available
 - `command_queueing_from_supervisor`
 - `strategy_command_id_present`
 
-Keep EA `AllowLiveTrading=false`.
+Keep EA `AURIX_BROKER_EXECUTION=false`.

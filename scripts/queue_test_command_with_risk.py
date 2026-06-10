@@ -39,7 +39,7 @@ def main() -> int:
             print("APPROVED: Risk Governor allowed the test command and it was queued.")
             print(json.dumps(data, indent=2))
             print()
-            print("EA safety still blocks live execution unless AllowLiveTrading=true is manually enabled.")
+            print("EA safety still blocks broker execution unless AURIX_BROKER_EXECUTION=true is manually enabled.")
             return 0
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8")

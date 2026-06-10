@@ -55,7 +55,7 @@ def snapshot() -> dict[str, Any]:
         "positions": [],
         "orders": [],
         "deals": [],
-        "raw": {"allow_live_trading": False},
+        "raw": {"broker_execution_enabled": False},
     }
 
 
@@ -125,7 +125,7 @@ def main() -> int:
         safety = healthy_status["safety"]
         if safety["live_trading_enabled"] is not False or safety["paper_only"] is not True:
             raise AssertionError(f"safety flags wrong: {safety}")
-        if safety["ea_allow_live_trading_seen"] is not False:
+        if safety["ea_broker_execution_seen"] is not False:
             raise AssertionError(f"EA live trading flag should be false, got {safety}")
         if store.list_commands():
             raise AssertionError("operator status queued commands")

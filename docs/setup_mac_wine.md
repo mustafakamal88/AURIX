@@ -37,7 +37,7 @@ In MT5:
 1. Open MetaEditor.
 2. Compile `AurixBridgeEA.mq5`.
 3. Attach `AurixBridgeEA` to an `XAUUSDm` M15 chart.
-4. Keep `AllowLiveTrading=false` for bridge testing.
+4. Keep `AURIX_BROKER_EXECUTION=false` for bridge testing.
 5. Confirm `TradeSymbol=XAUUSDm`.
 
 ## WebRequest Allow List

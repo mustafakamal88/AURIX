@@ -44,8 +44,8 @@ def main() -> int:
     print("OK: queued BUY test command.")
     print(json.dumps(data, indent=2))
     print()
-    print("Safety note: this is still blocked by the EA unless AllowLiveTrading=true is manually enabled in EA inputs.")
-    print("Keep AllowLiveTrading=false for bridge setup and snapshot testing.")
+    print("Safety note: this is still blocked by the EA unless AURIX_BROKER_EXECUTION=true is manually enabled in EA inputs.")
+    print("Keep AURIX_BROKER_EXECUTION=false for bridge setup and snapshot testing.")
     return 0
 
 

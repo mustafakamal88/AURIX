@@ -137,8 +137,8 @@ class ForwardTestStore:
             reasons.append("forward test disabled")
         if self.config.mode != "PAPER":
             reasons.append("forward test mode must be PAPER")
-        if self.config.allow_live_trading:
-            reasons.append("live trading must not be allowed")
+        if self.config.allow_broker_execution:
+            reasons.append("broker execution must not be allowed")
         if campaign.days_observed < self.config.target_days:
             reasons.append("target days not reached")
         if campaign.closed_paper_trades < self.config.target_closed_paper_trades:

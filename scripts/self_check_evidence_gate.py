@@ -14,7 +14,7 @@ def operator_inputs(ok: bool = True, live_disabled: bool = True, open_commands: 
         "commands": {"open_count": open_commands},
         "safety": {
             "live_trading_enabled": False if live_disabled else True,
-            "ea_allow_live_trading_seen": False if live_disabled else True,
+            "ea_broker_execution_seen": False if live_disabled else True,
         },
     }
     summary = {"ok": ok, "market_quality_ok": ok, "warnings": [] if ok else ["operator warning"]}

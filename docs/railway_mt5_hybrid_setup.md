@@ -13,9 +13,8 @@ BridgeBaseUrl=https://your-app.up.railway.app
 ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
-PollSeconds=2
-BrokerExecutionEnabled=false
-EmergencyMaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
 Use your real Railway URL for `BridgeBaseUrl`. Use the same secret as Railway `AURIX_API_KEY` for `ApiKey`.
@@ -49,8 +48,7 @@ Do not add a public HTTP URL. Use Railway HTTPS.
 3. Compile `AurixBridgeEA.mq5`.
 4. Open an `XAUUSDm` chart in MT5.
 5. Attach `AurixBridgeEA`.
-6. Confirm `BrokerExecutionEnabled=false` until `AURIX_BROKER_EXECUTION=true` is intentionally enabled.
-7. Confirm `EmergencyMaxVolume=0.01`.
+6. Confirm EA input `AURIX_BROKER_EXECUTION=false` until broker execution is intentionally enabled.
 
 ## Confirm Railway Receives Snapshots
 
@@ -150,14 +148,14 @@ After snapshots are accepted, the dashboard should show:
 Keep:
 
 ```text
-BrokerExecutionEnabled=false
-EmergencyMaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
 For Part 38.2 broker execution, the only EA trading switch to enable is:
 
 ```text
-BrokerExecutionEnabled=true
+AURIX_BROKER_EXECUTION=true
 ```
 
 Only do this after `AURIX_BROKER_EXECUTION=true` is intentionally set in Railway.
@@ -181,8 +179,8 @@ BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
 ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
-BrokerExecutionEnabled=true
-EmergencyMaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
-To stop broker execution, set `AURIX_BROKER_EXECUTION=false` or set EA `BrokerExecutionEnabled=false`.
+To stop broker execution, set `AURIX_BROKER_EXECUTION=false` in Railway and in the EA.

@@ -186,9 +186,9 @@ class AurixDecisionEngine:
             block("event_bus_state_missing", "event bus runtime state is unavailable")
         if self.config.require_strategy_agent_status and not source.strategy_agent_available:
             block("strategy_agent_state_missing", "strategy agent state is unavailable")
-        if self.config.require_ea_live_trading_disabled_now and raw.get("allow_live_trading") is True:
+        if self.config.require_ea_live_trading_disabled_now and raw.get("broker_execution_enabled") is True:
             safety_violation = True
-            block("ea_live_trading_enabled", "EA reports AllowLiveTrading=true")
+            block("ea_live_trading_enabled", "EA reports AURIX_BROKER_EXECUTION=true")
         if self.config.require_account_currency_match and account.get("currency") and account.get("currency") != self.config.account_currency:
             block("account_currency_mismatch", f"account currency {account.get('currency')} does not match {self.config.account_currency}")
         if self.config.require_symbol_match and tick.get("symbol") and tick.get("symbol") != self.config.symbol:

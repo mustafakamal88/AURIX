@@ -92,7 +92,7 @@ class DemoBrokerExecutionStore:
         command = {
             "command_id": command_id,
             "terminal_id": terminal_id,
-            "mode": "DEMO_BROKER",
+            "mode": "BROKER",
             "action": "OPEN_MARKET",
             "symbol": symbol,
             "side": side,

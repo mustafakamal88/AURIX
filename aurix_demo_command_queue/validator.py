@@ -85,8 +85,8 @@ def validate_command_preview(
     spread = _as_float(tick.get("spread_points"))
     if spread is not None and spread > config.max_spread_points:
         reasons.append(_reason("spread_above_max", f"spread {spread} exceeds max_spread_points {config.max_spread_points}"))
-    if raw.get("allow_live_trading") is True and config.require_ea_live_trading_disabled_now:
-        reasons.append(_reason("ea_live_trading_enabled", "EA reports AllowLiveTrading=true"))
+    if raw.get("broker_execution_enabled") is True and config.require_ea_live_trading_disabled_now:
+        reasons.append(_reason("ea_live_trading_enabled", "EA reports AURIX_BROKER_EXECUTION=true"))
     symbol_positions = [item for item in positions if _as_dict(item).get("symbol") == config.symbol]
     symbol_orders = [item for item in orders if _as_dict(item).get("symbol") == config.symbol]
     if config.require_no_open_broker_position_for_symbol and len(symbol_positions) > config.max_open_broker_positions:

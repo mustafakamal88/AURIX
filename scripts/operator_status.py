@@ -113,7 +113,7 @@ def main() -> int:
         "safety: "
         f"live_trading_enabled={safety.get('live_trading_enabled')} "
         f"paper_only={safety.get('paper_only')} "
-        f"ea_allow_live_trading_seen={safety.get('ea_allow_live_trading_seen')} "
+        f"ea_broker_execution_seen={safety.get('ea_broker_execution_seen')} "
         f"supervisor_queueing={safety.get('command_queueing_from_supervisor')} "
         f"strategy_command_id_present={safety.get('strategy_command_id_present')}"
     )

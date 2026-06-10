@@ -81,4 +81,4 @@ no closed paper trades yet
 - No MT5 command queueing.
 - No AI reasoning.
 - No learning engine.
-- Keep EA `AllowLiveTrading=false`.
+- Keep EA `AURIX_BROKER_EXECUTION=false`.

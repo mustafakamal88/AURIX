@@ -641,7 +641,7 @@ def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> d
 def command_for_ea(command: dict[str, Any]) -> dict[str, Any]:
     return {
         "command_id": command.get("command_id"),
-        "mode": "DEMO_BROKER",
+        "mode": "BROKER",
         "action": "OPEN_MARKET",
         "symbol": command.get("symbol"),
         "side": command.get("side"),

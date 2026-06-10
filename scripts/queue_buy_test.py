@@ -21,4 +21,4 @@ req = urllib.request.Request(
 
 with urllib.request.urlopen(req) as resp:
     print(resp.read().decode("utf-8"))
-    print("Safety note: EA execution remains blocked unless AllowLiveTrading=true is manually enabled in EA inputs.")
+    print("Safety note: EA execution remains blocked unless AURIX_BROKER_EXECUTION=true is manually enabled in EA inputs.")

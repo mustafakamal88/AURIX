@@ -16,7 +16,6 @@ Safety rules for future agents:
 
 - Do not enable live trading automatically.
 - Do not send real trades unless the user explicitly asks.
-- Keep `AllowLiveTrading=false` as the EA default.
-- Keep `MaxVolume=0.01` as the EA default unless the user explicitly changes it.
+- Keep `AURIX_BROKER_EXECUTION=false` as the EA default.
 - Do not add strategy logic, AI reasoning, auto-trading, or a Risk Governor in Part 1.
-- Treat commands as queued bridge messages; execution is blocked by the EA unless `AllowLiveTrading=true` is manually set in EA inputs and the command includes `live_confirm="I_ACCEPT_LIVE_RISK"`.
+- Treat commands as queued bridge messages; execution is blocked by the EA unless `AURIX_BROKER_EXECUTION=true` is manually set in EA inputs.

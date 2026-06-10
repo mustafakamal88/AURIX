@@ -89,8 +89,7 @@ Then:
 
 1. Compile `AurixBridgeEA.mq5` in MetaEditor.
 2. Attach the EA to an `XAUUSDm` M15 chart.
-3. Keep `BrokerExecutionEnabled=false`.
-4. Confirm `EmergencyMaxVolume=0.01`.
+3. Keep `AURIX_BROKER_EXECUTION=false`.
 
 ## MT5 WebRequest Allow List
 
@@ -132,7 +131,7 @@ Queue a safe test command:
 python3 scripts/queue_test_command.py
 ```
 
-The command includes `live_confirm="I_ACCEPT_LIVE_RISK"`, but the EA still blocks execution unless `BrokerExecutionEnabled=true` is manually enabled in EA inputs.
+The EA still blocks execution unless `AURIX_BROKER_EXECUTION=true` is manually enabled in EA inputs.
 
 Check Risk Governor status:
 
@@ -347,11 +346,11 @@ BridgeBaseUrl=https://web-production-bc7d4.up.railway.app
 ApiKey=YOUR_AURIX_API_KEY
 TerminalId=AURIX-VPS-001
 TradeSymbol=XAUUSDm
-BrokerExecutionEnabled=true
-EmergencyMaxVolume=0.01
+AURIX_BROKER_EXECUTION=false
+MagicNumber=880001
 ```
 
-Stop broker execution by setting `AURIX_BROKER_EXECUTION=false` or EA `BrokerExecutionEnabled=false`.
+Stop broker execution by setting `AURIX_BROKER_EXECUTION=false` in Railway and in the EA.
 
 Real-money live execution remains unsupported and disabled.
 
@@ -763,9 +762,8 @@ POST /signal-certifier/reset
 - No live trading is enabled by default.
 - Commands are queued on the Python server.
 - `POST /commands/open-market` must pass the Risk Governor before it is queued.
-- The EA blocks execution unless `BrokerExecutionEnabled=true` is manually enabled.
-- The EA also requires `live_confirm="I_ACCEPT_LIVE_RISK"` on each live command.
-- `EmergencyMaxVolume` defaults to `0.01`.
+- The EA blocks execution unless `AURIX_BROKER_EXECUTION=true` is manually enabled.
+- AURIX owns risk, lot sizing, spread gates, queue gates, and strategy approval.
 - The Risk Governor does not replace the EA safety gate.
 - The Part 9 supervisor is paper-only and has `allow_command_queueing=false`.
 - The Part 10 operator console is read-only and does not queue commands.

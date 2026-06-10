@@ -78,4 +78,4 @@ Self-check:
 python3 scripts/self_check_xauusd_paper_v1.py
 ```
 
-Keep `AllowLiveTrading=false` in the EA.
+Keep `AURIX_BROKER_EXECUTION=false` in the EA.

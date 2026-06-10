@@ -144,7 +144,7 @@ def publish_safety_state_event(event_bus: AurixEventBus, snapshot: dict[str, Any
             "allow_paper_trade_creation": False,
             "allow_demo_execution": False,
             "require_ea_live_trading_disabled_now": True,
-            "ea_allow_live_trading_seen": (raw or {}).get("allow_live_trading") if isinstance(raw, dict) else None,
+            "ea_broker_execution_seen": (raw or {}).get("broker_execution_enabled") if isinstance(raw, dict) else None,
         }
     )
     return event_bus.publish_many([_event(AurixEventType.SAFETY_STATE_EVENT, "event_bus_safety_collector", event_bus.config.symbol, payload, cid)])
