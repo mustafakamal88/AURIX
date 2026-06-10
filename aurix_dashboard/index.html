@@ -98,16 +98,13 @@
       </article>
     </section>
 
-    <section class="decision-strip" aria-label="Command center summary">
-      <div class="ds-cell"><span class="ds-label">Current Action</span><span class="ds-value" id="dsAction">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Primary Block / Reason</span><span class="ds-value" id="dsReason">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Spread</span><span class="ds-value" id="dsSpread">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Signal State</span><span class="ds-value" id="dsSignal">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Risk State</span><span class="ds-value" id="dsRisk">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Durable Audit</span><span class="ds-value" id="dsAudit">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Runtime Safety</span><span class="ds-value" id="dsSafety">--</span></div>
-      <div class="ds-cell"><span class="ds-label">Next Expected</span><span class="ds-value" id="dsNext">--</span></div>
-    </section>
+    <!-- Legacy summary strip (kept hidden — Mission Control above is the live header).
+         IDs preserved so app.js setStatus/setText calls don't error. -->
+    <div class="decision-strip-legacy" hidden aria-hidden="true">
+      <span id="dsAction"></span><span id="dsReason"></span><span id="dsSpread"></span>
+      <span id="dsSignal"></span><span id="dsRisk"></span><span id="dsAudit"></span>
+      <span id="dsSafety"></span><span id="dsNext"></span>
+    </div>
 
     <main>
 
@@ -115,10 +112,23 @@
       <div class="section-group">
         <span class="section-tag">A</span><span class="section-title">Primary Operations</span><span class="section-rule"></span>
       </div>
-      <div class="ops-grid">
-        <section class="ops-column">
-          <div class="ops-column-title">Market + Account</div>
-          <article class="card priority">
+      <style>
+        /* Row balancing: tall cards grouped, short cards grouped */
+        #opsGrid > article:nth-child(1)  { order: 1; }
+        #opsGrid > article:nth-child(2)  { order: 2; }
+        #opsGrid > article:nth-child(3)  { order: 3; }
+        #opsGrid > article:nth-child(4)  { order: 7; }
+        #opsGrid > article:nth-child(5)  { order: 4; }
+        #opsGrid > article:nth-child(6)  { order: 5; }
+        #opsGrid > article:nth-child(7)  { order: 8; }
+        #opsGrid > article:nth-child(8)  { order: 9; }
+        #opsGrid > article:nth-child(9)  { order: 10; }
+        #opsGrid > article:nth-child(10) { order: 6; }
+        #opsGrid > article:nth-child(11) { order: 11; }
+        #opsGrid > article:nth-child(12) { order: 12; }
+      </style>
+      <div class="grid" id="opsGrid">
+        <article class="card priority">
           <h2>Market · XAUUSDm <span class="h2-sub" id="hdrSymbol2"></span></h2>
 
           <div class="market-hero">
@@ -167,10 +177,31 @@
             </div>
           </div>
           </article>
-        </section>
 
-        <section class="ops-column">
-          <div class="ops-column-title">Strategy Intelligence</div>
+          <article class="card">
+            <h2>Daily Risk &amp; MT5 Result</h2>
+            <div class="tile-grid cols-2">
+              <div class="tile status"><span class="tile-label">Daily Risk</span><span class="tile-value" id="dailyRiskStatus">--</span></div>
+              <div class="tile kpi"><span class="tile-label">Equity Loss</span><span class="tile-value" id="dailyRiskLoss">--</span></div>
+              <div class="tile kpi"><span class="tile-label">Drawdown %</span><span class="tile-value" id="dailyRiskDrawdown">--</span></div>
+              <div class="tile"><span class="tile-label">Latest Command</span><span class="tile-value" id="latestMt5Command">--</span></div>
+              <div class="tile status"><span class="tile-label">Command Status</span><span class="tile-value" id="latestMt5CommandStatus">--</span></div>
+              <div class="tile"><span class="tile-label">Latest Result</span><span class="tile-value" id="latestMt5ExecutionResult">--</span></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h2>Validation / Readiness</h2>
+            <div class="tile-grid cols-2">
+              <div class="tile status"><span class="tile-label">Quick Validation</span><span class="tile-value" id="validationQuickStatus">--</span></div>
+              <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="validationQuickCounts">--</span></div>
+              <div class="tile status"><span class="tile-label">Evidence Gate</span><span class="tile-value" id="validationEvidenceStatus">--</span></div>
+              <div class="tile status"><span class="tile-label">Live Readiness</span><span class="tile-value" id="validationReadinessStatus">--</span></div>
+              <div class="tile status"><span class="tile-label">Arming Allowed</span><span class="tile-value" id="validationArmingAllowed">--</span></div>
+              <div class="tile status"><span class="tile-label">Execution Allowed</span><span class="tile-value" id="validationExecutionAllowed">--</span></div>
+              <div class="tile kpi"><span class="tile-label">Blocking Reason Count</span><span class="tile-value" id="validationBlockCount">--</span></div>
+            </div>
+          </article>
           <article class="card priority">
           <h2>AURIX Decision Engine</h2>
 
@@ -236,26 +267,6 @@
           </article>
 
           <article class="card">
-          <h2>Fast RSI Strategy</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="fastRsiStatus">--</span></div>
-            <div class="tile"><span class="tile-label">Direction</span><span class="tile-value" id="fastRsiDirection">--</span></div>
-            <div class="tile kpi"><span class="tile-label">RSI Current</span><span class="tile-value" id="fastRsiRsi">--</span></div>
-            <div class="tile kpi"><span class="tile-label">RSI SMA</span><span class="tile-value" id="fastRsiSma">--</span></div>
-            <div class="tile"><span class="tile-label">Buy Threshold</span><span class="tile-value" id="fastRsiBuyThreshold">--</span></div>
-            <div class="tile"><span class="tile-label">Sell Threshold</span><span class="tile-value" id="fastRsiSellThreshold">--</span></div>
-            <div class="tile"><span class="tile-label">Buy Extreme</span><span class="tile-value" id="fastRsiBuyExtreme">--</span></div>
-            <div class="tile"><span class="tile-label">Sell Extreme</span><span class="tile-value" id="fastRsiSellExtreme">--</span></div>
-            <div class="tile"><span class="tile-label">Rejections</span><span class="tile-value" id="fastRsiRejections">--</span></div>
-            <div class="tile"><span class="tile-label">Last Bar</span><span class="tile-value" id="fastRsiLastBar">--</span></div>
-            <div class="tile"><span class="tile-label">Last Evaluation Age</span><span class="tile-value" id="fastRsiEvalAge">--</span></div>
-            <div class="tile"><span class="tile-label">Trace Available</span><span class="tile-value" id="fastRsiTrace">--</span></div>
-            <div class="tile status"><span class="tile-label">Latest Result</span><span class="tile-value" id="fastRsiLatestResult">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Rejection Reason</span><span class="tile-value" id="fastRsiLatestRejection">--</span></div>
-          </div>
-          </article>
-
-          <article class="card">
           <h2>Strategy Agents</h2>
           <div class="tile-grid cols-4">
             <div class="tile kpi is-teal"><span class="tile-label">Registered</span><span class="tile-value" id="strategyAgentsRegistered">--</span></div>
@@ -269,10 +280,7 @@
           </div>
           <div id="strategyAgentRows" class="card-section"></div>
           </article>
-        </section>
 
-        <section class="ops-column">
-          <div class="ops-column-title">Execution + Safety</div>
           <article class="card priority">
             <h2>Execution Control State</h2>
 
@@ -325,6 +333,26 @@
             </div>
           </article>
 
+          <article class="card">
+          <h2>Fast RSI Strategy</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="fastRsiStatus">--</span></div>
+            <div class="tile"><span class="tile-label">Direction</span><span class="tile-value" id="fastRsiDirection">--</span></div>
+            <div class="tile kpi"><span class="tile-label">RSI Current</span><span class="tile-value" id="fastRsiRsi">--</span></div>
+            <div class="tile kpi"><span class="tile-label">RSI SMA</span><span class="tile-value" id="fastRsiSma">--</span></div>
+            <div class="tile"><span class="tile-label">Buy Threshold</span><span class="tile-value" id="fastRsiBuyThreshold">--</span></div>
+            <div class="tile"><span class="tile-label">Sell Threshold</span><span class="tile-value" id="fastRsiSellThreshold">--</span></div>
+            <div class="tile"><span class="tile-label">Buy Extreme</span><span class="tile-value" id="fastRsiBuyExtreme">--</span></div>
+            <div class="tile"><span class="tile-label">Sell Extreme</span><span class="tile-value" id="fastRsiSellExtreme">--</span></div>
+            <div class="tile"><span class="tile-label">Rejections</span><span class="tile-value" id="fastRsiRejections">--</span></div>
+            <div class="tile"><span class="tile-label">Last Bar</span><span class="tile-value" id="fastRsiLastBar">--</span></div>
+            <div class="tile"><span class="tile-label">Last Evaluation Age</span><span class="tile-value" id="fastRsiEvalAge">--</span></div>
+            <div class="tile"><span class="tile-label">Trace Available</span><span class="tile-value" id="fastRsiTrace">--</span></div>
+            <div class="tile status"><span class="tile-label">Latest Result</span><span class="tile-value" id="fastRsiLatestResult">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Rejection Reason</span><span class="tile-value" id="fastRsiLatestRejection">--</span></div>
+          </div>
+          </article>
+
           <article class="card compact">
             <h2>Safety Locks</h2>
             <div class="tile-grid cols-2">
@@ -345,7 +373,6 @@
             </div>
             <div class="compact-note" id="opsBrokerReconReason">--</div>
           </article>
-        </section>
       </div>
 
       <!-- ════════ B · WHY NO TRADE ════════ -->
@@ -457,34 +484,9 @@
         <span class="section-tag">D</span><span class="section-title">Safety Detail</span><span class="section-rule"></span>
       </div>
       <div class="grid">
-        <article class="card">
-          <h2>Validation / Readiness</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status"><span class="tile-label">Quick Validation</span><span class="tile-value" id="validationQuickStatus">--</span></div>
-            <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="validationQuickCounts">--</span></div>
-            <div class="tile status"><span class="tile-label">Evidence Gate</span><span class="tile-value" id="validationEvidenceStatus">--</span></div>
-            <div class="tile status"><span class="tile-label">Live Readiness</span><span class="tile-value" id="validationReadinessStatus">--</span></div>
-            <div class="tile status"><span class="tile-label">Arming Allowed</span><span class="tile-value" id="validationArmingAllowed">--</span></div>
-            <div class="tile status"><span class="tile-label">Execution Allowed</span><span class="tile-value" id="validationExecutionAllowed">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Blocking Reason Count</span><span class="tile-value" id="validationBlockCount">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Daily Risk &amp; MT5 Result</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status"><span class="tile-label">Daily Risk</span><span class="tile-value" id="dailyRiskStatus">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Equity Loss</span><span class="tile-value" id="dailyRiskLoss">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Drawdown %</span><span class="tile-value" id="dailyRiskDrawdown">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Command</span><span class="tile-value" id="latestMt5Command">--</span></div>
-            <div class="tile status"><span class="tile-label">Command Status</span><span class="tile-value" id="latestMt5CommandStatus">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Result</span><span class="tile-value" id="latestMt5ExecutionResult">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
+        <article class="card full">
           <h2>Quick Validation</h2>
-          <div class="tile-grid cols-2">
+          <div class="tile-grid cols-3">
             <div class="tile status"><span class="tile-label">Status</span><span class="tile-value" id="quickValidationStatus">--</span></div>
             <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="quickValidationCounts">--</span></div>
             <div class="tile status"><span class="tile-label">Paper Only</span><span class="tile-value" id="quickValidationPaperOnly">--</span></div>
@@ -529,7 +531,7 @@
         <span class="section-tag">E</span><span class="section-title">Broker &amp; Queue Detail</span><span class="section-rule"></span>
       </div>
       <div class="grid">
-        <article class="card">
+        <article class="card span3">
           <h2>Broker Execution</h2>
           <div class="tile-grid cols-2">
             <div class="tile status is-blue"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoBrokerEnabled">--</span></div>
@@ -545,7 +547,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card span3">
           <h2>Broker Reconciliation</h2>
           <div class="tile-grid cols-2">
             <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="brokerReconStatus">--</span></div>
@@ -558,7 +560,7 @@
           <div class="compact-note" id="brokerReconDetailReason">--</div>
         </article>
 
-        <article class="card">
+        <article class="card span3">
           <h2>AURIX Queue</h2>
           <div class="tile-grid cols-2">
             <div class="tile status is-blue"><span class="tile-label">Mode</span><span class="tile-value" id="demoCommandQueueMode">--</span></div>
@@ -574,7 +576,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card span3">
           <h2>Order Management</h2>
           <div class="tile-grid cols-2">
             <div class="tile status is-blue"><span class="tile-label">Mode</span><span class="tile-value" id="demoOmsMode">--</span></div>
