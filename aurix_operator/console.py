@@ -40,7 +40,10 @@ def build_operator_status(
     demo_oms_status: dict[str, Any] | None = None,
     broker_reconciliation_status: dict[str, Any] | None = None,
     demo_command_queue_status: dict[str, Any] | None = None,
+    demo_broker_execution_status: dict[str, Any] | None = None,
     decision_engine_status: dict[str, Any] | None = None,
+    runtime_environment: dict[str, Any] | None = None,
+    quick_validation_status: dict[str, Any] | None = None,
     runtime_provenance: dict[str, Any] | None = None,
     evidence_integrity_status: dict[str, Any] | None = None,
     backtest_compare_v1_v2: dict[str, Any] | None = None,
@@ -60,6 +63,13 @@ def build_operator_status(
     market_quality = build_quality_report(snapshot, market_config)
     latest_context = context_engine.latest()
     ea_broker_execution = read_ea_broker_execution(snapshot)
+    runtime_environment = runtime_environment or {}
+    demo_broker_execution_status = demo_broker_execution_status or {}
+    quick_validation_status = quick_validation_status or {}
+    railway_broker_execution = runtime_environment.get("broker_execution_enabled")
+    broker_execution_matched = railway_broker_execution == ea_broker_execution if railway_broker_execution is not None and ea_broker_execution is not None else None
+    latest_gate = as_dict(demo_broker_execution_status.get("latest_gate_decision"))
+    quick_report = as_dict(quick_validation_status.get("report") or quick_validation_status)
     safety = {
         "live_trading_enabled": False,
         "paper_only": True,
@@ -140,6 +150,27 @@ def build_operator_status(
             "results_count": len(results),
             "latest": results[-5:],
         },
+        broker_execution={
+            "railway_broker_execution": railway_broker_execution,
+            "runtime_profile": runtime_environment.get("runtime_profile"),
+        },
+        ea_execution={
+            "ea_broker_execution": ea_broker_execution,
+            "terminal_id": snapshot.get("terminal_id") if snapshot else terminal_id,
+        },
+        execution_match={
+            "broker_execution_matched": broker_execution_matched,
+        },
+        command_gate={
+            "latest_command_state": as_dict(demo_broker_execution_status.get("latest_command")).get("status") or ("NO_COMMAND" if railway_broker_execution is False else None),
+            "latest_command_reason": latest_gate.get("reason") or demo_broker_execution_status.get("latest_gate_block"),
+            "latest_primary_block": latest_gate.get("primary_block") or demo_broker_execution_status.get("latest_gate_block"),
+            "aurix_queue_state": demo_broker_execution_status.get("queue_state") or latest_gate.get("queue_state"),
+            "spread_gate_state": demo_broker_execution_status.get("spread_gate") or latest_gate.get("spread_gate"),
+            "engine_max_spread": demo_broker_execution_status.get("engine_max_spread_points"),
+            "risk_model": demo_broker_execution_status.get("risk_model") or {},
+        },
+        quick_validation=quick_report,
         safety=safety,
     )
 
@@ -181,6 +212,9 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
     broker_reconciliation = as_dict(status.broker_reconciliation)
     demo_command_queue = as_dict(status.demo_command_queue)
     decision_engine = as_dict(status.decision_engine)
+    command_gate = as_dict(status.command_gate)
+    quick_validation = as_dict(status.quick_validation)
+    quick_summary = as_dict(quick_validation.get("summary"))
     runtime_provenance = as_dict(status.runtime_provenance)
     runtime_safety = as_dict(runtime_provenance.get("safety_assertion"))
     evidence_integrity = as_dict(status.evidence_integrity)
@@ -310,5 +344,20 @@ def build_operator_summary(status: OperatorStatus) -> OperatorSummary:
         runtime_uptime_seconds=runtime_provenance.get("uptime_seconds"),
         runtime_session_safe=runtime_safety.get("overall_safe") is not False,
         evidence_integrity_status=evidence_integrity.get("status"),
+        railway_broker_execution=as_dict(status.broker_execution).get("railway_broker_execution"),
+        ea_broker_execution=as_dict(status.ea_execution).get("ea_broker_execution"),
+        broker_execution_matched=as_dict(status.execution_match).get("broker_execution_matched"),
+        latest_command_state=command_gate.get("latest_command_state"),
+        latest_command_reason=command_gate.get("latest_command_reason"),
+        latest_primary_block=command_gate.get("latest_primary_block"),
+        aurix_queue_state=command_gate.get("aurix_queue_state"),
+        spread_gate_state=command_gate.get("spread_gate_state"),
+        engine_max_spread=as_float(command_gate.get("engine_max_spread")),
+        risk_model=as_dict(command_gate.get("risk_model")),
+        quick_validation_status=quick_validation.get("status"),
+        quick_validation_pass_count=int(quick_summary.get("pass_count") or 0),
+        quick_validation_fail_count=int(quick_summary.get("fail_count") or 0),
+        quick_validation_warning_count=int(quick_summary.get("warning_count") or 0),
+        runtime_profile=as_dict(status.broker_execution).get("runtime_profile"),
         warnings=warnings,
     )

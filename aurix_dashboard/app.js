@@ -1,11 +1,8 @@
 "use strict";
 
-const REFRESH_MS = 5000;
+const REFRESH_MS = 4000;
 const RUNTIME_SUMMARY_ENDPOINT = "/dashboard/runtime-summary";
-const DASHBOARD_API_KEY = new URLSearchParams(window.location.search).get("api_key") || window.localStorage.getItem("aurix_api_key") || "";
-if (DASHBOARD_API_KEY) {
-  window.localStorage.setItem("aurix_api_key", DASHBOARD_API_KEY);
-}
+const DASHBOARD_API_KEY = new URLSearchParams(window.location.search).get("api_key") || "";
 
 // ── DOM helpers ──────────────────────────────────────────────────
 
@@ -210,6 +207,7 @@ function render(summary) {
   const evidenceIntegrity    = summary.evidence_integrity     || {};
   const runtimeEnvironment   = summary.runtime_environment    || {};
   const quickValidation      = summary.quick_validation       || {};
+  const cockpit              = summary.broker_execution_cockpit || {};
   const quickValidationSafety = quickValidation.safety         || {};
   const quickValidationSummary = quickValidation.summary       || {};
   const demoBrokerConfig     = demoBroker.config || {};
@@ -221,6 +219,9 @@ function render(summary) {
 
   const symbol = summary.symbol || market.symbol;
   const sessionId = provenance.runtime_session_id;
+  const railwayBrokerEnabled = cockpit.railway_broker_execution === true;
+  const eaBrokerEnabled = cockpit.ea_broker_execution === true;
+  const matched = cockpit.broker_execution_matched;
 
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
@@ -229,6 +230,11 @@ function render(summary) {
   setText("hdrUptime", provenance.uptime_seconds != null
     ? `${Math.round(Number(provenance.uptime_seconds))}s`
     : "--");
+  setStatus("bannerBrokerExecution", railwayBrokerEnabled ? "BROKER EXECUTION ENABLED" : "BROKER EXECUTION DISABLED", railwayBrokerEnabled ? "danger" : "good");
+  setStatus("bannerEaExecution", eaBrokerEnabled ? "EA EXECUTION ENABLED" : "EA EXECUTION DISABLED", eaBrokerEnabled ? "danger" : "good");
+  setStatus("bannerExecutionMatch", matched === true ? "EXECUTION STATE MATCHED" : matched === false ? "EXECUTION STATE MISMATCH" : "EXECUTION STATE UNKNOWN", matched === true ? "good" : matched === false ? "danger" : "warn");
+  setStatus("bannerReadOnly", "READ-ONLY DASHBOARD", "good");
+  setStatus("bannerNoCommands", "NO COMMANDS FROM DASHBOARD", "good");
 
   // ── Decision Strip ──────────────────────────────────────────────
   const action = decision.action || "--";
@@ -267,6 +273,33 @@ function render(summary) {
   setText("freeMargin",  fixed(account.free_margin));
   setText("marginLevel", account.margin_level);
   setText("accountHint", account.demo_real_hint);
+
+  // ── Broker Execution Cockpit ────────────────────────────────────
+  setStatus("cockpitRailwayExecution", railwayBrokerEnabled ? "ENABLED" : "DISABLED", railwayBrokerEnabled ? "danger" : "good");
+  setStatus("cockpitEaExecution", eaBrokerEnabled ? "ENABLED" : "DISABLED", eaBrokerEnabled ? "danger" : "good");
+  setStatus("cockpitExecutionMatch", matched === true ? "MATCHED" : matched === false ? "MISMATCH" : "UNKNOWN", matched === true ? "good" : matched === false ? "danger" : "warn");
+  setText("cockpitTerminalId", cockpit.terminal_id || runtimeEnvironment.mt5_terminal_id);
+  setText("cockpitSymbol", cockpit.symbol || symbol);
+  setText("cockpitPositions", cockpit.positions_count);
+  setStatus("cockpitCommandState", cockpit.latest_command_state || "NO_COMMAND");
+  setText("cockpitCommandReason", cockpit.latest_command_reason);
+  setText("cockpitPrimaryBlock", cockpit.latest_primary_block);
+
+  setStatus("gateQueueState", cockpit.aurix_queue_state);
+  setStatus("gateSpreadState", cockpit.spread_gate_state);
+  setText("gateEngineMaxSpread", cockpit.engine_max_spread != null ? `${cockpit.engine_max_spread} points` : "--");
+  setText("gateCurrentSpread", cockpit.current_spread);
+  setText("gateRiskModel", cockpit.risk_model ? `${cockpit.risk_model.risk_per_trade_percent ?? "--"}% per trade / ${cockpit.risk_model.daily_risk_limit_percent ?? "--"}% daily` : "--");
+  setText("gateSelectedStrategy", cockpit.selected_strategy);
+  setStatus("gateLatestSignalStatus", cockpit.latest_signal_status);
+
+  setStatus("validationQuickStatus", cockpit.quick_validation_status || quickValidation.status || "NOT_RUN");
+  setText("validationQuickCounts", `${cockpit.quick_validation_pass_count ?? quickValidationSummary.pass_count ?? 0} / ${cockpit.quick_validation_fail_count ?? quickValidationSummary.fail_count ?? 0} / ${cockpit.quick_validation_warning_count ?? quickValidationSummary.warning_count ?? 0}`);
+  setStatus("validationEvidenceStatus", cockpit.evidence_status || evidenceGrowth.status);
+  setStatus("validationReadinessStatus", cockpit.live_readiness_status || liveReadiness.status);
+  setStatus("validationArmingAllowed", cockpit.live_readiness_arming_allowed ? "ALLOWED" : "BLOCKED", cockpit.live_readiness_arming_allowed ? "danger" : "good");
+  setStatus("validationExecutionAllowed", cockpit.live_readiness_execution_allowed ? "ALLOWED" : "BLOCKED", cockpit.live_readiness_execution_allowed ? "danger" : "good");
+  setText("validationBlockCount", (liveReadiness.blocking_reasons || []).length + (quickValidation.blocking_reasons || []).length);
 
   // ── Decision ────────────────────────────────────────────────────
   setStatus("decisionAction",     decision.action);
@@ -432,7 +465,7 @@ function render(summary) {
   setText("whyNext",      summary.next_expected_action || decision.next_expected_action || "--");
 
   // ── Warnings List ────────────────────────────────────────────────
-  renderWarnings(summary.top_warnings || []);
+  renderWarnings([...(summary.top_warnings || []), ...(quickValidation.warnings || [])]);
 
   // ── VPS Profile ──────────────────────────────────────────────────
   const vpsProfile = runtimeEnvironment.runtime_profile || summary.vps_profile || summary.runtime_profile || "--";

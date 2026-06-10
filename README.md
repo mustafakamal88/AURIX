@@ -153,7 +153,7 @@ python3 scripts/check_command_lifecycle.py
 
 ## Part 34 Runtime Dashboard
 
-The advanced XAUUSD runtime dashboard is a read-only control cockpit. It shows decision engine state, XAUUSDm feed state, account state, Fast RSI state, strategy agent registry state, broker reconciliation, demo OMS, demo command queue, event bus/runtime state, readiness/evidence status, and safety locks.
+The advanced XAUUSD runtime dashboard is a read-only Broker Execution Cockpit. It shows Railway and EA `AURIX_BROKER_EXECUTION` state, execution match/mismatch, latest command gate reason, AURIX queue state, spread gate, risk model, selected strategy/signal, quick validation, readiness/evidence status, account/market state, paper metrics, forward-test status, and safety locks.
 
 Open it with the server running:
 
@@ -181,13 +181,14 @@ The main cards mean:
 - `Fast RSI Strategy`: latest Fast RSI state, direction, RSI values, extremes, rejection reasons, bar, and trace availability.
 - `Strategy Agents`: registered/enabled counts, latest statuses, latest signal, and disabled creation flags.
 - `Broker Reconciliation`: broker positions/orders, mismatches, warnings, and unexpected exposure.
-- `Demo OMS`: dry-run OMS counts and disabled execution/queueing flags.
-- `Demo Command Queue`: preview/payload state and disabled demo/MT5 queueing flags.
+- `Execution Control State`: Railway and EA broker execution state, match/mismatch, terminal, symbol, positions, latest command state, and primary block.
+- `AURIX Gates`: queue state, spread gate, engine max spread, risk model, selected strategy, and latest signal status.
+- `Validation / Readiness`: quick validation, evidence, readiness, arming, execution, and block counts.
 - `Event Bus / Runtime State`: event count, sequence, last event, runtime state timestamp, and latest decision event.
-- `Safety Locks`: confirms live execution, arming, command queueing, broker order creation, MT5 queueing, paper trade creation, and order request creation are disabled.
+- `Safety Locks`: confirms broker execution, arming, command queueing, broker order creation, MT5 queueing, paper trade creation, and order request creation are disabled.
 - `Why No Trade?`: primary block, secondary blocks, warnings, and recommended next action from the latest decision context.
 
-The dashboard is read-only by design. It does not evaluate strategies, evaluate the decision engine, process demo OMS requests, preview or dry-run demo commands, queue MT5 commands, create paper trades, create order requests, or place/modify/close broker orders.
+The dashboard is read-only by design. It does not evaluate strategies, evaluate the decision engine, process OMS requests, preview or dry-run queue payloads, queue MT5 commands, create paper trades, create order requests, change EA settings, mutate strategy config, or place/modify/close broker orders. If remote auth is required, open `/dashboard?api_key=...`; the browser sends the key as `X-AURIX-API-Key` and does not store it.
 
 ## Part 35 Runtime Persistence Hardening
 

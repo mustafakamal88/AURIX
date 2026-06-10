@@ -1,6 +1,6 @@
-# Local Dashboard / Cockpit
+# Broker Execution Cockpit
 
-Part 21 adds a read-only browser dashboard served by the local FastAPI app.
+The AURIX dashboard is a read-only Broker Execution Cockpit for local and Railway bridge monitoring.
 
 Open it at:
 
@@ -8,53 +8,48 @@ Open it at:
 http://127.0.0.1:8765/dashboard
 ```
 
-Or run:
-
-```bash
-python3 scripts/open_dashboard.py
-```
-
-## Safety
-
-The dashboard is monitoring only.
-
-It displays:
+Railway deployments can use:
 
 ```text
-LIVE TRADING DISABLED
-PAPER MODE ONLY
-NO MT5 COMMAND QUEUEING FROM DASHBOARD
+https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
 ```
 
-The dashboard does not call `/commands/open-market`, does not queue MT5 commands, does not start or stop daemon/orchestrator processes, does not mutate strategy config, and does not call external AI APIs.
+The dashboard JavaScript reads `api_key` from the current URL query and sends it as an `X-AURIX-API-Key` header. The key is not hardcoded, not displayed, and not stored in localStorage.
 
-## Data Sources
+## Read-Only Safety
 
-The dashboard reads existing GET endpoints:
+The dashboard does not trade. It does not call `/commands/open-market`, does not queue MT5 commands, does not start or stop daemon/orchestrator processes, does not mutate strategy config, does not change EA settings, and does not call external AI APIs.
+
+Visible safety indicators include:
 
 ```text
-/operator/summary
-/operator/status
-/market/status
-/context/latest
-/paper/status
-/analytics/paper/summary
-/journal/status
-/ai-review/latest
-/evidence/latest
-/forward-test/status
-/orchestrator/status
-/daemon/status
+BROKER EXECUTION ENABLED/DISABLED
+EA EXECUTION ENABLED/DISABLED
+EXECUTION STATE MATCHED/MISMATCH
+READ-ONLY DASHBOARD
+NO COMMANDS FROM DASHBOARD
 ```
 
-It refreshes every 5 seconds.
+## Broker Execution Display
 
-## Files
+The cockpit compares:
 
-```text
-aurix_dashboard/index.html
-aurix_dashboard/styles.css
-aurix_dashboard/app.js
-```
+- Railway `AURIX_BROKER_EXECUTION`
+- EA `AURIX_BROKER_EXECUTION` from the latest snapshot raw fields
+- execution state match/mismatch
+- latest `/mt5/command` state, reason, and primary block
+- AURIX queue state, spread gate, engine max spread, risk model, selected strategy, and latest signal status
 
-No React, npm, or build step is required.
+MT5 account login determines whether the account is demo or live. The dashboard does not expose separate demo/live execution controls.
+
+## Sections
+
+- Execution Control State
+- AURIX Gates
+- Validation / Readiness
+- Account / Market
+- Strategy / Paper / Research
+- Forward Test / Long Run
+- Warnings / Blocks
+
+The dashboard refreshes every 4 seconds and uses read-only runtime summary data.

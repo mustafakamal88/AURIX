@@ -27,9 +27,11 @@
       </div>
 
       <div class="topbar-pills">
-        <span class="pill lock">LIVE TRADING DISABLED</span>
-        <span class="pill lock">NO MT5 COMMAND QUEUEING FROM DASHBOARD</span>
-        <span class="pill safe">READ-ONLY DASHBOARD</span>
+        <span id="bannerBrokerExecution" class="pill safe">BROKER EXECUTION DISABLED</span>
+        <span id="bannerEaExecution" class="pill safe">EA EXECUTION DISABLED</span>
+        <span id="bannerExecutionMatch" class="pill neutral">EXECUTION STATE UNKNOWN</span>
+        <span id="bannerReadOnly" class="pill safe">READ-ONLY DASHBOARD</span>
+        <span id="bannerNoCommands" class="pill safe">NO COMMANDS FROM DASHBOARD</span>
       </div>
     </header>
 
@@ -60,6 +62,50 @@
     <!-- ── Main Grid ─────────────────────────────────────────── -->
     <main>
       <div class="grid">
+
+        <!-- Execution Control State -->
+        <article class="card wide">
+          <h2>Execution Control State</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Railway AURIX_BROKER_EXECUTION</span><span class="rt-value" id="cockpitRailwayExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">EA AURIX_BROKER_EXECUTION</span><span class="rt-value" id="cockpitEaExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Execution Match</span><span class="rt-value" id="cockpitExecutionMatch">--</span></div>
+            <div class="rt-row"><span class="rt-label">Terminal ID</span><span class="rt-value" id="cockpitTerminalId">--</span></div>
+            <div class="rt-row"><span class="rt-label">Symbol</span><span class="rt-value" id="cockpitSymbol">--</span></div>
+            <div class="rt-row"><span class="rt-label">Positions Count</span><span class="rt-value" id="cockpitPositions">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Command Response</span><span class="rt-value" id="cockpitCommandState">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Command Reason</span><span class="rt-value" id="cockpitCommandReason">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Primary Block</span><span class="rt-value" id="cockpitPrimaryBlock">--</span></div>
+          </div>
+        </article>
+
+        <!-- AURIX Gates -->
+        <article class="card">
+          <h2>AURIX Gates</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">AURIX Queue</span><span class="rt-value" id="gateQueueState">--</span></div>
+            <div class="rt-row"><span class="rt-label">Spread Gate</span><span class="rt-value" id="gateSpreadState">--</span></div>
+            <div class="rt-row"><span class="rt-label">Engine Max Spread</span><span class="rt-value" id="gateEngineMaxSpread">--</span></div>
+            <div class="rt-row"><span class="rt-label">Current Spread</span><span class="rt-value" id="gateCurrentSpread">--</span></div>
+            <div class="rt-row"><span class="rt-label">Risk Model</span><span class="rt-value" id="gateRiskModel">--</span></div>
+            <div class="rt-row"><span class="rt-label">Selected Strategy</span><span class="rt-value" id="gateSelectedStrategy">--</span></div>
+            <div class="rt-row"><span class="rt-label">Latest Signal Status</span><span class="rt-value" id="gateLatestSignalStatus">--</span></div>
+          </div>
+        </article>
+
+        <!-- Validation / Readiness -->
+        <article class="card">
+          <h2>Validation / Readiness</h2>
+          <div class="row-table">
+            <div class="rt-row"><span class="rt-label">Quick Validation</span><span class="rt-value" id="validationQuickStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Pass / Fail / Warn</span><span class="rt-value" id="validationQuickCounts">--</span></div>
+            <div class="rt-row"><span class="rt-label">Evidence Gate</span><span class="rt-value" id="validationEvidenceStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Readiness</span><span class="rt-value" id="validationReadinessStatus">--</span></div>
+            <div class="rt-row"><span class="rt-label">Arming Allowed</span><span class="rt-value" id="validationArmingAllowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">Execution Allowed</span><span class="rt-value" id="validationExecutionAllowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">Blocking Reason Count</span><span class="rt-value" id="validationBlockCount">--</span></div>
+          </div>
+        </article>
 
         <!-- Market / XAUUSDm Feed -->
         <article class="card">
@@ -188,9 +234,9 @@
 
           <div class="card-section-label">Execution Permissions</div>
           <div class="row-table">
-            <div class="rt-row"><span class="rt-label">Live Trading</span><span class="rt-value" id="safetyLiveExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Broker Execution</span><span class="rt-value" id="safetyLiveExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">Live Arming</span><span class="rt-value" id="safetyLiveArming">--</span></div>
-            <div class="rt-row"><span class="rt-label">Demo Execution</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Legacy Execution Gate</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">Command Queueing</span><span class="rt-value" id="safetyCommandQueueing">--</span></div>
             <div class="rt-row"><span class="rt-label">MT5 Commands Queued</span><span class="rt-value" id="safetyMt5Commands">--</span></div>
             <div class="rt-row"><span class="rt-label">Broker Order Created</span><span class="rt-value" id="safetyBrokerOrder">--</span></div>
@@ -252,23 +298,23 @@
           </div>
         </article>
 
-        <!-- Demo OMS -->
+        <!-- Order Management -->
         <article class="card">
-          <h2>Demo OMS</h2>
+          <h2>Order Management</h2>
           <div class="row-table">
             <div class="rt-row"><span class="rt-label">Mode</span><span class="rt-value" id="demoOmsMode">--</span></div>
             <div class="rt-row"><span class="rt-label">Intent Count</span><span class="rt-value" id="demoOmsIntentCount">--</span></div>
             <div class="rt-row"><span class="rt-label">Request Count</span><span class="rt-value" id="demoOmsRequestCount">--</span></div>
             <div class="rt-row"><span class="rt-label">Latest Request</span><span class="rt-value" id="demoOmsLatestRequest">--</span></div>
-            <div class="rt-row"><span class="rt-label">Demo Execution</span><span class="rt-value" id="demoOmsDemoExecution">--</span></div>
-            <div class="rt-row"><span class="rt-label">Live Execution</span><span class="rt-value" id="demoOmsLiveExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Broker Execution</span><span class="rt-value" id="demoOmsDemoExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Execution Lock</span><span class="rt-value" id="demoOmsLiveExecution">--</span></div>
             <div class="rt-row"><span class="rt-label">Command Queueing</span><span class="rt-value" id="demoOmsCommandQueueing">--</span></div>
           </div>
         </article>
 
-        <!-- Demo Command Queue -->
+        <!-- AURIX Queue -->
         <article class="card">
-          <h2>Demo Command Queue</h2>
+          <h2>AURIX Queue</h2>
           <div class="row-table">
             <div class="rt-row"><span class="rt-label">Mode</span><span class="rt-value" id="demoCommandQueueMode">--</span></div>
             <div class="rt-row"><span class="rt-label">Preview Count</span><span class="rt-value" id="demoCommandQueuePreviews">--</span></div>
@@ -276,8 +322,8 @@
             <div class="rt-row"><span class="rt-label">Latest Preview</span><span class="rt-value" id="demoCommandQueueLatestPreview">--</span></div>
             <div class="rt-row"><span class="rt-label">Latest Payload</span><span class="rt-value" id="demoCommandQueueLatestPayload">--</span></div>
             <div class="rt-row"><span class="rt-label">Manual Arm</span><span class="rt-value" id="demoCommandQueueManualArm">--</span></div>
-            <div class="rt-row"><span class="rt-label">Demo CMD Queueing</span><span class="rt-value" id="demoCommandQueueDemoAllowed">--</span></div>
-            <div class="rt-row"><span class="rt-label">MT5 CMD Queueing</span><span class="rt-value" id="demoCommandQueueMt5Allowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">Queue Delivery</span><span class="rt-value" id="demoCommandQueueDemoAllowed">--</span></div>
+            <div class="rt-row"><span class="rt-label">MT5 Command Delivery</span><span class="rt-value" id="demoCommandQueueMt5Allowed">--</span></div>
             <div class="rt-row"><span class="rt-label">MT5 Command ID</span><span class="rt-value" id="demoCommandQueueMt5CommandId">--</span></div>
             <div class="rt-row"><span class="rt-label">Broker Order ID</span><span class="rt-value" id="demoCommandQueueBrokerOrderId">--</span></div>
           </div>
@@ -296,9 +342,9 @@
           </div>
         </article>
 
-        <!-- Demo Account Verification -->
+        <!-- Account Verification -->
         <article class="card">
-          <h2>Demo Account Verification</h2>
+          <h2>Account Verification</h2>
           <div class="row-table">
             <div class="rt-row"><span class="rt-label">Verified</span><span class="rt-value" id="demoAccountVerified">--</span></div>
             <div class="rt-row"><span class="rt-label">Reason</span><span class="rt-value" id="demoAccountReason">--</span></div>

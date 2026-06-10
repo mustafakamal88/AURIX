@@ -194,6 +194,43 @@ def build_runtime_dashboard_summary(
         health = "WARNING"
     primary = blocks[0] if blocks else None
     next_action = "Wait for spread to normalize and a valid Fast RSI signal." if primary else "Continue monitoring; no dashboard action is available."
+    raw = _dict(_dict(snapshot).get("raw"))
+    railway_broker_execution = _dict(runtime_environment).get("broker_execution_enabled")
+    ea_broker_execution = raw.get("broker_execution_enabled")
+    broker_matched = railway_broker_execution == ea_broker_execution if ea_broker_execution is not None and railway_broker_execution is not None else None
+    latest_gate = _dict(demo_broker_execution.get("latest_gate_decision"))
+    latest_command = _dict(demo_broker_execution.get("latest_command"))
+    risk_model = _dict(demo_broker_execution.get("risk_model"))
+    latest_v2 = next((item for item in reversed(strategy_latest) if item.get("strategy_name") == "xauusd_paper_v2"), {})
+    quick_summary = _dict(quick_validation.get("summary"))
+    broker_execution_cockpit = {
+        "railway_broker_execution": railway_broker_execution,
+        "ea_broker_execution": ea_broker_execution,
+        "broker_execution_matched": broker_matched,
+        "terminal_id": _dict(snapshot).get("terminal_id") or runtime_environment.get("mt5_terminal_id"),
+        "symbol": market.get("symbol") or "XAUUSDm",
+        "positions_count": len(_list(_dict(snapshot).get("positions"))),
+        "latest_command_state": latest_command.get("status") or ("NO_COMMAND" if railway_broker_execution is False else None),
+        "latest_command_reason": latest_gate.get("reason") or demo_broker_execution.get("latest_gate_block"),
+        "latest_primary_block": latest_gate.get("primary_block") or demo_broker_execution.get("latest_gate_block") or primary,
+        "aurix_queue_state": demo_broker_execution.get("queue_state") or latest_gate.get("queue_state"),
+        "spread_gate_state": demo_broker_execution.get("spread_gate") or latest_gate.get("spread_gate") or market.get("spread_status"),
+        "engine_max_spread": demo_broker_execution.get("engine_max_spread_points") or market.get("max_spread_threshold"),
+        "current_spread": market.get("spread_points"),
+        "risk_model": risk_model,
+        "selected_strategy": demo_broker_execution.get("selected_strategy") or decision.get("strategy") or _dict(strategy_status.get("latest_signal")).get("strategy_name"),
+        "latest_signal_status": latest_v2.get("status") or _dict(strategy_status.get("latest_signal")).get("status"),
+        "quick_validation_status": quick_validation.get("status"),
+        "quick_validation_pass_count": quick_summary.get("pass_count"),
+        "quick_validation_fail_count": quick_summary.get("fail_count"),
+        "quick_validation_warning_count": quick_summary.get("warning_count"),
+        "evidence_status": live_readiness.get("evidence_status") or _dict(store.read_json("evidence_gate_report.json", {})).get("status"),
+        "live_readiness_status": live_readiness.get("status"),
+        "live_readiness_arming_allowed": bool(live_readiness.get("live_arming_allowed")),
+        "live_readiness_execution_allowed": bool(live_readiness.get("live_execution_allowed")),
+        "read_only_dashboard": True,
+        "no_commands_from_dashboard": True,
+    }
 
     return AurixRuntimeDashboardSummary(
         symbol=market.get("symbol") or decision_report.get("symbol") or strategy_status.get("symbol"),
@@ -256,6 +293,7 @@ def build_runtime_dashboard_summary(
         signal_certification=signal_cert,
         paper_risk_audit=_dict(paper_risk[-1]) if paper_risk else {},
         quick_validation=quick_validation,
+        broker_execution_cockpit=broker_execution_cockpit,
         runtime_provenance=runtime_provenance,
         evidence_integrity=evidence_integrity,
         runtime_environment=runtime_environment,

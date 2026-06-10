@@ -49,7 +49,7 @@ def main() -> int:
     app_js = (DASHBOARD / "app.js").read_text(encoding="utf-8")
     combined = f"{index}\n{styles}\n{app_js}"
 
-    for label in ["LIVE TRADING DISABLED", "READ-ONLY DASHBOARD", "NO MT5 COMMAND QUEUEING FROM DASHBOARD"]:
+    for label in ["BROKER EXECUTION DISABLED", "EA EXECUTION DISABLED", "EXECUTION STATE", "READ-ONLY DASHBOARD", "NO COMMANDS FROM DASHBOARD"]:
         require(label in index, f"missing safety label: {label}")
 
     for forbidden in FORBIDDEN_JS_REFERENCES:
@@ -60,7 +60,13 @@ def main() -> int:
     require("method: \"GET\"" in app_js, "dashboard fetch calls must use GET")
     require("method: \"POST\"" not in app_js, "dashboard JS must not call POST endpoints")
     require("<button" not in index.lower(), "dashboard must not include action buttons")
+    require("localStorage" not in app_js, "dashboard must not store API keys in localStorage")
+    require("sk-" not in combined, "dashboard must not hardcode API keys")
     require("read-only" in combined.lower(), "dashboard should identify itself as read-only")
+    for section in ["Execution Control State", "AURIX Gates", "Validation / Readiness", "Quick Validation"]:
+        require(section in index, f"missing cockpit section: {section}")
+    for css_class in [".state-ok", ".state-warn", ".state-danger", ".state-disabled", ".state-enabled", ".state-blocked"]:
+        require(css_class in styles, f"missing state css class: {css_class}")
     require("Runtime summary failed" in app_js, "dashboard should handle missing data gracefully")
     stress = (ROOT / "scripts" / "stress_runtime_status_endpoints.py").read_text(encoding="utf-8")
     for endpoint in ["/event-bus/status", "/operator/status", "/operator/summary", "/dashboard/runtime-summary", "/evidence-integrity/status", "/demo-command-queue/status"]:
@@ -88,6 +94,16 @@ def main() -> int:
         "runtimeSafetyAssertion",
         "evidenceIntegrityStatus",
         "evidenceCorruptJsonFiles",
+        "cockpitRailwayExecution",
+        "cockpitEaExecution",
+        "cockpitExecutionMatch",
+        "cockpitCommandState",
+        "cockpitPrimaryBlock",
+        "gateQueueState",
+        "gateSpreadState",
+        "gateRiskModel",
+        "validationQuickStatus",
+        "validationReadinessStatus",
     ]
     for field in required_fields:
         require(f'id="{field}"' in index or f"text(\"{field}\"" in app_js, f"missing dashboard field: {field}")
@@ -114,6 +130,7 @@ def main() -> int:
     require(safety["broker_order_closed"] is False, "broker orders must not be closed")
     require(summary.get("runtime_provenance"), "runtime summary missing runtime provenance")
     require(summary.get("evidence_integrity"), "runtime summary missing evidence integrity")
+    require(summary.get("broker_execution_cockpit") is not None, "runtime summary missing broker execution cockpit")
     assertion = summary["runtime_provenance"].get("safety_assertion") or {}
     require(assertion.get("overall_safe") is True, "runtime provenance safety assertion is not safe")
 

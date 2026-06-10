@@ -175,6 +175,30 @@ body {
   border-color: var(--good);
 }
 
+.state-ok {
+  color: var(--good-fg);
+}
+
+.state-warn {
+  color: var(--warn-fg);
+}
+
+.state-danger {
+  color: var(--danger-fg);
+}
+
+.state-disabled {
+  color: var(--good-fg);
+}
+
+.state-enabled {
+  color: var(--danger-fg);
+}
+
+.state-blocked {
+  color: var(--warn-fg);
+}
+
 /* header security pills */
 .topbar-pills {
   display: flex;

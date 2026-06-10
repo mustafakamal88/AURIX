@@ -2226,7 +2226,10 @@ def _build_operator_status(
         demo_oms_status=demo_oms_status(),
         broker_reconciliation_status=broker_reconciliation_status(),
         demo_command_queue_status=demo_command_queue_status(),
+        demo_broker_execution_status=demo_broker_execution_status(),
         decision_engine_status=decision_engine_status(),
+        runtime_environment=runtime_environment_payload(),
+        quick_validation_status=quick_validation_status(),
         runtime_provenance=runtime_session.payload(),
         evidence_integrity_status=evidence_integrity_payload(),
         backtest_compare_v1_v2=build_backtest_compare(

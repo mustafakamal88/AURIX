@@ -40,6 +40,11 @@ class OperatorStatus(BaseModel):
     evidence_integrity: dict[str, Any] = Field(default_factory=dict)
     commands: dict[str, Any] = Field(default_factory=dict)
     execution: dict[str, Any] = Field(default_factory=dict)
+    broker_execution: dict[str, Any] = Field(default_factory=dict)
+    ea_execution: dict[str, Any] = Field(default_factory=dict)
+    execution_match: dict[str, Any] = Field(default_factory=dict)
+    command_gate: dict[str, Any] = Field(default_factory=dict)
+    quick_validation: dict[str, Any] = Field(default_factory=dict)
     safety: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -144,4 +149,19 @@ class OperatorSummary(BaseModel):
     runtime_uptime_seconds: Optional[float] = None
     runtime_session_safe: bool = True
     evidence_integrity_status: Optional[str] = None
+    railway_broker_execution: Optional[bool] = None
+    ea_broker_execution: Optional[bool] = None
+    broker_execution_matched: Optional[bool] = None
+    latest_command_state: Optional[str] = None
+    latest_command_reason: Optional[str] = None
+    latest_primary_block: Optional[str] = None
+    aurix_queue_state: Optional[str] = None
+    spread_gate_state: Optional[str] = None
+    engine_max_spread: Optional[float] = None
+    risk_model: dict[str, Any] = Field(default_factory=dict)
+    quick_validation_status: Optional[str] = None
+    quick_validation_pass_count: int = 0
+    quick_validation_fail_count: int = 0
+    quick_validation_warning_count: int = 0
+    runtime_profile: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)
