@@ -31,7 +31,7 @@ require_account_currency_match: true
 require_symbol_match: true
 
 min_signal_confidence: 0.60
-max_spread_points: 250
+max_spread_points: 270
 max_broker_positions: 0
 max_broker_orders: 0
 max_daily_loss_amount: 1.0

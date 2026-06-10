@@ -35,7 +35,7 @@ class DemoOmsConfig(BaseModel):
     max_volume: float = 0.01
     max_trades_per_day: int = 1
     max_open_orders: int = 1
-    max_spread_points: float = 250
+    max_spread_points: float = 270
     max_slippage_points: float = 50
     max_daily_loss_amount: float = 1.0
     max_order_age_seconds: int = 30

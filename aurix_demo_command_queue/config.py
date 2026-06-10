@@ -40,7 +40,7 @@ class DemoCommandQueueConfig(BaseModel):
     max_trades_per_day: int = 1
     max_open_broker_positions: int = 0
     max_open_broker_orders: int = 0
-    max_spread_points: float = 250
+    max_spread_points: float = 270
     max_slippage_points: int = 50
     command_ttl_seconds: int = 30
     allowed_order_types: list[str] = Field(default_factory=lambda: ["MARKET_BUY", "MARKET_SELL"])

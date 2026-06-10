@@ -40,6 +40,8 @@ The cockpit compares:
 - latest `/mt5/command` state, reason, and primary block
 - AURIX queue state, spread gate, engine max spread, risk model, selected strategy, and latest signal status
 
+For this XAUUSDm Exness setup, the default internal engine spread threshold is 270 points, so the cockpit should display `Engine Max Spread: 270 points`. Spread control belongs to AURIX internal engine/broker config, not Railway environment variables or MT5 EA inputs.
+
 MT5 account login determines whether the account is demo or live. The dashboard does not expose separate demo/live execution controls.
 
 ## Sections

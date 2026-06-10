@@ -36,7 +36,7 @@ fast_rsi_first_reversal:
   base_lot_reference: 0.01
   take_profit_points: 1200
   stop_loss_points: 1800
-  max_spread_points: 250
+  max_spread_points: 270
   rsi_period: 14
   rsi_sma_period: 9
   buy_extreme_level: 30.0

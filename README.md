@@ -190,6 +190,8 @@ The main cards mean:
 
 The dashboard is read-only by design. It does not evaluate strategies, evaluate the decision engine, process OMS requests, preview or dry-run queue payloads, queue MT5 commands, create paper trades, create order requests, change EA settings, mutate strategy config, or place/modify/close broker orders. If remote auth is required, open `/dashboard?api_key=...`; the browser sends the key as `X-AURIX-API-Key` and does not store it.
 
+For this XAUUSDm Exness setup, the default internal engine spread threshold is 270 points. The dashboard/operator cockpit should display `Engine Max Spread: 270 points`. Spread control remains an internal AURIX engine/broker configuration value; do not expose it through Railway environment variables or MT5 EA inputs.
+
 ## Part 35 Runtime Persistence Hardening
 
 Part 35 fixes a concurrent JSON status write race where multiple read-only status endpoints could try to replace the same fixed temp file, such as `status.json.tmp`, at the same time. Runtime stores now use unique temp file names plus atomic replacement for JSON and JSONL persistence.

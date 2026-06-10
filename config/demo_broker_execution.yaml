@@ -5,7 +5,7 @@ symbol_allowlist:
 terminal_id_allowlist:
   - AURIX-VPS-001
 max_volume: 0.01
-max_spread_points: 250
+max_spread_points: 270
 risk_per_trade_percent: 2.0
 daily_risk_limit_percent: 10.0
 max_open_positions: 1

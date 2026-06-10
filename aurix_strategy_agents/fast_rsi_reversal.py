@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "base_lot_reference": 0.01,
     "take_profit_points": 1200,
     "stop_loss_points": 1800,
-    "max_spread_points": 250,
+    "max_spread_points": 270,
     "rsi_period": 14,
     "rsi_sma_period": 9,
     "buy_extreme_level": 30.0,
@@ -214,7 +214,7 @@ class FastRsiFirstReversalAgent(StrategyAgent):
         hmr_available, hmr_ok, hmr_warnings, margin_use_percent = self._hmr(account)
         warnings.extend(hmr_warnings)
         spread_points = refs.get("spread_points")
-        max_spread_points = float(self.config.get("max_spread_points") or 250.0)
+        max_spread_points = float(self.config.get("max_spread_points") or 270.0)
         spread_ok = spread_points is not None and float(spread_points) <= max_spread_points
         symbol_matched = str(evaluated.get("symbol") or self.config.get("symbol")) == str(self.config.get("symbol"))
         session_allowed = self._session_allowed(evaluated.get("time"))

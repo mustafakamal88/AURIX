@@ -31,7 +31,7 @@ require_no_open_broker_position_for_symbol: false
 max_volume: 0.01
 max_trades_per_day: 1
 max_open_orders: 1
-max_spread_points: 250
+max_spread_points: 270
 max_slippage_points: 50
 max_daily_loss_amount: 1.0
 max_order_age_seconds: 30

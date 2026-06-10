@@ -63,7 +63,7 @@ class DemoBrokerExecutionConfig:
     symbol_allowlist: list[str] = field(default_factory=lambda: ["XAUUSDm"])
     terminal_id_allowlist: list[str] = field(default_factory=lambda: ["AURIX-VPS-001"])
     max_volume: float = 0.01
-    max_spread_points: float = 250.0
+    max_spread_points: float = 270.0
     max_open_positions: int = 1
     allow_all_sessions: bool = True
     allow_asia_session: bool = True
@@ -116,7 +116,7 @@ def load_demo_broker_execution_config(path: Union[str, Path] = CONFIG_PATH) -> D
         symbol_allowlist=list(raw.get("symbol_allowlist") or ["XAUUSDm"]),
         terminal_id_allowlist=list(raw.get("terminal_id_allowlist") or ["AURIX-VPS-001"]),
         max_volume=_float(raw.get("max_volume"), 0.01),
-        max_spread_points=_float(raw.get("max_spread_points"), 250.0),
+        max_spread_points=_float(raw.get("max_spread_points"), 270.0),
         max_open_positions=int(raw.get("max_open_positions") or 1),
         allow_all_sessions=bool(raw.get("allow_all_sessions", True)),
         allow_asia_session=bool(raw.get("allow_asia_session", True)),

@@ -32,7 +32,7 @@ class DecisionEngineConfig(BaseModel):
     require_account_currency_match: bool = True
     require_symbol_match: bool = True
     min_signal_confidence: float = 0.60
-    max_spread_points: float = 250
+    max_spread_points: float = 270
     max_broker_positions: int = 0
     max_broker_orders: int = 0
     max_daily_loss_amount: float = 1.0
