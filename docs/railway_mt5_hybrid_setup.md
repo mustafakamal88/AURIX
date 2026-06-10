@@ -63,8 +63,10 @@ python3 scripts/check_railway_remote_health.py \
 Or open:
 
 ```text
-https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+https://your-app.up.railway.app/dashboard
 ```
+
+Log in with the Railway `AURIX_DASHBOARD_PASSWORD`. Do not put `AURIX_API_KEY` in the browser URL. If it was previously exposed in a dashboard URL, rotate it and update the EA `ApiKey`.
 
 Confirm:
 

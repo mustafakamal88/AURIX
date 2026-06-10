@@ -56,6 +56,10 @@ def main() -> int:
         "AURIX_PUBLIC_BASE_URL",
         "AURIX_REQUIRE_API_KEY_FOR_REMOTE",
         "AURIX_API_KEY",
+        "AURIX_DASHBOARD_PASSWORD",
+        "AURIX_DASHBOARD_SESSION_SECRET",
+        "AURIX_DASHBOARD_COOKIE_NAME",
+        "AURIX_DASHBOARD_SESSION_TTL_SECONDS",
         "AURIX_DASHBOARD_READ_ONLY",
         "AURIX_BROKER_EXECUTION",
         "AURIX_DATA_DIR",
@@ -83,6 +87,10 @@ def main() -> int:
         ok("/healthz endpoint exists")
     else:
         fail("/healthz endpoint missing")
+    if '@app.get("/dashboard/login")' in main_py and '@app.post("/dashboard/logout")' in main_py and '@app.get("/dashboard/session")' in main_py:
+        ok("dashboard session auth routes exist")
+    else:
+        fail("dashboard session auth routes missing")
     if '@app.post("/mt5/snapshot")' in main_py and '@app.get("/mt5/command")' in main_py:
         ok("EA-compatible MT5 bridge routes exist")
     else:

@@ -4,13 +4,14 @@ import asyncio
 import os
 import json
 import logging
+from urllib.parse import parse_qs
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -53,6 +54,14 @@ from aurix_strategy_engine.xauusd_paper_v1 import evaluate_xauusd_paper_v1, load
 from aurix_strategy_engine.xauusd_paper_v2 import evaluate_xauusd_paper_v2, load_xauusd_paper_v2_config
 
 from .command_codec import encode_command_for_mql5
+from .dashboard_auth import (
+    DashboardAuthConfig,
+    build_clear_cookie_header,
+    build_cookie_header,
+    create_session_token,
+    verify_dashboard_password,
+    verify_session_token,
+)
 from .models import Command, ExecutionResult, utc_now_iso
 from .store import JsonStore
 
@@ -67,6 +76,7 @@ REQUIRE_API_KEY_FOR_REMOTE = os.getenv("AURIX_REQUIRE_API_KEY_FOR_REMOTE", "fals
 API_KEY = os.getenv("AURIX_API_KEY", "")
 DASHBOARD_READ_ONLY = os.getenv("AURIX_DASHBOARD_READ_ONLY", "true").lower() in {"1", "true", "yes"}
 DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "aurix_dashboard"
+dashboard_auth_config = DashboardAuthConfig.from_env()
 RAILWAY_VOLUME_DETECTED = Path(DATA_DIR).is_mount() if Path(DATA_DIR).exists() else False
 
 store = JsonStore(DATA_DIR)
@@ -220,7 +230,47 @@ def _extract_api_key(request: Request) -> str:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         return auth.split(" ", 1)[1].strip()
-    return request.headers.get("x-aurix-api-key", "") or request.query_params.get("api_key", "")
+    return request.headers.get("x-aurix-api-key", "")
+
+
+def _request_is_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    return request.url.scheme == "https" or forwarded_proto.split(",", 1)[0].strip().lower() == "https"
+
+
+def _has_valid_api_key(request: Request) -> bool:
+    return bool(API_KEY) and hmac_compare(_extract_api_key(request), API_KEY)
+
+
+def hmac_compare(left: str, right: str) -> bool:
+    import hmac
+
+    return hmac.compare_digest(left or "", right or "")
+
+
+def _has_valid_dashboard_session(request: Request) -> bool:
+    token = request.cookies.get(dashboard_auth_config.cookie_name)
+    return verify_session_token(token, dashboard_auth_config)
+
+
+def _dashboard_auth_configured() -> bool:
+    return dashboard_auth_config.configured
+
+
+def _dashboard_auth_required() -> bool:
+    return _remote_auth_required() or _dashboard_auth_configured()
+
+
+def _is_dashboard_path(path: str) -> bool:
+    return path in {"/dashboard", "/dashboard/"} or path.startswith("/dashboard/static") or path in {"/dashboard/runtime-summary", "/dashboard/session"}
+
+
+def _login_redirect() -> RedirectResponse:
+    return RedirectResponse("/dashboard/login", status_code=303)
+
+
+def _dashboard_auth_ok(request: Request) -> bool:
+    return _has_valid_api_key(request) or _has_valid_dashboard_session(request)
 
 
 def _auth_error_detail() -> str:
@@ -235,6 +285,7 @@ def runtime_environment_payload() -> dict[str, Any]:
         "public_base_url": PUBLIC_BASE_URL,
         "remote_auth_required": _remote_auth_required(),
         "api_key_configured": bool(API_KEY),
+        "dashboard_auth_configured": _dashboard_auth_configured(),
         "data_dir": DATA_DIR,
         "log_dir": LOG_DIR,
         "railway_volume_detected": RAILWAY_VOLUME_DETECTED if RUNTIME_PROFILE == "RAILWAY_CLOUD_BRIDGE" else "unknown",
@@ -247,13 +298,25 @@ def runtime_environment_payload() -> dict[str, Any]:
 @app.middleware("http")
 async def require_remote_api_key(request: Request, call_next: Any) -> Any:
     path = request.url.path
-    if path in {"/healthz"} or path.startswith("/dashboard/static"):
+    if path in {"/healthz", "/dashboard/login", "/dashboard/logout"}:
         return await call_next(request)
+    if path == "/" and request.method == "GET":
+        return await call_next(request)
+    if _is_dashboard_path(path):
+        if not _dashboard_auth_required():
+            return await call_next(request)
+        if _dashboard_auth_ok(request):
+            return await call_next(request)
+        if path in {"/dashboard", "/dashboard/"} or path.startswith("/dashboard/static"):
+            return _login_redirect()
+        return JSONResponse(status_code=401, content={"ok": False, "error": "Dashboard session required."})
     if not _remote_auth_required():
+        return await call_next(request)
+    if _has_valid_dashboard_session(request):
         return await call_next(request)
     if not API_KEY:
         return JSONResponse(status_code=503, content={"ok": False, "error": _auth_error_detail()})
-    if _extract_api_key(request) != API_KEY:
+    if not _has_valid_api_key(request):
         return JSONResponse(status_code=401, content={"ok": False, "error": _auth_error_detail()})
     return await call_next(request)
 
@@ -266,7 +329,9 @@ def root() -> dict[str, Any]:
         "name": "AURIX",
         "docs": "/docs",
         "dashboard": "/dashboard",
+        "dashboard_login": "/dashboard/login",
         "health": "/health",
+        "healthz": "/healthz",
         "latest_state": "/state/latest",
         "risk_status": "/risk/status",
         "results": "/results",
@@ -305,7 +370,81 @@ def root() -> dict[str, Any]:
         "quick_validation_run": "/quick-validation/run",
         "decision_engine_status": "/decision-engine/status",
         "evidence_integrity_status": "/evidence-integrity/status",
-        "healthz": "/healthz",
+    }
+
+
+def _dashboard_login_html(error: bool = False) -> str:
+    error_html = "<p class=\"error\">Login failed. Check the dashboard password.</p>" if error else ""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AURIX Dashboard Login</title>
+  <style>
+    body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f172a; color: #e5e7eb; }}
+    main {{ width: min(420px, calc(100vw - 32px)); border: 1px solid #334155; background: #111827; padding: 28px; border-radius: 8px; }}
+    h1 {{ margin: 0 0 16px; font-size: 22px; }}
+    label {{ display: block; margin-bottom: 8px; color: #cbd5e1; }}
+    input {{ width: 100%; box-sizing: border-box; padding: 12px; border-radius: 6px; border: 1px solid #475569; background: #020617; color: #f8fafc; }}
+    button {{ width: 100%; margin-top: 16px; padding: 12px; border: 0; border-radius: 6px; background: #38bdf8; color: #082f49; font-weight: 700; cursor: pointer; }}
+    .error {{ color: #fecaca; background: #7f1d1d; border: 1px solid #ef4444; padding: 10px; border-radius: 6px; }}
+    .note {{ color: #94a3b8; font-size: 13px; line-height: 1.4; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>AURIX Dashboard</h1>
+    {error_html}
+    <form method="post" action="/dashboard/login">
+      <label for="password">Dashboard password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button type="submit">Log in</button>
+    </form>
+    <p class="note">The dashboard uses a server-side HttpOnly session cookie. API keys are not placed in the browser URL.</p>
+  </main>
+</body>
+</html>"""
+
+
+@app.get("/dashboard/login")
+def dashboard_login_page() -> HTMLResponse:
+    return HTMLResponse(_dashboard_login_html())
+
+
+@app.post("/dashboard/login")
+async def dashboard_login(request: Request) -> Any:
+    body = (await request.body()).decode("utf-8")
+    fields = parse_qs(body, keep_blank_values=True)
+    password = fields.get("password", [""])[0]
+    if not _dashboard_auth_configured() or not verify_dashboard_password(password, dashboard_auth_config):
+        return HTMLResponse(_dashboard_login_html(error=True), status_code=401)
+    token = create_session_token(dashboard_auth_config)
+    response = RedirectResponse("/dashboard", status_code=303)
+    response.headers.append(
+        "set-cookie",
+        build_cookie_header(config=dashboard_auth_config, token=token, secure=_request_is_https(request)),
+    )
+    return response
+
+
+@app.post("/dashboard/logout")
+def dashboard_logout(request: Request) -> RedirectResponse:
+    response = RedirectResponse("/dashboard/login", status_code=303)
+    response.headers.append(
+        "set-cookie",
+        build_clear_cookie_header(config=dashboard_auth_config, secure=_request_is_https(request)),
+    )
+    return response
+
+
+@app.get("/dashboard/session")
+def dashboard_session(request: Request) -> dict[str, Any]:
+    authenticated = _dashboard_auth_ok(request) if _dashboard_auth_required() else True
+    return {
+        "authenticated": authenticated,
+        "dashboard_auth_configured": _dashboard_auth_configured(),
+        "read_only_dashboard": DASHBOARD_READ_ONLY,
     }
 
 

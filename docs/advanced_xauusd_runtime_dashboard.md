@@ -126,11 +126,13 @@ The dashboard still polls only:
 GET /dashboard/runtime-summary
 ```
 
-For Railway, remote access requires `AURIX_API_KEY`. The dashboard can be opened with:
+For Railway, machine/API access requires `AURIX_API_KEY`. Browser dashboard access uses `/dashboard/login` with `AURIX_DASHBOARD_PASSWORD` and a signed HttpOnly cookie. The dashboard can be opened with:
 
 ```text
-https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+https://your-app.up.railway.app/dashboard
 ```
+
+Do not put the API key in the dashboard URL. If it was previously exposed in a browser URL, rotate it.
 
 The runtime summary includes a `runtime_environment` block with runtime profile, public base URL, remote auth requirement, data/log directories, Railway volume detection, terminal id, and disabled execution flags. These fields are observability only.
 

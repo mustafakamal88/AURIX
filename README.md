@@ -188,7 +188,7 @@ The main cards mean:
 - `Safety Locks`: confirms broker execution, arming, command queueing, broker order creation, MT5 queueing, paper trade creation, and order request creation are disabled.
 - `Why No Trade?`: primary block, secondary blocks, warnings, and recommended next action from the latest decision context.
 
-The dashboard is read-only by design. It does not evaluate strategies, evaluate the decision engine, process OMS requests, preview or dry-run queue payloads, queue MT5 commands, create paper trades, create order requests, change EA settings, mutate strategy config, or place/modify/close broker orders. If remote auth is required, open `/dashboard?api_key=...`; the browser sends the key as `X-AURIX-API-Key` and does not store it.
+The dashboard is read-only by design. It does not evaluate strategies, evaluate the decision engine, process OMS requests, preview or dry-run queue payloads, queue MT5 commands, create paper trades, create order requests, change EA settings, mutate strategy config, or place/modify/close broker orders. For Railway, open `/dashboard` and log in with `AURIX_DASHBOARD_PASSWORD`; do not put `AURIX_API_KEY` in the browser URL.
 
 For this XAUUSDm Exness setup, the default internal engine spread threshold is 270 points. The dashboard/operator cockpit should display `Engine Max Spread: 270 points`. Spread control remains an internal AURIX engine/broker configuration value; do not expose it through Railway environment variables or MT5 EA inputs.
 
@@ -311,8 +311,10 @@ Required Railway volume mount:
 Dashboard URL pattern:
 
 ```text
-https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+https://your-app.up.railway.app/dashboard
 ```
+
+The browser dashboard authenticates through `/dashboard/login` using `AURIX_DASHBOARD_PASSWORD` and a signed HttpOnly cookie. `AURIX_API_KEY` remains for EA and API clients. If it was previously exposed in a dashboard URL, rotate it.
 
 Remote health check:
 

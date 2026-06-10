@@ -56,11 +56,18 @@ def main() -> int:
         require(forbidden not in app_js, f"dashboard JS references forbidden endpoint: {forbidden}")
 
     require("/dashboard/runtime-summary" in app_js, "dashboard JS must call runtime summary endpoint")
+    require("/dashboard/session" in app_js, "dashboard JS must check dashboard session endpoint")
+    require("/dashboard/logout" in app_js, "dashboard JS must support dashboard logout")
     require("fetch(" in app_js, "dashboard JS should fetch read-only API data")
     require("method: \"GET\"" in app_js, "dashboard fetch calls must use GET")
-    require("method: \"POST\"" not in app_js, "dashboard JS must not call POST endpoints")
-    require("<button" not in index.lower(), "dashboard must not include action buttons")
-    require("localStorage" not in app_js, "dashboard must not store API keys in localStorage")
+    require('method: "POST"' not in app_js.replace('method: "POST", credentials: "same-origin"', ""), "dashboard JS must not call POST endpoints except logout")
+    require("dashboardLogout" in index, "dashboard must include logout control")
+    require("api_key" not in app_js, "dashboard JS must not read api_key query parameters")
+    require("X-AURIX-API-Key" not in app_js and "x-aurix-api-key" not in app_js.lower(), "dashboard JS must not handle API key headers")
+    local_storage = "local" + "Storage"
+    session_storage = "session" + "Storage"
+    require(local_storage not in app_js, "dashboard must not store API keys in browser local storage")
+    require(session_storage not in app_js, "dashboard must not store API keys in browser session storage")
     require("sk-" not in combined, "dashboard must not hardcode API keys")
     require("read-only" in combined.lower(), "dashboard should identify itself as read-only")
     for section in ["Execution Control State", "AURIX Gates", "Validation / Readiness", "Quick Validation"]:
@@ -114,6 +121,9 @@ def main() -> int:
     routes = {getattr(route, "path", "") for route in main_module.app.routes}
     require("/dashboard" in routes, "FastAPI /dashboard route missing")
     require("/dashboard/" in routes, "FastAPI /dashboard/ route missing")
+    require("/dashboard/login" in routes, "dashboard login route missing")
+    require("/dashboard/logout" in routes, "dashboard logout route missing")
+    require("/dashboard/session" in routes, "dashboard session route missing")
     require("/dashboard/runtime-summary" in routes, "runtime summary endpoint missing")
     require("/evidence-integrity/status" in routes, "evidence integrity endpoint missing")
 

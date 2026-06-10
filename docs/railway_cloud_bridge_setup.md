@@ -80,6 +80,10 @@ AURIX_PORT=${PORT}
 AURIX_PUBLIC_BASE_URL=https://your-app.up.railway.app
 AURIX_REQUIRE_API_KEY_FOR_REMOTE=true
 AURIX_API_KEY=replace-with-a-long-random-secret
+AURIX_DASHBOARD_PASSWORD=replace-with-dashboard-password
+AURIX_DASHBOARD_SESSION_SECRET=replace-with-long-random-cookie-secret
+AURIX_DASHBOARD_COOKIE_NAME=aurix_dashboard_session
+AURIX_DASHBOARD_SESSION_TTL_SECONDS=86400
 AURIX_DASHBOARD_READ_ONLY=true
 AURIX_SYMBOL=XAUUSDm
 AURIX_TERMINAL_ID=AURIX-VPS-001
@@ -88,7 +92,7 @@ AURIX_DATA_DIR=/data
 AURIX_LOG_DIR=/data/logs
 ```
 
-Use a long random value for `AURIX_API_KEY`. Do not leave it blank. In Railway cloud profile, AURIX fails closed when remote API-key auth is required but no API key is configured.
+Use long random values for `AURIX_API_KEY` and `AURIX_DASHBOARD_SESSION_SECRET`. Do not leave them blank. In Railway cloud profile, AURIX fails closed when remote API-key auth is required but no API key is configured. `AURIX_API_KEY` is for the EA and machine/API clients. `AURIX_DASHBOARD_PASSWORD` is for human dashboard login.
 
 ## Required Volume
 
@@ -113,10 +117,9 @@ Accepted forms:
 ```text
 X-AURIX-API-Key: <key>
 Authorization: Bearer <key>
-?api_key=<key>
 ```
 
-The query parameter exists for EA/dashboard compatibility. Prefer headers for scripts.
+Browser dashboard requests can also authenticate with the signed HttpOnly dashboard session cookie issued by `/dashboard/login`. Do not put API keys in URLs.
 
 Protected endpoints include:
 
@@ -138,8 +141,14 @@ Protected endpoints include:
 Railway dashboard URL pattern:
 
 ```text
-https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+https://your-app.up.railway.app/dashboard
 ```
+
+Log in with `AURIX_DASHBOARD_PASSWORD`. The server verifies the password, sets a signed HttpOnly cookie, and redirects back to `/dashboard`. The dashboard JavaScript uses same-origin cookie requests and never handles the API key.
+
+To use a custom domain, add it in Railway service settings, create the DNS record Railway provides, wait for HTTPS to become active, then open `https://your-domain/dashboard`.
+
+If an API key was previously exposed through a dashboard URL, rotate `AURIX_API_KEY` and update the EA `ApiKey`.
 
 The browser dashboard remains read-only and continues to poll only:
 

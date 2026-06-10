@@ -11,10 +11,24 @@ http://127.0.0.1:8765/dashboard
 Railway deployments can use:
 
 ```text
-https://your-app.up.railway.app/dashboard?api_key=YOUR_AURIX_API_KEY
+https://your-app.up.railway.app/dashboard
 ```
 
-The dashboard JavaScript reads `api_key` from the current URL query and sends it as an `X-AURIX-API-Key` header. The key is not hardcoded, not displayed, and not stored in localStorage.
+The browser dashboard uses a server-side login session. Open `/dashboard`, log in with the Railway `AURIX_DASHBOARD_PASSWORD`, and the server sets a signed HttpOnly cookie using `AURIX_DASHBOARD_SESSION_SECRET`. The dashboard JavaScript does not read URL secrets, does not send `X-AURIX-API-Key`, and does not store secrets in browser storage.
+
+Railway variables:
+
+```env
+AURIX_API_KEY=replace-with-ea-and-api-secret
+AURIX_DASHBOARD_PASSWORD=replace-with-dashboard-password
+AURIX_DASHBOARD_SESSION_SECRET=replace-with-long-random-cookie-secret
+AURIX_DASHBOARD_COOKIE_NAME=aurix_dashboard_session
+AURIX_DASHBOARD_SESSION_TTL_SECONDS=86400
+```
+
+`AURIX_API_KEY` is for the EA and API clients. `AURIX_DASHBOARD_PASSWORD` is for human browser login. Do not put either value in the dashboard URL. If an API key was previously opened in a dashboard URL, rotate it.
+
+For a custom domain, add the domain in Railway service settings, configure the DNS record Railway gives you, keep HTTPS enabled, and open `https://your-domain/dashboard`.
 
 ## Read-Only Safety
 

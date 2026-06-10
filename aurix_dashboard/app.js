@@ -2,7 +2,6 @@
 
 const REFRESH_MS = 4000;
 const RUNTIME_SUMMARY_ENDPOINT = "/dashboard/runtime-summary";
-const DASHBOARD_API_KEY = new URLSearchParams(window.location.search).get("api_key") || "";
 
 // ── DOM helpers ──────────────────────────────────────────────────
 
@@ -149,13 +148,22 @@ function setConnected(ok, reason) {
 
 async function getRuntimeSummary() {
   const url = new URL(RUNTIME_SUMMARY_ENDPOINT, window.location.origin);
-  if (DASHBOARD_API_KEY) url.searchParams.set("api_key", DASHBOARD_API_KEY);
-  const headers = DASHBOARD_API_KEY ? { "X-AURIX-API-Key": DASHBOARD_API_KEY } : {};
-  const response = await fetch(url.toString(), { method: "GET", cache: "no-store", headers });
+  const response = await fetch(url.toString(), { method: "GET", cache: "no-store", credentials: "same-origin" });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
   return response.json();
+}
+
+async function getDashboardSession() {
+  const response = await fetch("/dashboard/session", { method: "GET", cache: "no-store", credentials: "same-origin" });
+  if (!response.ok) return null;
+  return response.json();
+}
+
+async function logoutDashboard() {
+  await fetch("/dashboard/logout", { method: "POST", credentials: "same-origin" });
+  window.location.assign("/dashboard/login");
 }
 
 // ── Render ────────────────────────────────────────────────────────
@@ -498,6 +506,10 @@ function render(summary) {
 
 async function refresh() {
   try {
+    const session = await getDashboardSession();
+    if (session && session.authenticated) {
+      setStatus("dashboardSessionStatus", "Authenticated dashboard session", "good");
+    }
     const summary = await getRuntimeSummary();
     setConnected(true);
     render(summary);
@@ -508,5 +520,7 @@ async function refresh() {
   }
 }
 
+const logoutButton = byId("dashboardLogout");
+if (logoutButton) logoutButton.addEventListener("click", logoutDashboard);
 refresh();
 setInterval(refresh, REFRESH_MS);

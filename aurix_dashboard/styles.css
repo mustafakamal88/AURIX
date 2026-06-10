@@ -206,6 +206,24 @@ body {
   flex-wrap: wrap;
 }
 
+.link-button {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
 /* ── Decision Strip ─────────────────────────────────────────────── */
 
 .decision-strip {
