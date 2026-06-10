@@ -51,12 +51,12 @@ def write_jsonl(root: Path, relative_path: str, rows: list[dict[str, object]]) -
     path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
 
 
-def snapshot(age_seconds: int, *, broker_execution: bool = True) -> dict[str, object]:
+def snapshot(age_seconds: int, *, broker_execution: bool = True, spread_points: float = 20.0) -> dict[str, object]:
     return {
         "terminal_id": "AURIX-VPS-001",
         "received_at": iso_age(age_seconds),
         "account": {"server": "Exness-MT5Trial15", "currency": "GBP", "balance": 1000.0, "equity": 1000.0, "is_demo": True},
-        "tick": {"symbol": "XAUUSDm", "bid": 2300.0, "ask": 2300.2, "spread_points": 20.0, "time": iso_age(age_seconds)},
+        "tick": {"symbol": "XAUUSDm", "bid": 2300.0, "ask": 2300.2, "spread_points": spread_points, "time": iso_age(age_seconds)},
         "candles": [{"time": iso_age(age_seconds), "open": 1, "high": 2, "low": 1, "close": 2}],
         "positions": [],
         "orders": [],
@@ -64,8 +64,8 @@ def snapshot(age_seconds: int, *, broker_execution: bool = True) -> dict[str, ob
     }
 
 
-def seed_runtime(root: Path, *, snapshot_age: int = 1, broker_execution: bool = True, ea_execution: bool = True) -> None:
-    write_json(root, "latest_snapshot.json", snapshot(snapshot_age, broker_execution=ea_execution))
+def seed_runtime(root: Path, *, snapshot_age: int = 1, broker_execution: bool = True, ea_execution: bool = True, spread_points: float = 20.0) -> None:
+    write_json(root, "latest_snapshot.json", snapshot(snapshot_age, broker_execution=ea_execution, spread_points=spread_points))
     write_json(root, "event_bus/status.json", {"updated_at": iso_age(1), "event_count": 1, "last_sequence": 1, "last_event_type": "AURIX_DECISION_EVENT"})
     write_json(root, "event_bus/state_snapshot.json", {"generated_at": iso_age(1)})
     write_jsonl(root, "event_bus/events.jsonl", [{"event_type": "AURIX_DECISION_EVENT", "event_id": "evt-1", "payload": {"action": "WAIT"}}])
@@ -220,6 +220,14 @@ def main() -> int:
         require(cockpit["aurix_queue_state"] == "BLOCKED" and cockpit["aurix_queue_reason"] == "signal gate blocked", f"queue reason wrong: {cockpit}")
         require(true_summary["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "dashboard summary should not create an MT5 command")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
+
+        seed_runtime(temp_root, snapshot_age=1, broker_execution=True, ea_execution=True, spread_points=999.0)
+        spread_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(spread_summary["top_blocks"][0] == "no actionable signal", f"no signal should remain primary, got {spread_summary['top_blocks']}")
+        require(
+            spread_summary["top_blocks"][1] == "spread gate blocked: current spread 999.0 points > max spread 270 points",
+            f"spread block should be secondary with current/max spread, got {spread_summary['top_blocks']}",
+        )
 
         false_summary = build_runtime_dashboard_summary(temp_root, runtime_environment={"broker_execution_enabled": False, "data_dir": temp_dir}, runtime_provenance=runtime_provenance).model_dump(mode="json")
         require(false_summary["health"] == "HEALTHY", "broker execution false must not make readiness collection unhealthy")

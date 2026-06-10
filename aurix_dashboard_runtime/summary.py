@@ -157,6 +157,17 @@ def _has_no_actionable_signal(cockpit: dict[str, Any], decision: dict[str, Any])
     )
 
 
+def _spread_block_reason(market: dict[str, Any], cockpit: dict[str, Any]) -> str | None:
+    spread_status = str(cockpit.get("spread_gate_state") or market.get("spread_status") or "").upper()
+    if spread_status != "BLOCKED":
+        return None
+    current = cockpit.get("current_spread")
+    maximum = cockpit.get("engine_max_spread") or market.get("max_spread_threshold")
+    if current is None or maximum is None:
+        return "spread gate blocked"
+    return f"spread gate blocked: current spread {current} points > max spread {maximum} points"
+
+
 def build_runtime_dashboard_summary(
     data_dir: str | Path = "data",
     *,
@@ -273,6 +284,9 @@ def build_runtime_dashboard_summary(
     if no_actionable_signal:
         if "no actionable signal" not in blocks:
             blocks.insert(0, "no actionable signal")
+        spread_block = _spread_block_reason(market, broker_execution_cockpit)
+        if spread_block and spread_block not in blocks:
+            blocks.insert(1, spread_block)
         broker_execution_cockpit["latest_primary_block"] = "no actionable signal"
         broker_execution_cockpit["signal_gate_state"] = "BLOCKED"
         broker_execution_cockpit["aurix_queue_state"] = "BLOCKED"
