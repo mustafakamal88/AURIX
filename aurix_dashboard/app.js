@@ -216,6 +216,7 @@ function render(summary) {
   const runtimeEnvironment   = summary.runtime_environment    || {};
   const quickValidation      = summary.quick_validation       || {};
   const pipeline             = summary.strategy_pipeline      || {};
+  const tradeExplanation     = summary.latest_trade_explanation || {};
   const cockpit              = summary.broker_execution_cockpit || {};
   const quickValidationSafety = quickValidation.safety         || {};
   const quickValidationSummary = quickValidation.summary       || {};
@@ -466,6 +467,28 @@ function render(summary) {
   setStatus("demoCommandQueueMt5Allowed", queue.mt5_delivery_state || latestDemoCommand.status || "NO_COMMAND");
   setText("demoCommandQueueMt5CommandId",    queue.mt5_command_id);
   setText("demoCommandQueueBrokerOrderId",   queue.broker_order_id);
+
+  // ── Latest Trade Explanation ────────────────────────────────────
+  const traceSetup = tradeExplanation.trace_setup || {};
+  const setupComponents = tradeExplanation.setup_components || {};
+  const hasExplanation = Boolean(tradeExplanation.trade_id || tradeExplanation.mt5_order_id);
+  setText("tradeExplanationOrderId", hasExplanation ? (tradeExplanation.mt5_order_id || tradeExplanation.trade_id) : "--");
+  setText("tradeExplanationStrategy", hasExplanation ? tradeExplanation.strategy_name : "--");
+  setStatus("tradeExplanationDirection", hasExplanation ? tradeExplanation.direction : "--");
+  setText("tradeExplanationEntry", hasExplanation ? fixed(tradeExplanation.entry, 3) : "--");
+  setText("tradeExplanationSl", hasExplanation ? fixed(tradeExplanation.stop_loss, 3) : "--");
+  setText("tradeExplanationTp", hasExplanation ? fixed(tradeExplanation.take_profit, 3) : "--");
+  setText("tradeExplanationReason", hasExplanation ? tradeExplanation.reason_summary : "No trade explanation recorded yet.");
+  setText("tradeExplanationConfidence", hasExplanation ? tradeExplanation.confidence : "--");
+  setText("tradeExplanationComponents", hasExplanation ? joinItems([
+    setupComponents.reason,
+    traceSetup.trap_detected !== undefined ? `trap=${traceSetup.trap_detected}` : null,
+    traceSetup.reclaim_detected !== undefined ? `reclaim=${traceSetup.reclaim_detected}` : null,
+    traceSetup.accept_detected !== undefined ? `accept=${traceSetup.accept_detected}` : null,
+    traceSetup.continuation_detected !== undefined ? `continuation=${traceSetup.continuation_detected}` : null,
+    traceSetup.execute_triggered !== undefined ? `execute=${traceSetup.execute_triggered}` : null,
+  ].filter(Boolean)) : "--");
+  setStatus("tradeExplanationResult", hasExplanation ? tradeExplanation.result : "--");
 
   // ── Demo Broker Execution ────────────────────────────────────────
   setStatus("demoBrokerEnabled", demoBroker.broker_execution || (demoBrokerConfig.broker_execution_enabled ? "ENABLED" : "DISABLED"));

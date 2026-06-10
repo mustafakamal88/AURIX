@@ -237,6 +237,7 @@ def build_runtime_dashboard_summary(
     demo_queue_status = _dict(store.read_json("demo_command_queue/status.json", {}))
     demo_queue_previews = _list(store.read_json("demo_command_queue/previews.json", []))
     demo_queue_payloads = _list(store.read_json("demo_command_queue/payloads.json", []))
+    trade_explanation_index = _list(store.read_json("trade_explanations/index.json", []))
     demo_broker_execution = _dict(store.read_json("demo_broker_execution/status.json", {}))
     broker_status = _dict(store.read_json("broker_reconciliation/status.json", {}))
     broker_report = _dict(store.read_json("broker_reconciliation/report.json", {}))
@@ -273,6 +274,8 @@ def build_runtime_dashboard_summary(
     latest_payload = _dict(demo_queue_payloads[-1]) if demo_queue_payloads else {}
     latest_preview = _dict(demo_queue_previews[-1]) if demo_queue_previews else {}
     latest_request = _dict(demo_oms_requests[-1]) if demo_oms_requests else {}
+    latest_trade_index = _dict(trade_explanation_index[-1]) if trade_explanation_index else {}
+    latest_trade_explanation = _dict(store.read_json(f"trade_explanations/{latest_trade_index.get('trade_id')}.json", {})) if latest_trade_index.get("trade_id") else {}
     latest_decision_event = next((event for event in reversed(recent_events) if event.get("event_type") == "AURIX_DECISION_EVENT"), None)
     safety = RuntimeDashboardSafety()
     runtime_provenance = runtime_provenance or legacy_runtime_provenance(data_dir, mode=str(decision.get("mode") or "UNKNOWN"), symbol=str(market.get("symbol") or "XAUUSDm"))
@@ -454,6 +457,7 @@ def build_runtime_dashboard_summary(
         paper_risk_audit=_dict(paper_risk[-1]) if paper_risk else {},
         quick_validation=quick_validation,
         strategy_pipeline=pipeline_status,
+        latest_trade_explanation=latest_trade_explanation,
         broker_execution_cockpit=broker_execution_cockpit,
         runtime_provenance=runtime_provenance,
         evidence_integrity=evidence_integrity,

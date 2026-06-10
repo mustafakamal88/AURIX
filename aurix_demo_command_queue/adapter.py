@@ -5,6 +5,7 @@ from typing import Any
 from aurix_broker_reconciliation import BrokerReconciliationStore
 from aurix_demo_oms import DemoOmsStore
 from aurix_event_bus import AurixEventBus
+from aurix_trade_explanations import TradeExplanationStore, build_trade_explanation
 
 from .config import DemoCommandQueueConfig
 from .models import DemoCommandPreview, DemoMt5CommandPayload
@@ -30,6 +31,7 @@ class DemoCommandQueueAdapter:
         self.snapshot_provider = snapshot_provider
         self.demo_oms_store = demo_oms_store or DemoOmsStore(data_dir)
         self.broker_reconciliation_store = broker_reconciliation_store or BrokerReconciliationStore(data_dir)
+        self.trade_explanation_store = TradeExplanationStore(data_dir)
         self.provenance_provider = lambda component, source: {}
 
     def get_demo_command_queue_status(self) -> dict[str, Any]:
@@ -59,6 +61,61 @@ class DemoCommandQueueAdapter:
     def _latest_oms_request(self) -> dict[str, Any] | None:
         requests = self.demo_oms_store.load_order_requests()
         return requests[-1] if requests else None
+
+    def _oms_intent_for_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        intent_id = request.get("intent_id")
+        for item in reversed(self.demo_oms_store.load_order_intents()):
+            if item.get("id") == intent_id:
+                return item
+        return {}
+
+    def _latest_decision(self) -> dict[str, Any]:
+        if self.event_bus is not None:
+            try:
+                events = self.event_bus.load_events_by_type("AURIX_DECISION_EVENT", limit=20)
+            except Exception:
+                events = []
+            if events:
+                payload = events[-1].get("payload")
+                return payload if isinstance(payload, dict) else {}
+        return {}
+
+    def _strategy_diagnostics_for(self, request: dict[str, Any], intent: dict[str, Any]) -> dict[str, Any]:
+        strategy_name = request.get("strategy_name") or intent.get("strategy_name")
+        if not strategy_name or self.event_bus is None:
+            return {}
+        try:
+            events = self.event_bus.load_events_by_type("SIGNAL_EVENT", limit=50)
+        except Exception:
+            return {}
+        source_signal_id = request.get("source_signal_id") or intent.get("source_signal_id")
+        source_event_id = request.get("source_signal_event_id") or intent.get("source_signal_event_id")
+        for event in reversed(events):
+            payload = event.get("payload") if isinstance(event, dict) else {}
+            payload = payload if isinstance(payload, dict) else {}
+            if source_event_id and event.get("event_id") == source_event_id:
+                return payload
+            if source_signal_id and (payload.get("signal_id") == source_signal_id or payload.get("id") == source_signal_id):
+                return payload
+            if payload.get("strategy_name") == strategy_name:
+                return payload
+        return {}
+
+    def _write_trade_explanation(self, request: dict[str, Any], preview: DemoCommandPreview, validation, payload: DemoMt5CommandPayload) -> dict[str, Any]:
+        intent = self._oms_intent_for_request(request)
+        explanation = build_trade_explanation(
+            oms_request=request,
+            oms_intent=intent,
+            preview=preview.model_dump(mode="json"),
+            validation=validation.model_dump(mode="json"),
+            payload=payload.model_dump(mode="json"),
+            snapshot=self._snapshot(),
+            decision=self._latest_decision(),
+            strategy_diagnostics=self._strategy_diagnostics_for(request, intent),
+        )
+        explanation["trade_id"] = str(payload.id)
+        explanation["mt5_order_id"] = payload.broker_order_id or "unknown"
+        return self.trade_explanation_store.write(explanation)
 
     def preview_latest_oms_request(self) -> dict[str, Any]:
         request = self._latest_oms_request()
@@ -147,6 +204,7 @@ class DemoCommandQueueAdapter:
         self.store.add_preview(preview)
         preview_event = publish_preview_event(self.event_bus, preview, validation)
         payload = self.build_mt5_command_payload(preview, validation)
+        explanation = self._write_trade_explanation(request, preview, validation, payload)
         self.store.add_payload(payload)
         payload_event = publish_payload_event(self.event_bus, payload, validation)
         return {
@@ -154,6 +212,7 @@ class DemoCommandQueueAdapter:
             "preview": preview.model_dump(mode="json"),
             "payload": payload.model_dump(mode="json"),
             "validation": validation.model_dump(mode="json"),
+            "trade_explanation": explanation,
             "preview_event": preview_event,
             "payload_event": payload_event,
             "paper_trades_created": 0,

@@ -98,6 +98,8 @@ def main() -> int:
         dry = adapter.dry_run_latest_oms_request()
         if not dry.get("payload", {}).get("id"):
             raise AssertionError(f"valid mock OMS request did not create dry-run payload: {dry}")
+        if dry.get("trade_explanation", {}).get("evidence", {}).get("command_payload_id") != dry["payload"]["id"]:
+            raise AssertionError(f"dry-run payload did not create linked trade explanation: {dry}")
         if dry["payload"]["status"] != "READY_FOR_BROKER_EXECUTION":
             raise AssertionError(f"unexpected payload status: {dry}")
         old_blockers = {

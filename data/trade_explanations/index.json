@@ -1,0 +1,13 @@
+[
+  {
+    "trade_id": "1765078137",
+    "mt5_order_id": "1765078137",
+    "created_at": "2026-06-10T09:39:08+00:00",
+    "updated_at": "2026-06-10T09:39:08+00:00",
+    "symbol": "XAUUSDm",
+    "direction": "SELL",
+    "strategy_name": "unknown",
+    "reason_summary": "unknown",
+    "result": "CLOSED_TP"
+  }
+]

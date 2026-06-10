@@ -117,6 +117,7 @@ def seed_runtime(
     write_json(root, "execution_results.json", [])
     write_json(root, "demo_oms/order_requests.json", [])
     write_json(root, "demo_command_queue/payloads.json", [])
+    write_json(root, "trade_explanations/index.json", [])
 
 
 def main() -> int:
@@ -157,8 +158,9 @@ def main() -> int:
     require(session_storage not in app_js, "dashboard must not store API keys in browser session storage")
     require("sk-" not in combined, "dashboard must not hardcode API keys")
     require("read-only" in combined.lower(), "dashboard should identify itself as read-only")
-    for section in ["Execution Control State", "AURIX Gates", "Validation / Readiness", "Quick Validation"]:
+    for section in ["Execution Control State", "AURIX Gates", "Validation / Readiness", "Quick Validation", "Latest Trade Explanation"]:
         require(section in index, f"missing cockpit section: {section}")
+    require("No trade explanation recorded yet." in index and "No trade explanation recorded yet." in app_js, "dashboard missing empty trade explanation copy")
     for css_class in [".state-ok", ".state-warn", ".state-danger", ".state-disabled", ".state-enabled", ".state-blocked"]:
         require(css_class in styles, f"missing state css class: {css_class}")
     require("Runtime summary failed" in app_js, "dashboard should handle missing data gracefully")
@@ -218,6 +220,16 @@ def main() -> int:
         "runtimeTradingSession",
         "whySignalGate",
         "whyQueue",
+        "tradeExplanationOrderId",
+        "tradeExplanationStrategy",
+        "tradeExplanationDirection",
+        "tradeExplanationEntry",
+        "tradeExplanationSl",
+        "tradeExplanationTp",
+        "tradeExplanationReason",
+        "tradeExplanationConfidence",
+        "tradeExplanationComponents",
+        "tradeExplanationResult",
     ]
     for field in required_fields:
         require(f'id="{field}"' in index or f"text(\"{field}\"" in app_js, f"missing dashboard field: {field}")
@@ -286,6 +298,7 @@ def main() -> int:
         require(cockpit["legacy_gate_status"] == "IGNORED / RETIRED", f"legacy gate should be retired, got {cockpit}")
         require(cockpit["dashboard_order_capability"] == "READ_ONLY / CANNOT_CREATE_COMMANDS", f"dashboard order capability wrong: {cockpit}")
         require(true_summary["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "dashboard summary should not create an MT5 command")
+        require(true_summary["latest_trade_explanation"] == {}, "empty trade explanation ledger should render as empty summary data")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
         require(true_summary["session"]["trading_session"]["name"] in {"ASIA", "LONDON", "NEW_YORK", "OFF_SESSION"}, f"trading session missing: {true_summary['session']}")
 
