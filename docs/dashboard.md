@@ -68,6 +68,10 @@ For this XAUUSDm Exness setup, the default internal engine spread threshold is 2
 
 Runtime health is based on freshness of the bridge/runtime summary, MT5 snapshot, and event bus/runtime state. Broker execution being enabled or disabled does not make the dashboard healthy or stale by itself. Evidence/readiness files are shown as readiness warnings with expected paths when missing; they are not active trading blocks unless an explicit live execution gate requires them.
 
+Safety Locks are permission and runtime-safety indicators, not another broker execution switch. Broker Order Permission can be `BLOCKED` with a reason such as `no actionable signal` even when the configured broker execution switch and EA input are both enabled. Legacy Gate Status is displayed as `IGNORED / RETIRED` when that legacy gate is not active runtime logic. Queue Permission includes a separate queue block reason, such as `signal gate blocked: no actionable signal`.
+
+The header shows Runtime Safety separately from Trading Session. Runtime Safety is the read-only runtime safety assertion. Trading Session is calculated from the AURIX context session config in `config/context.yaml` using `Europe/London` timezone handling and is normalized to `ASIA`, `LONDON`, `NEW_YORK`, `OFF_SESSION`, or `UNKNOWN`.
+
 MT5 account login determines whether the account is demo or live. The dashboard does not expose separate demo/live execution controls.
 
 ## Sections

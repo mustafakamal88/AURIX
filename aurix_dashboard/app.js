@@ -58,7 +58,7 @@ function fmtTime(value) {
 function statusColor(value) {
   if (value === undefined || value === null || value === "" || value === "--") return "";
   const v = String(value).toUpperCase().trim();
-  const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY"]);
+  const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY", "READ_ONLY", "CANNOT_CREATE_COMMANDS"]);
   const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING"]);
   const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING", "UNKNOWN"]);
   const BLUE_SET = new Set(["RUNNING", "WAITING", "MONITORING", "EVALUATING", "SCANNING", "ACTIVE", "LIVE"]);
@@ -114,7 +114,7 @@ function setExecLock(id, value) {
   setSafetyBool(id, value, { invertSafe: true });
 }
 
-// Overall session safe: true = green, false = danger
+// Overall runtime-session safe: true = green, false = danger
 function setOverallSafe(id, value) {
   const el = byId(id);
   if (!el) return;
@@ -226,6 +226,7 @@ function render(summary) {
   const latestDemoResult     = demoBroker.latest_execution_result || {};
 
   const symbol = summary.symbol || market.symbol;
+  const tradingSession = session.trading_session || {};
   const sessionId = provenance.runtime_session_id;
   const railwayBrokerEnabled = cockpit.railway_broker_execution === true;
   const eaBrokerEnabled = cockpit.ea_broker_execution === true;
@@ -235,6 +236,8 @@ function render(summary) {
   setText("hdrSymbol", symbol);
   setStatus("hdrHealth", summary.health);
   setText("hdrHealthReason", summary.health_reason);
+  setStatus("hdrRuntimeSafety", assertion.overall_safe === true ? "SAFE" : assertion.overall_safe === false ? "UNSAFE" : summary.health === "STALE" ? "STALE" : "UNKNOWN", assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
+  setStatus("hdrTradingSession", tradingSession.name || "UNKNOWN");
   setText("hdrSession", shortId(sessionId));
   setText("hdrUptime", provenance.uptime_seconds != null
     ? `${Math.round(Number(provenance.uptime_seconds))}s`
@@ -259,10 +262,10 @@ function render(summary) {
 
   const overallSafe = assertion.overall_safe;
   setHTML("dsSafety", overallSafe === true
-    ? pillHTML("SESSION SAFE", "good")
+    ? pillHTML("Runtime Safety: SAFE", "good")
     : overallSafe === false
-      ? pillHTML("UNSAFE", "danger")
-      : pillHTML("UNKNOWN", "warn"));
+      ? pillHTML("Runtime Safety: UNSAFE", "danger")
+      : pillHTML(summary.health === "STALE" ? "Runtime Safety: STALE" : "Runtime Safety: UNKNOWN", "warn"));
 
   setText("dsNext", summary.next_expected_action || decision.next_expected_action || "--");
 
@@ -357,6 +360,7 @@ function render(summary) {
     ? `${Math.round(Number(provenance.uptime_seconds))}s`
     : "--");
   setOverallSafe("runtimeSafetyAssertion", assertion.overall_safe);
+  setStatus("runtimeTradingSession", tradingSession.name || "UNKNOWN");
   setText("latestProvenanceEvent",
     provenance.latest_provenance_event?.component ||
     provenance.latest_provenance_event?.runtime_session_id ||
@@ -370,10 +374,12 @@ function render(summary) {
   setText("sessionOmsRequests",  sessionCounters.oms_requests);
 
   // ── Safety Locks ─────────────────────────────────────────────────
-  setStatus("safetyLiveExecution",   safety.live_execution_allowed ? "ALLOWED" : "BLOCKED", safety.live_execution_allowed ? "danger" : "good");
+  setStatus("safetyBrokerOrderPermission", cockpit.broker_order_permission || (safety.live_execution_allowed ? "ALLOWED" : "BLOCKED"), safety.live_execution_allowed ? "danger" : "good");
+  setText("safetyBrokerOrderReason", cockpit.broker_order_permission_reason || cockpit.latest_primary_block || "--");
   setExecLock("safetyLiveArming",      safety.live_arming_allowed);
-  setStatus("safetyDemoExecution",   "IGNORED", "neutral");
+  setStatus("safetyDemoExecution",   cockpit.legacy_gate_status || "IGNORED / RETIRED", "neutral");
   setStatus("safetyCommandQueueing", cockpit.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--");
+  setText("safetyQueueReason", cockpit.aurix_queue_reason || "--");
   setSessionBool("safetyMt5Commands",  safety.mt5_commands_queued);
   setSessionBool("safetyBrokerOrder",  safety.broker_order_created);
   setSessionBool("safetyPaperTrade",   safety.paper_trade_created);
@@ -381,7 +387,7 @@ function render(summary) {
   // read-only = true is GOOD
   setSafetyBool("safetyReadOnly", safety.read_only_dashboard, { invertSafe: false });
   setHTML("safetyReadOnly", safety.read_only_dashboard
-    ? pillHTML("READ-ONLY", "good")
+    ? pillHTML(cockpit.dashboard_order_capability || "READ_ONLY / CANNOT_CREATE_COMMANDS", "good")
     : pillHTML("WRITABLE?", "danger"));
 
   // Session activity — false = green (nothing created this session)

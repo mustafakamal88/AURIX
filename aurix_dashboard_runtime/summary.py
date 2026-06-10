@@ -3,8 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from aurix_common import legacy_runtime_provenance
+from aurix_context_engine import load_context_config
+from aurix_context_engine.session import classify_session
 
 from .evidence_integrity import build_evidence_integrity_status
 from .models import AurixRuntimeDashboardSummary, RuntimeDashboardSafety
@@ -122,6 +125,8 @@ def _health(
     event_bus_state: dict[str, Any],
     snapshot: dict[str, Any] | None,
     runtime_provenance: dict[str, Any],
+    decision_status: dict[str, Any],
+    decision_report: dict[str, Any],
     *,
     threshold_seconds: int = 180,
 ) -> tuple[str, str]:
@@ -133,10 +138,12 @@ def _health(
         or event_bus_state.get("generated_at")
     )
     snap_age = _age_seconds(_dict(snapshot).get("received_at"))
+    decision_age = _age_seconds(decision_status.get("updated_at") or decision_report.get("generated_at"))
     checks = [
         _freshness_label("runtime summary", runtime_age, threshold_seconds),
         _freshness_label("MT5 snapshot", snap_age, threshold_seconds),
         _freshness_label("event bus", event_age, threshold_seconds),
+        _freshness_label("decision loop", decision_age, threshold_seconds),
     ]
     stale = [reason for ok, reason in checks if not ok]
     if stale:
@@ -166,6 +173,28 @@ def _spread_block_reason(market: dict[str, Any], cockpit: dict[str, Any]) -> str
     if current is None or maximum is None:
         return "spread gate blocked"
     return f"spread gate blocked: current spread {current} points > max spread {maximum} points"
+
+
+def _dashboard_trading_session(now: datetime | None = None) -> dict[str, Any]:
+    try:
+        config = load_context_config()
+        zone = ZoneInfo(config.timezone)
+        current = now or datetime.now(zone)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=zone)
+        session_name, session_open, _ = classify_session(current.isoformat(), config)
+    except Exception:
+        return {"name": "UNKNOWN", "timezone": "Europe/London", "session_open": False}
+
+    normalized = {
+        "ASIA": "ASIA",
+        "LONDON": "LONDON",
+        "NY_PRE_MARKET": "NEW_YORK",
+        "NY_OPEN": "NEW_YORK",
+        "NY_LATE": "NEW_YORK",
+        "CLOSED": "OFF_SESSION",
+    }.get(session_name, "UNKNOWN")
+    return {"name": normalized, "source_session": session_name, "timezone": config.timezone, "session_open": bool(session_open)}
 
 
 def build_runtime_dashboard_summary(
@@ -233,7 +262,7 @@ def build_runtime_dashboard_summary(
     runtime_provenance = runtime_provenance or legacy_runtime_provenance(data_dir, mode=str(decision.get("mode") or "UNKNOWN"), symbol=str(market.get("symbol") or "XAUUSDm"))
     evidence_integrity = evidence_integrity or build_evidence_integrity_status(data_dir)
     runtime_environment = runtime_environment or {}
-    health, health_reason = _health(event_bus_status, event_bus_state, snapshot, runtime_provenance)
+    health, health_reason = _health(event_bus_status, event_bus_state, snapshot, runtime_provenance, decision_status, decision_report)
     if evidence_integrity.get("status") == "ERROR":
         health = "ERROR"
         health_reason = "evidence integrity error: " + "; ".join(str(item) for item in _list(evidence_integrity.get("notes")))
@@ -290,12 +319,19 @@ def build_runtime_dashboard_summary(
         broker_execution_cockpit["latest_primary_block"] = "no actionable signal"
         broker_execution_cockpit["signal_gate_state"] = "BLOCKED"
         broker_execution_cockpit["aurix_queue_state"] = "BLOCKED"
-        broker_execution_cockpit["aurix_queue_reason"] = "signal gate blocked"
+        broker_execution_cockpit["aurix_queue_reason"] = "signal gate blocked: no actionable signal"
+        broker_execution_cockpit["broker_order_permission"] = "BLOCKED"
+        broker_execution_cockpit["broker_order_permission_reason"] = "no actionable signal"
         broker_execution_cockpit["latest_command_reason"] = broker_execution_cockpit.get("latest_command_reason") or "queue blocked because signal gate blocked"
         next_action = "Continue monitoring."
     else:
         broker_execution_cockpit["signal_gate_state"] = latest_gate.get("signal_gate") or ("PASS" if latest_gate.get("allowed") else "UNKNOWN")
         broker_execution_cockpit["aurix_queue_reason"] = latest_gate.get("reason") or broker_execution_cockpit.get("latest_command_reason")
+        broker_execution_cockpit["broker_order_permission"] = "READY" if latest_gate.get("allowed") else "BLOCKED"
+        broker_execution_cockpit["broker_order_permission_reason"] = latest_gate.get("reason") or broker_execution_cockpit.get("latest_primary_block")
+
+    broker_execution_cockpit["legacy_gate_status"] = "IGNORED / RETIRED"
+    broker_execution_cockpit["dashboard_order_capability"] = "READ_ONLY / CANNOT_CREATE_COMMANDS"
 
     return AurixRuntimeDashboardSummary(
         symbol=market.get("symbol") or decision_report.get("symbol") or strategy_status.get("symbol"),
@@ -303,6 +339,7 @@ def build_runtime_dashboard_summary(
         market=market,
         session={
             "name": _dict(context_items[-1]).get("session_name") if context_items else operator_summary.get("session"),
+            "trading_session": _dashboard_trading_session(),
             "latest_context": _dict(context_items[-1]) if context_items else {},
         },
         decision=decision,

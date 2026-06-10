@@ -23,7 +23,9 @@
         <span><span class="label">Symbol</span> <span id="hdrSymbol" class="mono">--</span></span>
         <span><span class="label">Health</span> <span id="hdrHealth">--</span></span>
         <span><span class="label">Reason</span> <span id="hdrHealthReason">--</span></span>
-        <span><span class="label">Session</span> <span id="hdrSession" class="mono">--</span></span>
+        <span><span class="label">Runtime Safety</span> <span id="hdrRuntimeSafety">--</span></span>
+        <span><span class="label">Trading Session</span> <span id="hdrTradingSession">--</span></span>
+        <span><span class="label">Runtime Session</span> <span id="hdrSession" class="mono">--</span></span>
         <span><span class="label">Uptime</span> <span id="hdrUptime" class="mono">--</span></span>
       </div>
 
@@ -53,7 +55,7 @@
         <span class="ds-value" id="dsSpread">--</span>
       </div>
       <div class="ds-cell">
-        <span class="ds-label">Safety State</span>
+        <span class="ds-label">Runtime Safety</span>
         <span class="ds-value" id="dsSafety">--</span>
       </div>
       <div class="ds-cell">
@@ -205,10 +207,11 @@
         <article class="card">
           <h2>Runtime Provenance</h2>
           <div class="row-table">
-            <div class="rt-row"><span class="rt-label">Session ID</span><span class="rt-value mono" id="runtimeSessionId">--</span></div>
+            <div class="rt-row"><span class="rt-label">Runtime Session ID</span><span class="rt-value mono" id="runtimeSessionId">--</span></div>
             <div class="rt-row"><span class="rt-label">Started At</span><span class="rt-value" id="runtimeStartedAt">--</span></div>
             <div class="rt-row"><span class="rt-label">Uptime</span><span class="rt-value" id="runtimeUptime">--</span></div>
             <div class="rt-row"><span class="rt-label">Safety Assertion</span><span class="rt-value" id="runtimeSafetyAssertion">--</span></div>
+            <div class="rt-row"><span class="rt-label">Trading Session</span><span class="rt-value" id="runtimeTradingSession">--</span></div>
             <div class="rt-row"><span class="rt-label">Latest Event</span><span class="rt-value" id="latestProvenanceEvent">--</span></div>
           </div>
 
@@ -237,15 +240,17 @@
 
           <div class="card-section-label">Execution Permissions</div>
           <div class="row-table">
-            <div class="rt-row"><span class="rt-label">Readiness Execution</span><span class="rt-value" id="safetyLiveExecution">--</span></div>
-            <div class="rt-row"><span class="rt-label">Live Arming</span><span class="rt-value" id="safetyLiveArming">--</span></div>
-            <div class="rt-row"><span class="rt-label">Legacy Gate Disabled / Ignored</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
-            <div class="rt-row"><span class="rt-label">AURIX Queue</span><span class="rt-value" id="safetyCommandQueueing">--</span></div>
+            <div class="rt-row"><span class="rt-label">Broker Order Permission</span><span class="rt-value" id="safetyBrokerOrderPermission">--</span></div>
+            <div class="rt-row"><span class="rt-label">Reason</span><span class="rt-value" id="safetyBrokerOrderReason">--</span></div>
+            <div class="rt-row"><span class="rt-label">Live Arming Permission</span><span class="rt-value" id="safetyLiveArming">--</span></div>
+            <div class="rt-row"><span class="rt-label">Legacy Gate Status</span><span class="rt-value" id="safetyDemoExecution">--</span></div>
+            <div class="rt-row"><span class="rt-label">Queue Permission</span><span class="rt-value" id="safetyCommandQueueing">--</span></div>
+            <div class="rt-row"><span class="rt-label">Queue Block Reason</span><span class="rt-value" id="safetyQueueReason">--</span></div>
             <div class="rt-row"><span class="rt-label">MT5 Commands Queued</span><span class="rt-value" id="safetyMt5Commands">--</span></div>
             <div class="rt-row"><span class="rt-label">Broker Order Created</span><span class="rt-value" id="safetyBrokerOrder">--</span></div>
             <div class="rt-row"><span class="rt-label">Paper Trade Created</span><span class="rt-value" id="safetyPaperTrade">--</span></div>
             <div class="rt-row"><span class="rt-label">Order Request Allowed</span><span class="rt-value" id="safetyOrderRequest">--</span></div>
-            <div class="rt-row"><span class="rt-label">Read-Only Dashboard</span><span class="rt-value" id="safetyReadOnly">--</span></div>
+            <div class="rt-row"><span class="rt-label">Dashboard Order Capability</span><span class="rt-value" id="safetyReadOnly">--</span></div>
           </div>
 
           <div class="card-section">
@@ -255,7 +260,7 @@
               <div class="rt-row"><span class="rt-label">Order Request Created</span><span class="rt-value" id="sessionCreatedOrderRequest">--</span></div>
               <div class="rt-row"><span class="rt-label">MT5 Command Queued</span><span class="rt-value" id="sessionQueuedMt5Command">--</span></div>
               <div class="rt-row"><span class="rt-label">Broker Order Created</span><span class="rt-value" id="sessionCreatedBrokerOrder">--</span></div>
-              <div class="rt-row"><span class="rt-label">Overall Session Safe</span><span class="rt-value" id="sessionOverallSafe">--</span></div>
+              <div class="rt-row"><span class="rt-label">Runtime Session Safe</span><span class="rt-value" id="sessionOverallSafe">--</span></div>
             </div>
           </div>
         </article>
@@ -284,7 +289,7 @@
             <div class="rt-row"><span class="rt-label">Evidence Growth</span><span class="rt-value" id="evidenceGrowthStatus">--</span></div>
             <div class="rt-row"><span class="rt-label">Signal Certification</span><span class="rt-value" id="signalCertStatus">--</span></div>
             <div class="rt-row"><span class="rt-label">Paper Risk Audit</span><span class="rt-value" id="paperRiskStatus">--</span></div>
-            <div class="rt-row"><span class="rt-label">Session</span><span class="rt-value" id="session">--</span></div>
+            <div class="rt-row"><span class="rt-label">Context Session</span><span class="rt-value" id="session">--</span></div>
           </div>
         </article>
 

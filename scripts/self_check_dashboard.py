@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
-import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,8 +70,8 @@ def seed_runtime(root: Path, *, snapshot_age: int = 1, broker_execution: bool = 
     write_json(root, "event_bus/status.json", {"updated_at": iso_age(1), "event_count": 1, "last_sequence": 1, "last_event_type": "AURIX_DECISION_EVENT"})
     write_json(root, "event_bus/state_snapshot.json", {"generated_at": iso_age(1)})
     write_jsonl(root, "event_bus/events.jsonl", [{"event_type": "AURIX_DECISION_EVENT", "event_id": "evt-1", "payload": {"action": "WAIT"}}])
-    write_json(root, "decision_engine/status.json", {"latest_action": "WAIT", "latest_status": "WAITING", "top_blocking_reason": "no actionable signal"})
-    write_json(root, "decision_engine/report.json", {"action": "WAIT", "blocking_reasons": [{"message": "no actionable signal"}], "warnings": []})
+    write_json(root, "decision_engine/status.json", {"latest_action": "WAIT", "latest_status": "WAITING", "top_blocking_reason": "no actionable signal", "updated_at": iso_age(1)})
+    write_json(root, "decision_engine/report.json", {"action": "WAIT", "generated_at": iso_age(1), "blocking_reasons": [{"message": "no actionable signal"}], "warnings": []})
     write_json(root, "strategy_agents/status.json", {"registered_count": 1, "enabled_count": 1, "latest_signal": {"status": "NO_SIGNAL", "direction": None}})
     write_json(root, "strategy_agents/latest_evaluations.json", [{"strategy_name": "xauusd_paper_v2", "status": "NO_SIGNAL", "direction": None}])
     write_json(root, "risk_status.json", {"config": {"max_spread_points": 270}})
@@ -144,7 +145,9 @@ def main() -> int:
         "fastRsiSma",
         "brokerReconStatus",
         "brokerReconMismatches",
-        "safetyLiveExecution",
+        "safetyBrokerOrderPermission",
+        "safetyBrokerOrderReason",
+        "safetyQueueReason",
         "safetyMt5Commands",
         "whyPrimary",
         "whyNext",
@@ -165,6 +168,9 @@ def main() -> int:
         "validationQuickStatus",
         "validationReadinessStatus",
         "hdrHealthReason",
+        "hdrRuntimeSafety",
+        "hdrTradingSession",
+        "runtimeTradingSession",
         "whySignalGate",
         "whyQueue",
     ]
@@ -191,6 +197,7 @@ def main() -> int:
     require("/evidence-integrity/status" in routes, "evidence integrity endpoint missing")
 
     from aurix_dashboard_runtime import build_runtime_dashboard_summary
+    from aurix_dashboard_runtime.summary import _dashboard_trading_session
 
     summary = build_runtime_dashboard_summary(ROOT / "data").model_dump(mode="json")
     safety = summary["safety"]
@@ -217,9 +224,14 @@ def main() -> int:
         require(cockpit["broker_execution_matched"] is True, "broker execution true + EA true should match")
         require(cockpit["latest_primary_block"] == "no actionable signal", f"expected no actionable signal, got {cockpit}")
         require(cockpit["signal_gate_state"] == "BLOCKED", f"signal gate should be blocked, got {cockpit}")
-        require(cockpit["aurix_queue_state"] == "BLOCKED" and cockpit["aurix_queue_reason"] == "signal gate blocked", f"queue reason wrong: {cockpit}")
+        require(cockpit["broker_order_permission"] == "BLOCKED", f"broker order permission should be blocked, got {cockpit}")
+        require(cockpit["broker_order_permission_reason"] == "no actionable signal", f"broker order reason should identify no signal, got {cockpit}")
+        require(cockpit["aurix_queue_state"] == "BLOCKED" and cockpit["aurix_queue_reason"] == "signal gate blocked: no actionable signal", f"queue reason wrong: {cockpit}")
+        require(cockpit["legacy_gate_status"] == "IGNORED / RETIRED", f"legacy gate should be retired, got {cockpit}")
+        require(cockpit["dashboard_order_capability"] == "READ_ONLY / CANNOT_CREATE_COMMANDS", f"dashboard order capability wrong: {cockpit}")
         require(true_summary["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "dashboard summary should not create an MT5 command")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
+        require(true_summary["session"]["trading_session"]["name"] in {"ASIA", "LONDON", "NEW_YORK", "OFF_SESSION"}, f"trading session missing: {true_summary['session']}")
 
         seed_runtime(temp_root, snapshot_age=1, broker_execution=True, ea_execution=True, spread_points=999.0)
         spread_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
@@ -238,6 +250,21 @@ def main() -> int:
         stale_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
         require(stale_summary["health"] == "STALE", f"stale snapshot should be stale, got {stale_summary['health']}")
         require("MT5 snapshot stale" in stale_summary["health_reason"], f"stale health reason missing snapshot detail: {stale_summary['health_reason']}")
+
+        london = ZoneInfo("Europe/London")
+        expected_sessions = [
+            (datetime(2026, 1, 5, 1, 0, tzinfo=london), "ASIA"),
+            (datetime(2026, 1, 5, 8, 0, tzinfo=london), "LONDON"),
+            (datetime(2026, 1, 5, 15, 0, tzinfo=london), "NEW_YORK"),
+            (datetime(2026, 1, 5, 22, 0, tzinfo=london), "OFF_SESSION"),
+        ]
+        for dt, expected in expected_sessions:
+            actual = _dashboard_trading_session(dt)["name"]
+            require(actual == expected, f"trading session for {dt.isoformat()} should be {expected}, got {actual}")
+
+    require("Broker Execution</span><span class=\"rt-value\" id=\"safetyLiveExecution\"" not in index, "safety locks must not show contradictory Broker Execution row")
+    require("Safety State" not in index, "decision strip should use Runtime Safety wording")
+    require("Overall Session Safe" not in index, "runtime safety wording should not say Overall Session Safe")
 
     import aurix_demo_broker_execution.store as broker_store_module
 
