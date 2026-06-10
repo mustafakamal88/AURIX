@@ -107,16 +107,22 @@ class QuickValidationRunner:
         add("runtime.command_poll_activity", True, "MT5 command polling activity is optional in quick validation")
 
         market_ok, market_quality, market_error = _safe_call(self.providers, "market_quality", {})
+        _, market_candles, _ = _safe_call(self.providers, "market_candles", [])
         market_quality = _dict(market_quality)
         add("market.quality_endpoint", market_ok, "market quality check callable", warn=True, error=market_error)
         add("market.spread_available", tick.get("spread_points") is not None, "spread is available", warn=True, spread_points=tick.get("spread_points"))
-        candle_count_ok = len(candles) >= self.min_candles
+        quality_candle_count = market_quality.get("candle_count") or market_quality.get("recorded_candles") or market_quality.get("candles")
+        try:
+            candle_count = int(quality_candle_count)
+        except (TypeError, ValueError):
+            candle_count = max(len(_list(market_candles)), len(candles))
+        candle_count_ok = candle_count >= self.min_candles
         add(
             "market.candles_threshold",
             candle_count_ok,
             "candles recorded meet quick threshold" if candle_count_ok else "candles recorded below quick threshold",
             warn=True,
-            candles=len(candles),
+            candles=candle_count,
             threshold=self.min_candles,
         )
         add("market.recorder_files", any((self.data_dir / name).exists() for name in ["market_ticks.jsonl", "market_candles.json", "market_quality.json"]), "market recorder files exist", warn=True)
@@ -136,7 +142,27 @@ class QuickValidationRunner:
         add("strategy.v2_evaluation", v2_ok, "V2 evaluation works", warn=True, error=v2_error)
         add("strategy.v2_command_id_null", v2.get("command_id") is None, "V2 command_id remains null", command_id=v2.get("command_id"))
         add("strategy.v2_no_command_queue", not bool(v2.get("mt5_command_id") or v2.get("broker_order_id")), "V2 did not call command queue")
-        add("strategy.v2_session_or_no_signal_style", str(v2.get("status") or "").upper() in {"", "NO_SIGNAL", "SKIPPED_SESSION", "SKIPPED", "SIGNAL", "VALID", "ACTIONABLE"}, "V2 returned a recognized signal/skipped/no-signal style", warn=True, status=v2.get("status"))
+        v2_status = str(v2.get("status") or "").upper()
+        recognized_v2_statuses = {
+            "",
+            "NO_SIGNAL",
+            "NO_SETUP",
+            "SKIPPED_SESSION",
+            "SKIPPED_NO_SETUP",
+            "SKIPPED_SPREAD",
+            "SKIPPED",
+            "SIGNAL",
+            "VALID",
+            "ACTIONABLE",
+        }
+        v2_shape_ok = v2_ok and v2_status in recognized_v2_statuses
+        add(
+            "strategy.v2_session_or_no_signal_style",
+            v2_shape_ok,
+            "V2 returned a recognized signal/skipped/no-signal style" if v2_shape_ok else "V2 returned an unknown or malformed signal style",
+            warn=True,
+            status=v2.get("status"),
+        )
 
         paper_ok, paper_status, paper_error = _safe_call(self.providers, "paper_status", {})
         paper_status = _dict(paper_status)

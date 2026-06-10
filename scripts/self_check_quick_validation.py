@@ -26,14 +26,24 @@ def sample_snapshot(candle_count: int = 60) -> dict[str, Any]:
     }
 
 
-def providers(snapshot: dict[str, Any] | None, command_log: list[str], mt5_response: Any | None = None) -> dict[str, Any]:
+def providers(
+    snapshot: dict[str, Any] | None,
+    command_log: list[str],
+    mt5_response: Any | None = None,
+    *,
+    market_candle_count: int | None = None,
+    v2_response: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     mt5_response = mt5_response if mt5_response is not None else {"ok": True, "command": None, "status": "NO_COMMAND", "reason": "broker execution disabled"}
+    v2_response = v2_response if v2_response is not None else {"status": "NO_SIGNAL", "command_id": None, "mt5_command_id": None, "broker_order_id": None}
+    market_candles = [{"time": i} for i in range(market_candle_count or 0)]
     return {
         "latest_snapshot": lambda: snapshot,
-        "market_quality": lambda: {"ok": True, "reasons": []},
+        "market_quality": lambda: {"ok": True, "reasons": [], "candle_count": market_candle_count} if market_candle_count is not None else {"ok": True, "reasons": []},
+        "market_candles": lambda: market_candles,
         "context": lambda: {"session_name": "LONDON", "regime": "RANGE", "bias": "NEUTRAL"},
         "strategy_v1": lambda: {"status": "NO_SIGNAL", "command_id": None},
-        "strategy_v2": lambda: {"status": "NO_SIGNAL", "command_id": None, "mt5_command_id": None, "broker_order_id": None},
+        "strategy_v2": lambda: v2_response,
         "paper_status": lambda: {"open_trades": 0, "closed_trades": 0},
         "paper_analytics": lambda: {"ok": True, "closed_trades": 0},
         "journal_review": lambda: {"ok": True, "entries": []},
@@ -64,6 +74,15 @@ def main() -> int:
         checks = {check.name: check for check in report.checks}
         require(checks["broker.mt5_command_blocked_while_disabled"].status == "PASS", "broker disabled command state should pass")
         require(checks["market.candles_threshold"].status == "PASS", "candle count >= threshold should pass")
+        require(checks["strategy.v2_session_or_no_signal_style"].status == "PASS", "recognized V2 status should pass")
+
+        recorder_candle_report = QuickValidationRunner(
+            tmpdir,
+            providers=providers(sample_snapshot(0), command_log, market_candle_count=1342),
+        ).run()
+        recorder_candle_check = {check.name: check for check in recorder_candle_report.checks}["market.candles_threshold"]
+        require(recorder_candle_check.status == "PASS", "market recorder candle count >= threshold should pass")
+        require(recorder_candle_check.message == "candles recorded meet quick threshold", "high candle pass wording is wrong")
 
         no_command_report = QuickValidationRunner(
             tmpdir,
@@ -84,6 +103,14 @@ def main() -> int:
         low_candle_check = {check.name: check for check in low_candle_report.checks}["market.candles_threshold"]
         require(low_candle_check.status == "WARN", "candle count below threshold should warn")
         require(low_candle_check.message == "candles recorded below quick threshold", "low candle warning wording is wrong")
+
+        malformed_v2_report = QuickValidationRunner(
+            tmpdir,
+            providers=providers(sample_snapshot(), command_log, v2_response={"status": "SURPRISE", "command_id": None}),
+        ).run()
+        malformed_v2_check = {check.name: check for check in malformed_v2_report.checks}["strategy.v2_session_or_no_signal_style"]
+        require(malformed_v2_check.status == "WARN", "malformed V2 status should warn")
+        require(malformed_v2_check.message == "V2 returned an unknown or malformed signal style", "malformed V2 warning wording is wrong")
 
         require(checks["strategy.v2_command_id_null"].status == "PASS", "V2 command_id must remain null")
         require(checks["paper.no_mt5_command_created"].status == "PASS", "paper flow must not queue commands")

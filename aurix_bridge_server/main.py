@@ -789,6 +789,7 @@ def quick_validation_providers() -> dict[str, Any]:
     return {
         "latest_snapshot": store.latest_snapshot,
         "market_quality": market_recorder.quality,
+        "market_candles": market_recorder.list_candles,
         "context": context_for_validation,
         "strategy_v1": strategy_v1_for_validation,
         "strategy_v2": strategy_v2_for_validation,
