@@ -40,6 +40,24 @@ function shortId(id) {
   return id.length > 14 ? id.slice(0, 8) + "…" + id.slice(-5) : id;
 }
 
+function displayAlias(value) {
+  const raw = safeStr(value);
+  const aliases = {
+    BLOCKED_BY_BROKER_STATE: "BROKER_BLOCKED",
+    NO_ACTIONABLE_SIGNAL: "NO_SIGNAL",
+    WAITING_FOR_DATA: "WAITING_DATA",
+    BLOCKED_BY_NO_SIGNAL: "NO_SIGNAL",
+  };
+  return aliases[raw] || raw;
+}
+
+function setTextTitle(id, value, titleValue) {
+  const el = byId(id);
+  if (!el) return;
+  el.textContent = safeStr(value);
+  el.title = safeStr(titleValue !== undefined ? titleValue : value);
+}
+
 function fmtTime(value) {
   if (!value) return "--";
   const s = String(value);
@@ -59,14 +77,16 @@ function statusColor(value) {
   if (value === undefined || value === null || value === "" || value === "--") return "";
   const v = String(value).toUpperCase().trim();
   const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY", "READ_ONLY", "CANNOT_CREATE_COMMANDS", "RUNNING", "ACTIONABLE"]);
-  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "NEUTRAL", "NONE"]);
-  const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING", "UNKNOWN"]);
+  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "NEUTRAL", "NONE", "UNKNOWN"]);
+  const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING"]);
   const BLUE_SET = new Set(["RUNNING", "WAITING", "MONITORING", "EVALUATING", "SCANNING", "ACTIVE", "LIVE"]);
 
   if (GOOD_SET.has(v)) return "good";
   if (WARN_SET.has(v)) return "warn";
   if (DANGER_SET.has(v)) return "danger";
   if (BLUE_SET.has(v)) return "blue";
+  if (v.includes("BLOCKED") || v.includes("FAILED") || v.includes("ERROR")) return "danger";
+  if (v.includes("WAITING") || v.includes("NO_SIGNAL") || v.includes("NO_ACTIONABLE")) return "warn";
   return "";
 }
 
@@ -83,6 +103,23 @@ function setStatus(id, value, colorClass) {
   const el = byId(id);
   if (!el) return;
   el.innerHTML = pillHTML(value, colorClass);
+  el.title = safeStr(value);
+}
+
+function setStatusAlias(id, value, colorClass) {
+  const el = byId(id);
+  if (!el) return;
+  const display = displayAlias(value);
+  el.innerHTML = pillHTML(display, colorClass || statusColor(value));
+  el.title = safeStr(value);
+}
+
+function setMissionCard(id, value) {
+  const el = byId(id);
+  if (!el) return;
+  const cls = statusColor(value) || "blue";
+  el.classList.remove("is-good", "is-warn", "is-danger", "is-blue", "is-neutral");
+  el.classList.add(`is-${cls}`);
 }
 
 // For boolean safety flags: false = LOCKED/DISABLED = good (this system is always locked)
@@ -227,19 +264,39 @@ function render(summary) {
   const dailyRisk            = demoBroker.daily_risk_guard || {};
   const latestDemoCommand    = demoBroker.latest_command || {};
   const latestDemoResult     = demoBroker.latest_execution_result || {};
-
   const symbol = summary.symbol || market.symbol;
   const tradingSession = session.trading_session || {};
   const sessionId = provenance.runtime_session_id;
   const railwayBrokerEnabled = cockpit.railway_broker_execution === true;
   const eaBrokerEnabled = cockpit.ea_broker_execution === true;
   const matched = cockpit.broker_execution_matched;
+  const auditState           = durableAudit.durable_audit || "DISABLED";
+  const runtimeSafetyLabel   = assertion.overall_safe === true ? "SAFE" : assertion.overall_safe === false ? "UNSAFE" : summary.health === "STALE" ? "STALE" : "UNKNOWN";
+  const action               = decision.action || "--";
+  const actionLabel          = displayAlias(action);
+  const block                = decision.top_blocking_reason || summary.top_blocks?.[0] || "--";
+  const signalState          = cockpit.latest_signal_status || pipeline.latest_result || demoBroker.latest_signal_status || "--";
+  const riskState            = dailyRisk.status || cockpit.broker_order_permission || "--";
+  const queueState           = cockpit.aurix_queue_state || queue.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--";
+  const mt5DeliveryState     = queue.mt5_delivery_state || latestDemoCommand.status || "NO_COMMAND";
+  const brokerExecutionState = railwayBrokerEnabled ? "ENABLED" : "DISABLED";
+  const brokerReconStatus    = broker.status || "UNKNOWN";
+  const brokerReconReason    = broker.status
+    ? broker.status === "CLEAN"
+      ? "Broker Reconciliation: CLEAN"
+      : [
+          Number(broker.mismatches || 0) ? `${broker.mismatches} mismatches` : null,
+          Number(broker.warnings || 0) ? `${broker.warnings} warnings` : null,
+          broker.unexpected_exposure ? "unexpected exposure" : null,
+          broker.reason || broker.status_reason || null,
+        ].filter(Boolean).join("; ") || `Broker Reconciliation: ${broker.status}`
+    : "Broker Reconciliation: UNKNOWN · missing/stale reconciliation artifact";
 
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
   setStatus("hdrHealth", summary.health);
   setText("runtimeHealthReason", summary.health_reason);
-  setStatus("hdrRuntimeSafety", assertion.overall_safe === true ? "SAFE" : assertion.overall_safe === false ? "UNSAFE" : summary.health === "STALE" ? "STALE" : "UNKNOWN", assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
+  setStatus("hdrRuntimeSafety", runtimeSafetyLabel, assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
   setStatus("hdrTradingSession", tradingSession.name || "UNKNOWN");
   setText("hdrSession", shortId(sessionId));
   setText("hdrUptime", provenance.uptime_seconds != null
@@ -251,11 +308,56 @@ function render(summary) {
   setStatus("bannerReadOnly", "READ-ONLY DASHBOARD", "good");
   setStatus("bannerNoCommands", "NO COMMANDS FROM DASHBOARD", "good");
 
-  // ── Decision Strip ──────────────────────────────────────────────
-  const action = decision.action || "--";
-  setHTML("dsAction", pillHTML(action, statusColor(action)));
+  // ── Mission Control ─────────────────────────────────────────────
+  setStatus("mcHealth", summary.health || "UNKNOWN");
+  setTextTitle("mcHealthDetail", summary.health_reason || "--");
+  setText("mcSnapshotAge", market.snapshot_age_seconds != null ? `${Math.round(Number(market.snapshot_age_seconds))}s` : "--");
+  setMissionCard("mcHealthCard", summary.health || "UNKNOWN");
 
-  const block = decision.top_blocking_reason || summary.top_blocks?.[0] || "--";
+  setStatus("mcRuntimeSafety", runtimeSafetyLabel, assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
+  setStatus("mcReadOnly", safety.read_only_dashboard === false ? "WRITABLE" : "READ_ONLY", safety.read_only_dashboard === false ? "danger" : "good");
+  setStatus("mcNoCommands", cockpit.dashboard_order_capability || "CANNOT_CREATE_COMMANDS", "good");
+  setMissionCard("mcSafetyCard", runtimeSafetyLabel);
+
+  setStatus("mcAuditState", auditState);
+  setStatus("mcAuditConnected", durableAudit.database_connected === true ? "true" : "false", durableAudit.database_connected === true ? "good" : "warn");
+  setText("mcAuditLastWrite", durableAudit.last_db_write || "--");
+  setMissionCard("mcAuditCard", auditState);
+
+  setStatus("mcPipelineAlive", pipeline.decision_loop_alive === true ? "ALIVE" : "NOT_ALIVE", pipeline.decision_loop_alive === true ? "good" : "danger");
+  setStatus("mcRegistryLoaded", pipeline.strategy_registry_loaded === true ? "true" : "false", pipeline.strategy_registry_loaded === true ? "good" : "danger");
+  setText("mcStrategyCounts", `${pipeline.registered_strategy_count ?? "--"} / ${pipeline.enabled_strategy_count ?? "--"}`);
+  setText("mcEvaluations", pipeline.evaluations_this_session);
+  setMissionCard("mcPipelineCard", pipeline.decision_loop_alive === true ? "OK" : "ERROR");
+
+  setStatusAlias("mcSignalStatus", signalState);
+  setTextTitle("mcSignalStrategy", cockpit.selected_strategy || agents.latest_signal_strategy || pipeline.latest_strategy_name || "none");
+  setStatusAlias("mcSignalResult", pipeline.latest_result || "--");
+  setTextTitle("mcSignalRejection", displayAlias(pipeline.latest_rejection_reason || "--"), pipeline.latest_rejection_reason || "--");
+  setMissionCard("mcSignalCard", signalState);
+
+  setStatusAlias("mcRiskGate", riskState);
+  setStatusAlias("mcDailyRisk", dailyRisk.status || "--");
+  setStatusAlias("mcSpreadGate", cockpit.spread_gate_state || demoGate.spread_gate || market.spread_status || "--");
+  setStatusAlias("mcSignalGate", cockpit.signal_gate_state || "--");
+  setMissionCard("mcRiskCard", riskState);
+
+  setStatus("mcBrokerExecution", brokerExecutionState, railwayBrokerEnabled ? "danger" : "good");
+  setStatusAlias("mcQueuePermission", queueState);
+  setStatusAlias("mcMt5Delivery", mt5DeliveryState);
+  setStatusAlias("mcCommandResponse", cockpit.latest_command_state || "NO_COMMAND");
+  setMissionCard("mcBrokerCard", railwayBrokerEnabled ? "ERROR" : "OK");
+
+  setTextTitle("mcNextExpected", summary.next_expected_action || decision.next_expected_action || "Continue monitoring");
+  setTextTitle("mcPrimaryBlock", displayAlias(block), block);
+  setTextTitle("mcBrokerRecon", brokerReconReason);
+  setMissionCard("mcNextCard", brokerReconStatus);
+
+  // ── Decision Strip ──────────────────────────────────────────────
+  setHTML("dsAction", pillHTML(actionLabel, statusColor(action)));
+  const dsActionEl = byId("dsAction");
+  if (dsActionEl) dsActionEl.title = safeStr(action);
+
   setText("dsReason", block);
 
   const spreadPts = market.spread_points != null ? market.spread_points : "--";
@@ -271,6 +373,9 @@ function render(summary) {
       : pillHTML(summary.health === "STALE" ? "Runtime Safety: STALE" : "Runtime Safety: UNKNOWN", "warn"));
 
   setText("dsNext", summary.next_expected_action || decision.next_expected_action || "--");
+  setHTML("dsSignal", pillHTML(displayAlias(signalState), statusColor(signalState)));
+  setHTML("dsRisk", pillHTML(displayAlias(riskState), statusColor(riskState)));
+  setHTML("dsAudit", pillHTML(auditState, statusColor(auditState)));
 
   // ── Market ──────────────────────────────────────────────────────
   setText("bid",          fixed(market.bid, 3));
@@ -371,12 +476,13 @@ function render(summary) {
   renderStrategyAgentStatuses(agents.latest_statuses);
 
   // ── Broker Reconciliation ───────────────────────────────────────
-  setStatus("brokerReconStatus",    broker.status);
+  setStatus("brokerReconStatus",    brokerReconStatus);
   setText("brokerReconPositions",   broker.broker_positions);
   setText("brokerReconOrders",      broker.broker_orders);
   setText("brokerReconMismatches",  broker.mismatches);
   setText("brokerReconWarnings",    broker.warnings);
   setSessionBool("brokerReconExposure", broker.unexpected_exposure);
+  setTextTitle("brokerReconDetailReason", brokerReconReason);
 
   // ── Provenance ──────────────────────────────────────────────────
   setText("runtimeSessionId",     sessionId);
@@ -414,6 +520,15 @@ function render(summary) {
   setHTML("safetyReadOnly", safety.read_only_dashboard
     ? pillHTML(cockpit.dashboard_order_capability || "READ_ONLY / CANNOT_CREATE_COMMANDS", "good")
     : pillHTML("WRITABLE?", "danger"));
+  setStatus("opsBrokerOrderPermission", cockpit.broker_order_permission || (safety.live_execution_allowed ? "ALLOWED" : "BLOCKED"), safety.live_execution_allowed ? "danger" : "good");
+  setStatus("opsDashboardReadOnly", safety.read_only_dashboard === false ? "WRITABLE" : "READ_ONLY", safety.read_only_dashboard === false ? "danger" : "good");
+  setSessionBool("opsSessionCommands", assertion.queued_mt5_command);
+  setSessionBool("opsSessionOrders", assertion.created_broker_order);
+  setStatus("opsBrokerExecution", brokerExecutionState, railwayBrokerEnabled ? "danger" : "good");
+  setStatusAlias("opsQueuePermission", queueState);
+  setStatusAlias("opsMt5Delivery", mt5DeliveryState);
+  setStatus("opsBrokerReconStatus", brokerReconStatus);
+  setTextTitle("opsBrokerReconReason", brokerReconReason);
 
   // Session activity — false = green (nothing created this session)
   setSessionBool("sessionCreatedPaperTrade",  assertion.created_paper_trade);
@@ -464,8 +579,8 @@ function render(summary) {
   setStatus("demoCommandQueueLatestPreview", queue.latest_preview_status);
   setStatus("demoCommandQueueLatestPayload", queue.latest_payload_status);
   setStatus("demoCommandQueueManualArm", queue.broker_execution_enabled ? "ENABLED" : "DISABLED");
-  setStatus("demoCommandQueueDemoAllowed", queue.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--");
-  setStatus("demoCommandQueueMt5Allowed", queue.mt5_delivery_state || latestDemoCommand.status || "NO_COMMAND");
+  setStatus("demoCommandQueueDemoAllowed", queueState);
+  setStatus("demoCommandQueueMt5Allowed", mt5DeliveryState);
   setText("demoCommandQueueMt5CommandId",    queue.mt5_command_id);
   setText("demoCommandQueueBrokerOrderId",   queue.broker_order_id);
 
@@ -492,7 +607,7 @@ function render(summary) {
   setStatus("tradeExplanationResult", hasExplanation ? tradeExplanation.result : "--");
 
   // ── Durable Audit ────────────────────────────────────────────────
-  setStatus("durableAuditState", durableAudit.durable_audit || "DISABLED");
+  setStatus("durableAuditState", auditState);
   setStatus("durableAuditConnected", durableAudit.database_connected === true ? "true" : "false", durableAudit.database_connected === true ? "good" : "warn");
   setText("durableAuditLastWrite", durableAudit.last_db_write);
   setText("durableAuditLastError", durableAudit.last_db_error);

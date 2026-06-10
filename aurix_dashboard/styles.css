@@ -231,6 +231,84 @@ body {
   background: rgba(76,141,255,0.10);
 }
 
+/* ─── Mission control ─────────────────────────────────────────────── */
+.mission-control {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(76,141,255,0.035), rgba(255,255,255,0.008)),
+    rgba(6,8,11,0.82);
+}
+.mission-card {
+  position: relative;
+  min-width: 0;
+  min-height: 86px;
+  padding: 10px 11px 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.030), rgba(255,255,255,0.004)),
+    var(--tile);
+  box-shadow: var(--shadow-tile);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+.mission-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--blue);
+  box-shadow: 0 0 12px rgba(76,141,255,0.35);
+}
+.mission-card.is-good::before { background: var(--good); box-shadow: 0 0 12px rgba(45,212,122,0.35); }
+.mission-card.is-warn::before { background: var(--warn); box-shadow: 0 0 12px rgba(245,165,36,0.32); }
+.mission-card.is-danger::before { background: var(--danger); box-shadow: 0 0 12px rgba(239,77,86,0.35); }
+.mission-card.is-neutral::before { background: var(--faint); box-shadow: none; }
+.mc-label {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-value {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+}
+.mc-value .pill,
+.mc-detail .pill,
+.mc-meta .pill {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-detail,
+.mc-meta {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-meta { color: var(--muted); }
+
 /* ─── Command center summary strip ──────────────────────────────── */
 .decision-strip {
   display: grid;
@@ -311,6 +389,40 @@ main {
   gap: 14px;
 }
 
+.ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr) minmax(0, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+.ops-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.ops-column-title {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0 2px;
+}
+.ops-column .card {
+  grid-column: auto;
+}
+.compact-note {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-2);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 /* ─── Cards ─────────────────────────────────────────────────────── */
 .card {
   grid-column: span 4;
@@ -357,6 +469,12 @@ main {
   box-shadow: var(--shadow-card), 0 0 0 1px rgba(76,141,255,0.08), 0 0 22px rgba(76,141,255,0.08);
 }
 .card.priority h2 { color: #b8d0ff; }
+.card.compact {
+  padding: 14px;
+}
+.card.compact h2 {
+  margin-bottom: 10px;
+}
 
 /* ─── KPI tile grid (replaces label:value rows for status data) ──── */
 .tile-grid {
@@ -699,6 +817,8 @@ footer .dot.err { background: var(--danger); box-shadow: 0 0 10px var(--danger);
 
 /* ─── Responsive ────────────────────────────────────────────────── */
 @media (max-width: 1400px) {
+  .mission-control { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ops-grid { grid-template-columns: 1fr; }
   .decision-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .card        { grid-column: span 6; }
   .card.span5  { grid-column: span 6; }
@@ -711,10 +831,12 @@ footer .dot.err { background: var(--danger); box-shadow: 0 0 10px var(--danger);
 @media (max-width: 980px) {
   .topbar { grid-template-columns: 1fr; gap: 10px; }
   .topbar-meta, .topbar-pills { justify-content: flex-start; }
+  .mission-control { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 16px; }
   .decision-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px; }
   main { padding: 14px 16px 32px; }
 }
 @media (max-width: 720px) {
+  .mission-control { grid-template-columns: 1fr; }
   .decision-strip { grid-template-columns: 1fr; }
   .card, .card.wide, .card.full, .card.half, .card.span5, .card.span7 { grid-column: span 12; }
   .why-grid { grid-template-columns: 1fr; }

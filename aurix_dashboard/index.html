@@ -46,7 +46,58 @@
       <span class="rhd-value" id="runtimeHealthReason">--</span>
     </section>
 
-    <!-- ═══ Command Center Summary ═════════════════════════════ -->
+    <!-- ═══ Mission Control ════════════════════════════════════ -->
+    <section class="mission-control" aria-label="Mission Control">
+      <article class="mission-card" id="mcHealthCard">
+        <span class="mc-label">System Health</span>
+        <span class="mc-value" id="mcHealth">--</span>
+        <span class="mc-detail" id="mcHealthDetail">--</span>
+        <span class="mc-meta">MT5 age <span id="mcSnapshotAge">--</span></span>
+      </article>
+      <article class="mission-card" id="mcSafetyCard">
+        <span class="mc-label">Execution Safety</span>
+        <span class="mc-value" id="mcRuntimeSafety">--</span>
+        <span class="mc-detail" id="mcReadOnly">--</span>
+        <span class="mc-meta" id="mcNoCommands">--</span>
+      </article>
+      <article class="mission-card" id="mcAuditCard">
+        <span class="mc-label">Durable Audit</span>
+        <span class="mc-value" id="mcAuditState">--</span>
+        <span class="mc-detail">DB connected <span id="mcAuditConnected">--</span></span>
+        <span class="mc-meta">Last write <span id="mcAuditLastWrite">--</span></span>
+      </article>
+      <article class="mission-card" id="mcPipelineCard">
+        <span class="mc-label">Strategy Pipeline</span>
+        <span class="mc-value" id="mcPipelineAlive">--</span>
+        <span class="mc-detail">Registry <span id="mcRegistryLoaded">--</span></span>
+        <span class="mc-meta"><span id="mcStrategyCounts">--</span> · evals <span id="mcEvaluations">--</span></span>
+      </article>
+      <article class="mission-card" id="mcSignalCard">
+        <span class="mc-label">Signal State</span>
+        <span class="mc-value" id="mcSignalStatus">--</span>
+        <span class="mc-detail" id="mcSignalStrategy">--</span>
+        <span class="mc-meta"><span id="mcSignalResult">--</span> · <span id="mcSignalRejection">--</span></span>
+      </article>
+      <article class="mission-card" id="mcRiskCard">
+        <span class="mc-label">Risk / Gates</span>
+        <span class="mc-value" id="mcRiskGate">--</span>
+        <span class="mc-detail">Daily <span id="mcDailyRisk">--</span></span>
+        <span class="mc-meta">Spread <span id="mcSpreadGate">--</span> · Signal <span id="mcSignalGate">--</span></span>
+      </article>
+      <article class="mission-card" id="mcBrokerCard">
+        <span class="mc-label">Broker / Queue</span>
+        <span class="mc-value" id="mcBrokerExecution">--</span>
+        <span class="mc-detail">Queue <span id="mcQueuePermission">--</span></span>
+        <span class="mc-meta">MT5 <span id="mcMt5Delivery">--</span> · cmd <span id="mcCommandResponse">--</span></span>
+      </article>
+      <article class="mission-card" id="mcNextCard">
+        <span class="mc-label">Next Expected</span>
+        <span class="mc-value" id="mcNextExpected">--</span>
+        <span class="mc-detail" id="mcPrimaryBlock">--</span>
+        <span class="mc-meta" id="mcBrokerRecon">--</span>
+      </article>
+    </section>
+
     <section class="decision-strip" aria-label="Command center summary">
       <div class="ds-cell"><span class="ds-label">Current Action</span><span class="ds-value" id="dsAction">--</span></div>
       <div class="ds-cell"><span class="ds-label">Primary Block / Reason</span><span class="ds-value" id="dsReason">--</span></div>
@@ -60,80 +111,14 @@
 
     <main>
 
-      <!-- ════════ A · EXECUTION CONTROL ════════ -->
+      <!-- ════════ A · PRIMARY OPERATIONS ════════ -->
       <div class="section-group">
-        <span class="section-tag">A</span><span class="section-title">Execution Control</span><span class="section-rule"></span>
+        <span class="section-tag">A</span><span class="section-title">Primary Operations</span><span class="section-rule"></span>
       </div>
-      <div class="grid">
-        <article class="card wide priority">
-          <h2>Execution Control State</h2>
-
-          <div class="tile-grid cols-4">
-            <div class="tile status is-blue">
-              <span class="tile-label">AURIX_BROKER_EXECUTION</span>
-              <span class="tile-value" id="cockpitRailwayExecution">--</span>
-            </div>
-            <div class="tile status is-blue">
-              <span class="tile-label">EA AURIX_BROKER_EXECUTION</span>
-              <span class="tile-value" id="cockpitEaExecution">--</span>
-            </div>
-            <div class="tile status is-blue">
-              <span class="tile-label">Execution Match</span>
-              <span class="tile-value" id="cockpitExecutionMatch">--</span>
-            </div>
-            <div class="tile kpi">
-              <span class="tile-label">Open Positions</span>
-              <span class="tile-value" id="cockpitPositions">--</span>
-            </div>
-          </div>
-
-          <div class="card-section">
-            <div class="card-section-label">Command Loop</div>
-            <div class="tile-grid cols-3">
-              <div class="tile is-violet">
-                <span class="tile-label">Terminal ID</span>
-                <span class="tile-value mono" id="cockpitTerminalId">--</span>
-              </div>
-              <div class="tile is-violet">
-                <span class="tile-label">Symbol</span>
-                <span class="tile-value mono" id="cockpitSymbol">--</span>
-              </div>
-              <div class="tile status">
-                <span class="tile-label">Latest Command Response</span>
-                <span class="tile-value" id="cockpitCommandState">--</span>
-              </div>
-              <div class="tile">
-                <span class="tile-label">Latest Command Reason</span>
-                <span class="tile-value" id="cockpitCommandReason">--</span>
-              </div>
-              <div class="tile">
-                <span class="tile-label">Latest Primary Block</span>
-                <span class="tile-value" id="cockpitPrimaryBlock">--</span>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>AURIX Gates</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="gateQueueState">--</span></div>
-            <div class="tile status"><span class="tile-label">Spread Gate</span><span class="tile-value" id="gateSpreadState">--</span></div>
-            <div class="tile"><span class="tile-label">Engine Max Spread</span><span class="tile-value" id="gateEngineMaxSpread">--</span></div>
-            <div class="tile"><span class="tile-label">Current Spread</span><span class="tile-value" id="gateCurrentSpread">--</span></div>
-            <div class="tile"><span class="tile-label">Risk Model</span><span class="tile-value" id="gateRiskModel">--</span></div>
-            <div class="tile"><span class="tile-label">Selected Strategy</span><span class="tile-value" id="gateSelectedStrategy">--</span></div>
-            <div class="tile status"><span class="tile-label">Latest Signal Status</span><span class="tile-value" id="gateLatestSignalStatus">--</span></div>
-          </div>
-        </article>
-      </div>
-
-      <!-- ════════ B · MARKET + SESSION ════════ -->
-      <div class="section-group">
-        <span class="section-tag">B</span><span class="section-title">Market &amp; Session</span><span class="section-rule"></span>
-      </div>
-      <div class="grid">
-        <article class="card span5 priority">
+      <div class="ops-grid">
+        <section class="ops-column">
+          <div class="ops-column-title">Market + Account</div>
+          <article class="card priority">
           <h2>Market · XAUUSDm <span class="h2-sub" id="hdrSymbol2"></span></h2>
 
           <div class="market-hero">
@@ -160,9 +145,9 @@
             <div class="tile"><span class="tile-label">Latest Tick</span><span class="tile-value" id="latestTick">--</span></div>
             <div class="tile"><span class="tile-label">Latest Candle</span><span class="tile-value" id="latestCandle">--</span></div>
           </div>
-        </article>
+          </article>
 
-        <article class="card span7">
+          <article class="card">
           <h2>Account · MT5 Snapshot</h2>
           <div class="tile-grid cols-3">
             <div class="tile kpi"><span class="tile-label">Balance</span><span class="tile-value" id="balance">--</span><span class="tile-sub" id="currency">--</span></div>
@@ -181,15 +166,12 @@
               <div class="tile"><span class="tile-label">Currency</span><span class="tile-value" id="demoAccountCurrency">--</span></div>
             </div>
           </div>
-        </article>
-      </div>
+          </article>
+        </section>
 
-      <!-- ════════ C · STRATEGY INTELLIGENCE ════════ -->
-      <div class="section-group">
-        <span class="section-tag">C</span><span class="section-title">Strategy Intelligence</span><span class="section-rule"></span>
-      </div>
-      <div class="grid">
-        <article class="card priority">
+        <section class="ops-column">
+          <div class="ops-column-title">Strategy Intelligence</div>
+          <article class="card priority">
           <h2>AURIX Decision Engine</h2>
 
           <div class="gauge-row">
@@ -228,9 +210,9 @@
               <div class="tile"><span class="tile-label">Mode</span><span class="tile-value" id="decisionMode">--</span></div>
             </div>
           </div>
-        </article>
+          </article>
 
-        <article class="card">
+          <article class="card">
           <h2>Strategy Pipeline</h2>
           <div class="tile-grid cols-3">
             <div class="tile kpi is-teal"><span class="tile-label">Registered</span><span class="tile-value" id="pipelineRegistered">--</span></div>
@@ -251,9 +233,9 @@
               <div class="tile"><span class="tile-label">Last Error</span><span class="tile-value" id="pipelineLastError">--</span></div>
             </div>
           </div>
-        </article>
+          </article>
 
-        <article class="card">
+          <article class="card">
           <h2>Fast RSI Strategy</h2>
           <div class="tile-grid cols-2">
             <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="fastRsiStatus">--</span></div>
@@ -271,9 +253,9 @@
             <div class="tile status"><span class="tile-label">Latest Result</span><span class="tile-value" id="fastRsiLatestResult">--</span></div>
             <div class="tile"><span class="tile-label">Latest Rejection Reason</span><span class="tile-value" id="fastRsiLatestRejection">--</span></div>
           </div>
-        </article>
+          </article>
 
-        <article class="card full">
+          <article class="card">
           <h2>Strategy Agents</h2>
           <div class="tile-grid cols-4">
             <div class="tile kpi is-teal"><span class="tile-label">Registered</span><span class="tile-value" id="strategyAgentsRegistered">--</span></div>
@@ -286,12 +268,89 @@
             <div class="tile"><span class="tile-label">Latest Rejection Reason</span><span class="tile-value" id="strategyAgentsLatestRejection">--</span></div>
           </div>
           <div id="strategyAgentRows" class="card-section"></div>
-        </article>
+          </article>
+        </section>
+
+        <section class="ops-column">
+          <div class="ops-column-title">Execution + Safety</div>
+          <article class="card priority">
+            <h2>Execution Control State</h2>
+
+            <div class="tile-grid cols-2">
+              <div class="tile status is-blue">
+                <span class="tile-label">AURIX_BROKER_EXECUTION</span>
+                <span class="tile-value" id="cockpitRailwayExecution">--</span>
+              </div>
+              <div class="tile status is-blue">
+                <span class="tile-label">EA AURIX_BROKER_EXECUTION</span>
+                <span class="tile-value" id="cockpitEaExecution">--</span>
+              </div>
+              <div class="tile status is-blue">
+                <span class="tile-label">Execution Match</span>
+                <span class="tile-value" id="cockpitExecutionMatch">--</span>
+              </div>
+              <div class="tile kpi">
+                <span class="tile-label">Open Positions</span>
+                <span class="tile-value" id="cockpitPositions">--</span>
+              </div>
+              <div class="tile is-violet">
+                <span class="tile-label">Terminal ID</span>
+                <span class="tile-value mono" id="cockpitTerminalId">--</span>
+              </div>
+              <div class="tile is-violet">
+                <span class="tile-label">Symbol</span>
+                <span class="tile-value mono" id="cockpitSymbol">--</span>
+              </div>
+              <div class="tile status">
+                <span class="tile-label">Latest Command Response</span>
+                <span class="tile-value" id="cockpitCommandState">--</span>
+              </div>
+              <div class="tile">
+                <span class="tile-label">Latest Primary Block</span>
+                <span class="tile-value" id="cockpitPrimaryBlock">--</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h2>AURIX Gates</h2>
+            <div class="tile-grid cols-2">
+              <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="gateQueueState">--</span></div>
+              <div class="tile status"><span class="tile-label">Spread Gate</span><span class="tile-value" id="gateSpreadState">--</span></div>
+              <div class="tile"><span class="tile-label">Engine Max Spread</span><span class="tile-value" id="gateEngineMaxSpread">--</span></div>
+              <div class="tile"><span class="tile-label">Current Spread</span><span class="tile-value" id="gateCurrentSpread">--</span></div>
+              <div class="tile"><span class="tile-label">Risk Model</span><span class="tile-value" id="gateRiskModel">--</span></div>
+              <div class="tile"><span class="tile-label">Selected Strategy</span><span class="tile-value" id="gateSelectedStrategy">--</span></div>
+              <div class="tile status"><span class="tile-label">Latest Signal Status</span><span class="tile-value" id="gateLatestSignalStatus">--</span></div>
+            </div>
+          </article>
+
+          <article class="card compact">
+            <h2>Safety Locks</h2>
+            <div class="tile-grid cols-2">
+              <div class="tile status"><span class="tile-label">Broker Orders</span><span class="tile-value" id="opsBrokerOrderPermission">--</span></div>
+              <div class="tile status"><span class="tile-label">Dashboard</span><span class="tile-value" id="opsDashboardReadOnly">--</span></div>
+              <div class="tile status"><span class="tile-label">Session Commands</span><span class="tile-value" id="opsSessionCommands">--</span></div>
+              <div class="tile status"><span class="tile-label">Session Orders</span><span class="tile-value" id="opsSessionOrders">--</span></div>
+            </div>
+          </article>
+
+          <article class="card compact">
+            <h2>Broker / Queue</h2>
+            <div class="tile-grid cols-2">
+              <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="opsBrokerExecution">--</span></div>
+              <div class="tile status"><span class="tile-label">Queue Permission</span><span class="tile-value" id="opsQueuePermission">--</span></div>
+              <div class="tile status"><span class="tile-label">MT5 Delivery</span><span class="tile-value" id="opsMt5Delivery">--</span></div>
+              <div class="tile status"><span class="tile-label">Reconciliation</span><span class="tile-value" id="opsBrokerReconStatus">--</span></div>
+            </div>
+            <div class="compact-note" id="opsBrokerReconReason">--</div>
+          </article>
+        </section>
       </div>
 
-      <!-- ════════ D · WHY NO TRADE ════════ -->
+      <!-- ════════ B · WHY NO TRADE ════════ -->
       <div class="section-group">
-        <span class="section-tag">D</span><span class="section-title">Why No Trade</span><span class="section-rule"></span>
+        <span class="section-tag">B</span><span class="section-title">Why No Trade</span><span class="section-rule"></span>
       </div>
       <div class="grid">
         <article class="card full priority">
@@ -307,144 +366,9 @@
         </article>
       </div>
 
-      <!-- ════════ E · RISK + SAFETY ════════ -->
+      <!-- ════════ C · AUDIT + EVIDENCE ════════ -->
       <div class="section-group">
-        <span class="section-tag">E</span><span class="section-title">Risk &amp; Safety</span><span class="section-rule"></span>
-      </div>
-      <div class="grid">
-        <article class="card">
-          <h2>Validation / Readiness</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status"><span class="tile-label">Quick Validation</span><span class="tile-value" id="validationQuickStatus">--</span></div>
-            <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="validationQuickCounts">--</span></div>
-            <div class="tile status"><span class="tile-label">Evidence Gate</span><span class="tile-value" id="validationEvidenceStatus">--</span></div>
-            <div class="tile status"><span class="tile-label">Live Readiness</span><span class="tile-value" id="validationReadinessStatus">--</span></div>
-            <div class="tile status"><span class="tile-label">Arming Allowed</span><span class="tile-value" id="validationArmingAllowed">--</span></div>
-            <div class="tile status"><span class="tile-label">Execution Allowed</span><span class="tile-value" id="validationExecutionAllowed">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Blocking Reason Count</span><span class="tile-value" id="validationBlockCount">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Daily Risk &amp; MT5 Result</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status"><span class="tile-label">Daily Risk</span><span class="tile-value" id="dailyRiskStatus">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Equity Loss</span><span class="tile-value" id="dailyRiskLoss">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Drawdown %</span><span class="tile-value" id="dailyRiskDrawdown">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Command</span><span class="tile-value" id="latestMt5Command">--</span></div>
-            <div class="tile status"><span class="tile-label">Command Status</span><span class="tile-value" id="latestMt5CommandStatus">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Result</span><span class="tile-value" id="latestMt5ExecutionResult">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Quick Validation</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status"><span class="tile-label">Status</span><span class="tile-value" id="quickValidationStatus">--</span></div>
-            <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="quickValidationCounts">--</span></div>
-            <div class="tile status"><span class="tile-label">Paper Only</span><span class="tile-value" id="quickValidationPaperOnly">--</span></div>
-            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="quickValidationBrokerExecution">--</span></div>
-            <div class="tile status"><span class="tile-label">MT5 Commands</span><span class="tile-value" id="quickValidationMt5Commands">--</span></div>
-            <div class="tile"><span class="tile-label">Recommendation</span><span class="tile-value" id="quickValidationRecommendation">--</span></div>
-          </div>
-        </article>
-
-        <article class="card full">
-          <h2>Safety Locks</h2>
-          <div class="card-section-label">Execution Permissions</div>
-          <div class="tile-grid cols-4">
-            <div class="tile status is-danger"><span class="tile-label">Broker Order Permission</span><span class="tile-value" id="safetyBrokerOrderPermission">--</span></div>
-            <div class="tile"><span class="tile-label">Reason</span><span class="tile-value" id="safetyBrokerOrderReason">--</span></div>
-            <div class="tile status"><span class="tile-label">Live Arming Permission</span><span class="tile-value" id="safetyLiveArming">--</span></div>
-            <div class="tile status"><span class="tile-label">Legacy Gate Status</span><span class="tile-value" id="safetyDemoExecution">--</span></div>
-            <div class="tile status"><span class="tile-label">Queue Permission</span><span class="tile-value" id="safetyCommandQueueing">--</span></div>
-            <div class="tile"><span class="tile-label">Queue Block Reason</span><span class="tile-value" id="safetyQueueReason">--</span></div>
-            <div class="tile status"><span class="tile-label">MT5 Commands Queued</span><span class="tile-value" id="safetyMt5Commands">--</span></div>
-            <div class="tile status"><span class="tile-label">Broker Order Created</span><span class="tile-value" id="safetyBrokerOrder">--</span></div>
-            <div class="tile status"><span class="tile-label">Paper Trade Created</span><span class="tile-value" id="safetyPaperTrade">--</span></div>
-            <div class="tile status"><span class="tile-label">Order Request Allowed</span><span class="tile-value" id="safetyOrderRequest">--</span></div>
-            <div class="tile status is-good"><span class="tile-label">Dashboard Order Capability</span><span class="tile-value" id="safetyReadOnly">--</span></div>
-          </div>
-
-          <div class="card-section">
-            <div class="card-section-label">Current Session Activity · all must remain false</div>
-            <div class="tile-grid cols-5">
-              <div class="tile status"><span class="tile-label">Paper Trade Created</span><span class="tile-value" id="sessionCreatedPaperTrade">--</span></div>
-              <div class="tile status"><span class="tile-label">Order Request Created</span><span class="tile-value" id="sessionCreatedOrderRequest">--</span></div>
-              <div class="tile status"><span class="tile-label">MT5 Command Queued</span><span class="tile-value" id="sessionQueuedMt5Command">--</span></div>
-              <div class="tile status"><span class="tile-label">Broker Order Created</span><span class="tile-value" id="sessionCreatedBrokerOrder">--</span></div>
-              <div class="tile status"><span class="tile-label">Runtime Session Safe</span><span class="tile-value" id="sessionOverallSafe">--</span></div>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <!-- ════════ F · BROKER + QUEUE ════════ -->
-      <div class="section-group">
-        <span class="section-tag">F</span><span class="section-title">Broker &amp; Queue</span><span class="section-rule"></span>
-      </div>
-      <div class="grid">
-        <article class="card">
-          <h2>Broker Execution</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status is-blue"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoBrokerEnabled">--</span></div>
-            <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="demoBrokerQueueEnabled">--</span></div>
-            <div class="tile status"><span class="tile-label">Spread Gate</span><span class="tile-value" id="demoBrokerLiveLocked">--</span></div>
-            <div class="tile"><span class="tile-label">Engine Max Spread</span><span class="tile-value" id="demoBrokerOnePosition">--</span></div>
-            <div class="tile status"><span class="tile-label">Risk Gate</span><span class="tile-value" id="demoBrokerGate">--</span></div>
-            <div class="tile status"><span class="tile-label">Signal Gate</span><span class="tile-value" id="demoBrokerSignalGate">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Gate Block</span><span class="tile-value" id="demoBrokerReason">--</span></div>
-            <div class="tile"><span class="tile-label">Selected Strategy</span><span class="tile-value" id="demoBrokerSelectedStrategy">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Signal Direction</span><span class="tile-value" id="demoBrokerSignalDirection">--</span></div>
-            <div class="tile status"><span class="tile-label">Latest Signal Status</span><span class="tile-value" id="demoBrokerSignalStatus">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Broker Reconciliation</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="brokerReconStatus">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Positions</span><span class="tile-value" id="brokerReconPositions">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Orders</span><span class="tile-value" id="brokerReconOrders">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Mismatches</span><span class="tile-value" id="brokerReconMismatches">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Warnings</span><span class="tile-value" id="brokerReconWarnings">--</span></div>
-            <div class="tile status"><span class="tile-label">Unexpected Exposure</span><span class="tile-value" id="brokerReconExposure">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>AURIX Queue</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status is-blue"><span class="tile-label">Mode</span><span class="tile-value" id="demoCommandQueueMode">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Preview Count</span><span class="tile-value" id="demoCommandQueuePreviews">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Payload Count</span><span class="tile-value" id="demoCommandQueuePayloads">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Preview</span><span class="tile-value" id="demoCommandQueueLatestPreview">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Payload</span><span class="tile-value" id="demoCommandQueueLatestPayload">--</span></div>
-            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoCommandQueueManualArm">--</span></div>
-            <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="demoCommandQueueDemoAllowed">--</span></div>
-            <div class="tile status"><span class="tile-label">MT5 Delivery</span><span class="tile-value" id="demoCommandQueueMt5Allowed">--</span></div>
-            <div class="tile"><span class="tile-label">MT5 Command ID</span><span class="tile-value mono" id="demoCommandQueueMt5CommandId">--</span></div>
-            <div class="tile"><span class="tile-label">Broker Order ID</span><span class="tile-value mono" id="demoCommandQueueBrokerOrderId">--</span></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Order Management</h2>
-          <div class="tile-grid cols-2">
-            <div class="tile status is-blue"><span class="tile-label">Mode</span><span class="tile-value" id="demoOmsMode">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Intent Count</span><span class="tile-value" id="demoOmsIntentCount">--</span></div>
-            <div class="tile kpi"><span class="tile-label">Request Count</span><span class="tile-value" id="demoOmsRequestCount">--</span></div>
-            <div class="tile"><span class="tile-label">Latest Request</span><span class="tile-value" id="demoOmsLatestRequest">--</span></div>
-            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoOmsDemoExecution">--</span></div>
-            <div class="tile status"><span class="tile-label">Execution Lock</span><span class="tile-value" id="demoOmsLiveExecution">--</span></div>
-            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoOmsCommandQueueing">--</span></div>
-          </div>
-        </article>
-      </div>
-
-      <!-- ════════ G · AUDIT + EVIDENCE ════════ -->
-      <div class="section-group">
-        <span class="section-tag">G</span><span class="section-title">Audit &amp; Evidence</span><span class="section-rule"></span>
+        <span class="section-tag">C</span><span class="section-title">Audit &amp; Evidence</span><span class="section-rule"></span>
       </div>
       <div class="grid">
         <article class="card span5 priority">
@@ -528,9 +452,145 @@
         </article>
       </div>
 
-      <!-- ════════ H · RUNTIME + INFRASTRUCTURE ════════ -->
+      <!-- ════════ D · SAFETY DETAIL ════════ -->
       <div class="section-group">
-        <span class="section-tag">H</span><span class="section-title">Runtime &amp; Infrastructure</span><span class="section-rule"></span>
+        <span class="section-tag">D</span><span class="section-title">Safety Detail</span><span class="section-rule"></span>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <h2>Validation / Readiness</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status"><span class="tile-label">Quick Validation</span><span class="tile-value" id="validationQuickStatus">--</span></div>
+            <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="validationQuickCounts">--</span></div>
+            <div class="tile status"><span class="tile-label">Evidence Gate</span><span class="tile-value" id="validationEvidenceStatus">--</span></div>
+            <div class="tile status"><span class="tile-label">Live Readiness</span><span class="tile-value" id="validationReadinessStatus">--</span></div>
+            <div class="tile status"><span class="tile-label">Arming Allowed</span><span class="tile-value" id="validationArmingAllowed">--</span></div>
+            <div class="tile status"><span class="tile-label">Execution Allowed</span><span class="tile-value" id="validationExecutionAllowed">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Blocking Reason Count</span><span class="tile-value" id="validationBlockCount">--</span></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Daily Risk &amp; MT5 Result</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status"><span class="tile-label">Daily Risk</span><span class="tile-value" id="dailyRiskStatus">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Equity Loss</span><span class="tile-value" id="dailyRiskLoss">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Drawdown %</span><span class="tile-value" id="dailyRiskDrawdown">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Command</span><span class="tile-value" id="latestMt5Command">--</span></div>
+            <div class="tile status"><span class="tile-label">Command Status</span><span class="tile-value" id="latestMt5CommandStatus">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Result</span><span class="tile-value" id="latestMt5ExecutionResult">--</span></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Quick Validation</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status"><span class="tile-label">Status</span><span class="tile-value" id="quickValidationStatus">--</span></div>
+            <div class="tile"><span class="tile-label">Pass / Fail / Warn</span><span class="tile-value" id="quickValidationCounts">--</span></div>
+            <div class="tile status"><span class="tile-label">Paper Only</span><span class="tile-value" id="quickValidationPaperOnly">--</span></div>
+            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="quickValidationBrokerExecution">--</span></div>
+            <div class="tile status"><span class="tile-label">MT5 Commands</span><span class="tile-value" id="quickValidationMt5Commands">--</span></div>
+            <div class="tile"><span class="tile-label">Recommendation</span><span class="tile-value" id="quickValidationRecommendation">--</span></div>
+          </div>
+        </article>
+
+        <article class="card full">
+          <h2>Safety Locks</h2>
+          <div class="card-section-label">Execution Permissions</div>
+          <div class="tile-grid cols-4">
+            <div class="tile status is-danger"><span class="tile-label">Broker Order Permission</span><span class="tile-value" id="safetyBrokerOrderPermission">--</span></div>
+            <div class="tile"><span class="tile-label">Reason</span><span class="tile-value" id="safetyBrokerOrderReason">--</span></div>
+            <div class="tile status"><span class="tile-label">Live Arming Permission</span><span class="tile-value" id="safetyLiveArming">--</span></div>
+            <div class="tile status"><span class="tile-label">Legacy Gate Status</span><span class="tile-value" id="safetyDemoExecution">--</span></div>
+            <div class="tile status"><span class="tile-label">Queue Permission</span><span class="tile-value" id="safetyCommandQueueing">--</span></div>
+            <div class="tile"><span class="tile-label">Queue Block Reason</span><span class="tile-value" id="safetyQueueReason">--</span></div>
+            <div class="tile status"><span class="tile-label">MT5 Commands Queued</span><span class="tile-value" id="safetyMt5Commands">--</span></div>
+            <div class="tile status"><span class="tile-label">Broker Order Created</span><span class="tile-value" id="safetyBrokerOrder">--</span></div>
+            <div class="tile status"><span class="tile-label">Paper Trade Created</span><span class="tile-value" id="safetyPaperTrade">--</span></div>
+            <div class="tile status"><span class="tile-label">Order Request Allowed</span><span class="tile-value" id="safetyOrderRequest">--</span></div>
+            <div class="tile status is-good"><span class="tile-label">Dashboard Order Capability</span><span class="tile-value" id="safetyReadOnly">--</span></div>
+          </div>
+
+          <div class="card-section">
+            <div class="card-section-label">Current Session Activity · all must remain false</div>
+            <div class="tile-grid cols-5">
+              <div class="tile status"><span class="tile-label">Paper Trade Created</span><span class="tile-value" id="sessionCreatedPaperTrade">--</span></div>
+              <div class="tile status"><span class="tile-label">Order Request Created</span><span class="tile-value" id="sessionCreatedOrderRequest">--</span></div>
+              <div class="tile status"><span class="tile-label">MT5 Command Queued</span><span class="tile-value" id="sessionQueuedMt5Command">--</span></div>
+              <div class="tile status"><span class="tile-label">Broker Order Created</span><span class="tile-value" id="sessionCreatedBrokerOrder">--</span></div>
+              <div class="tile status"><span class="tile-label">Runtime Session Safe</span><span class="tile-value" id="sessionOverallSafe">--</span></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- ════════ E · BROKER + QUEUE DETAIL ════════ -->
+      <div class="section-group">
+        <span class="section-tag">E</span><span class="section-title">Broker &amp; Queue Detail</span><span class="section-rule"></span>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <h2>Broker Execution</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status is-blue"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoBrokerEnabled">--</span></div>
+            <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="demoBrokerQueueEnabled">--</span></div>
+            <div class="tile status"><span class="tile-label">Spread Gate</span><span class="tile-value" id="demoBrokerLiveLocked">--</span></div>
+            <div class="tile"><span class="tile-label">Engine Max Spread</span><span class="tile-value" id="demoBrokerOnePosition">--</span></div>
+            <div class="tile status"><span class="tile-label">Risk Gate</span><span class="tile-value" id="demoBrokerGate">--</span></div>
+            <div class="tile status"><span class="tile-label">Signal Gate</span><span class="tile-value" id="demoBrokerSignalGate">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Gate Block</span><span class="tile-value" id="demoBrokerReason">--</span></div>
+            <div class="tile"><span class="tile-label">Selected Strategy</span><span class="tile-value" id="demoBrokerSelectedStrategy">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Signal Direction</span><span class="tile-value" id="demoBrokerSignalDirection">--</span></div>
+            <div class="tile status"><span class="tile-label">Latest Signal Status</span><span class="tile-value" id="demoBrokerSignalStatus">--</span></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Broker Reconciliation</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="brokerReconStatus">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Positions</span><span class="tile-value" id="brokerReconPositions">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Orders</span><span class="tile-value" id="brokerReconOrders">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Mismatches</span><span class="tile-value" id="brokerReconMismatches">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Warnings</span><span class="tile-value" id="brokerReconWarnings">--</span></div>
+            <div class="tile status"><span class="tile-label">Unexpected Exposure</span><span class="tile-value" id="brokerReconExposure">--</span></div>
+          </div>
+          <div class="compact-note" id="brokerReconDetailReason">--</div>
+        </article>
+
+        <article class="card">
+          <h2>AURIX Queue</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status is-blue"><span class="tile-label">Mode</span><span class="tile-value" id="demoCommandQueueMode">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Preview Count</span><span class="tile-value" id="demoCommandQueuePreviews">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Payload Count</span><span class="tile-value" id="demoCommandQueuePayloads">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Preview</span><span class="tile-value" id="demoCommandQueueLatestPreview">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Payload</span><span class="tile-value" id="demoCommandQueueLatestPayload">--</span></div>
+            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoCommandQueueManualArm">--</span></div>
+            <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="demoCommandQueueDemoAllowed">--</span></div>
+            <div class="tile status"><span class="tile-label">MT5 Delivery</span><span class="tile-value" id="demoCommandQueueMt5Allowed">--</span></div>
+            <div class="tile"><span class="tile-label">MT5 Command ID</span><span class="tile-value mono" id="demoCommandQueueMt5CommandId">--</span></div>
+            <div class="tile"><span class="tile-label">Broker Order ID</span><span class="tile-value mono" id="demoCommandQueueBrokerOrderId">--</span></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Order Management</h2>
+          <div class="tile-grid cols-2">
+            <div class="tile status is-blue"><span class="tile-label">Mode</span><span class="tile-value" id="demoOmsMode">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Intent Count</span><span class="tile-value" id="demoOmsIntentCount">--</span></div>
+            <div class="tile kpi"><span class="tile-label">Request Count</span><span class="tile-value" id="demoOmsRequestCount">--</span></div>
+            <div class="tile"><span class="tile-label">Latest Request</span><span class="tile-value" id="demoOmsLatestRequest">--</span></div>
+            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoOmsDemoExecution">--</span></div>
+            <div class="tile status"><span class="tile-label">Execution Lock</span><span class="tile-value" id="demoOmsLiveExecution">--</span></div>
+            <div class="tile status"><span class="tile-label">Broker Execution</span><span class="tile-value" id="demoOmsCommandQueueing">--</span></div>
+          </div>
+        </article>
+      </div>
+
+      <!-- ════════ F · RUNTIME + INFRASTRUCTURE ════════ -->
+      <div class="section-group">
+        <span class="section-tag">F</span><span class="section-title">Runtime &amp; Infrastructure</span><span class="section-rule"></span>
       </div>
       <div class="grid">
         <article class="card wide">
