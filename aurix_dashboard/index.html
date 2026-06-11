@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AURIX · Operations Cockpit</title>
-    <link rel="stylesheet" href="/dashboard/static/styles.css">
+    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-adaptive-equal-filled-grid">
   </head>
   <body>
 
@@ -16,10 +16,36 @@
     <header class="topbar">
       <div class="topbar-left">
         <span class="topbar-logo">AURIX</span>
-        <span class="topbar-subtitle">Autonomous Trading Operations</span>
       </div>
-
+      <div class="topbar-right">
+        <div class="symbol-chip"><span>XAUUSDm</span><strong id="hdrSymbolTop">--</strong></div>
+        <div class="system-live"><span class="live-dot"></span><span>READ_ONLY_LIVE</span></div>
+        <span id="dashboardSessionStatus" class="banner-slot session-slot"><span class="pill safe">Authenticated</span></span>
+        <button id="dashboardLogout" class="link-button" type="button">Log out</button>
+      </div>
     </header>
+
+    <aside class="side-rail" aria-label="AURIX command center navigation">
+      <div class="side-brand">
+        <span class="side-icon">⌁</span>
+        <div>
+          <div class="side-title">AURIX_CORE</div>
+          <div class="side-version">XAUUSD · PERSONAL</div>
+        </div>
+      </div>
+      <nav class="side-nav">
+        <a class="active" href="#primaryOperations"><span>▣</span>Operations</a>
+        <a href="#whyNoTrade"><span>?</span>No Trade</a>
+        <a href="#auditEvidence"><span>◷</span>Audit</a>
+        <a href="#safetyDetail"><span>◇</span>Safety</a>
+        <a href="#brokerQueue"><span>⇄</span>Broker</a>
+        <a href="#runtimeInfrastructure"><span>▥</span>Runtime</a>
+      </nav>
+      <div class="side-lock">
+        <div>READ_ONLY_MODE</div>
+        <span>No command interface</span>
+      </div>
+    </aside>
 
     <section class="topbar-pills" aria-label="Safety status">
       <span id="bannerBrokerExecution" class="banner-slot"><span class="pill safe">BROKER EXECUTION DISABLED</span></span>
@@ -28,8 +54,6 @@
       <span id="bannerDurableAudit" class="banner-slot hidden"><span class="pill neutral">DURABLE AUDIT --</span></span>
       <span id="bannerReadOnly" class="banner-slot"><span class="pill safe">READ-ONLY DASHBOARD</span></span>
       <span id="bannerNoCommands" class="banner-slot"><span class="pill safe">NO COMMANDS FROM DASHBOARD</span></span>
-      <span id="dashboardSessionStatus" class="banner-slot"><span class="pill safe">Authenticated</span></span>
-      <button id="dashboardLogout" class="link-button" type="button">Log out</button>
     </section>
 
     <section class="meta-strip" aria-label="Runtime ticker">
@@ -109,7 +133,7 @@
     <main>
 
       <!-- ════════ A · PRIMARY OPERATIONS ════════ -->
-      <div class="section-group">
+      <div class="section-group" id="primaryOperations">
         <span class="section-tag">A</span><span class="section-title">Primary Operations</span><span class="section-rule"></span>
       </div>
       <div class="grid" id="opsGrid">
@@ -157,7 +181,7 @@
               </svg>
               <div class="ring-center">
                 <span class="rc-value" id="ringConfidenceValue">--</span>
-                <span class="rc-label">Conf</span>
+                <span class="rc-label">Signal</span>
               </div>
             </div>
             <div class="gauge-side">
@@ -168,7 +192,7 @@
               <div class="tile-grid cols-2">
                 <div class="tile status is-blue"><span class="tile-label">Action</span><span class="tile-value" id="decisionAction">--</span></div>
                 <div class="tile"><span class="tile-label">Direction</span><span class="tile-value" id="decisionDirection">--</span></div>
-                <div class="tile"><span class="tile-label">Confidence</span><span class="tile-value" id="decisionConfidence">--</span></div>
+                <div class="tile"><span class="tile-label">Signal Confidence</span><span class="tile-value" id="decisionConfidence">--</span></div>
                 <div class="tile"><span class="tile-label">Strategy</span><span class="tile-value" id="decisionStrategy">--</span></div>
               </div>
             </div>
@@ -367,7 +391,7 @@
       </div>
 
       <!-- ════════ B · WHY NO TRADE ════════ -->
-      <div class="section-group">
+      <div class="section-group" id="whyNoTrade">
         <span class="section-tag">B</span><span class="section-title">Why No Trade</span><span class="section-rule"></span>
       </div>
       <div class="grid">
@@ -385,7 +409,7 @@
       </div>
 
       <!-- ════════ C · AUDIT + EVIDENCE ════════ -->
-      <div class="section-group">
+      <div class="section-group" id="auditEvidence">
         <span class="section-tag">C</span><span class="section-title">Audit &amp; Evidence</span><span class="section-rule"></span>
       </div>
       <div class="grid">
@@ -471,7 +495,7 @@
       </div>
 
       <!-- ════════ D · SAFETY DETAIL ════════ -->
-      <div class="section-group">
+      <div class="section-group" id="safetyDetail">
         <span class="section-tag">D</span><span class="section-title">Safety Detail</span><span class="section-rule"></span>
       </div>
       <div class="grid">
@@ -518,7 +542,7 @@
       </div>
 
       <!-- ════════ E · BROKER + QUEUE DETAIL ════════ -->
-      <div class="section-group">
+      <div class="section-group" id="brokerQueue">
         <span class="section-tag">E</span><span class="section-title">Broker &amp; Queue Detail</span><span class="section-rule"></span>
       </div>
       <div class="grid">
@@ -582,7 +606,7 @@
       </div>
 
       <!-- ════════ F · RUNTIME + INFRASTRUCTURE ════════ -->
-      <div class="section-group">
+      <div class="section-group" id="runtimeInfrastructure">
         <span class="section-tag">F</span><span class="section-title">Runtime &amp; Infrastructure</span><span class="section-rule"></span>
       </div>
       <div class="grid">
@@ -641,6 +665,11 @@
 
     </main>
 
+    <section class="command-interface-disabled" aria-label="Disabled command interface">
+      <span>COMMAND_INTERFACE_DISABLED</span>
+      <strong>Dashboard remains observational only. No MT5 command creation, no broker requests, no orders.</strong>
+    </section>
+
     <footer>
       <div class="footer-left">
         <span class="dot" id="footerDot"></span>
@@ -649,7 +678,7 @@
       <span>AURIX · Read-Only Dashboard · No execution capability</span>
     </footer>
 
-    <script src="/dashboard/static/app.js"></script>
+    <script src="/dashboard/static/app.js?v=20260611-adaptive-equal-filled-grid"></script>
     <script>
       // Post-render enhancements: drive the SVG ring + spread meter from
       // values that JS has already written to existing IDs. No data fetch.

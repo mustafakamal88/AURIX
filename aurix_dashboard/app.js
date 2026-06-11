@@ -34,6 +34,13 @@ function fixed(value, digits = 2) {
   return Number.isFinite(n) ? n.toFixed(digits) : "--";
 }
 
+function percentDisplay(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "--";
+  const pct = n <= 1 ? n * 100 : n;
+  return `${Math.round(pct)}%`;
+}
+
 function joinItems(items) {
   if (!Array.isArray(items) || !items.length) return "--";
   return items.map(String).join("; ");
@@ -278,6 +285,27 @@ async function logoutDashboard() {
   window.location.assign("/dashboard/login");
 }
 
+function renderDashboardSession(session) {
+  const authConfigured = session && session.dashboard_auth_configured === true;
+  const authenticated = session && session.authenticated === true;
+  const logoutButton = byId("dashboardLogout");
+  if (logoutButton) logoutButton.hidden = !authConfigured;
+
+  if (!session) {
+    setStatus("dashboardSessionStatus", "Dashboard session unknown", "warn");
+    return;
+  }
+  if (!authConfigured) {
+    setStatus("dashboardSessionStatus", "Local dashboard session", "good");
+    return;
+  }
+  setStatus(
+    "dashboardSessionStatus",
+    authenticated ? "Authenticated dashboard session" : "Dashboard session expired",
+    authenticated ? "good" : "warn",
+  );
+}
+
 // ── Render ────────────────────────────────────────────────────────
 
 function renderStrategyAgentStatuses(latestStatuses) {
@@ -363,6 +391,7 @@ function render(summary) {
 
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
+  setText("hdrSymbolTop", symbol || "XAUUSDm");
   setStatus("hdrHealth", summary.health);
   setText("runtimeHealthReason", summary.health_reason);
   setStatus("hdrRuntimeSafety", runtimeSafetyLabel, assertion.overall_safe === true ? "good" : assertion.overall_safe === false ? "danger" : "warn");
@@ -495,7 +524,7 @@ function render(summary) {
   setStatus("decisionAction",     decision.action);
   setText("decisionDirection",    decision.direction);
   setText("decisionScore",        decision.score);
-  setText("decisionConfidence",   decision.confidence);
+  setTextTitle("decisionConfidence", percentDisplay(decision.confidence), decision.confidence);
   setText("decisionStrategy",     decision.strategy);
   setText("decisionSetup",        decision.setup_reason);
   setText("decisionTopBlock",     decision.top_blocking_reason || summary.top_blocks?.[0]);
@@ -760,9 +789,7 @@ function render(summary) {
 async function refresh() {
   try {
     const session = await getDashboardSession();
-    if (session && session.authenticated) {
-      setStatus("dashboardSessionStatus", "Authenticated dashboard session", "good");
-    }
+    renderDashboardSession(session);
     const summary = await getRuntimeSummary();
     setConnected(true);
     render(summary);
@@ -775,5 +802,36 @@ async function refresh() {
 
 const logoutButton = byId("dashboardLogout");
 if (logoutButton) logoutButton.addEventListener("click", logoutDashboard);
+
+function initSectionNavigation() {
+  const links = Array.from(document.querySelectorAll(".side-nav a[href^='#']"));
+  const sections = links
+    .map((link) => ({ link, target: document.querySelector(link.getAttribute("href")) }))
+    .filter((item) => item.target);
+  if (!sections.length) return;
+
+  function setActive(hash) {
+    for (const { link } of sections) {
+      link.classList.toggle("active", link.getAttribute("href") === hash);
+    }
+  }
+
+  for (const { link } of sections) {
+    link.addEventListener("click", () => setActive(link.getAttribute("href")));
+  }
+
+  if (!("IntersectionObserver" in window)) return;
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+    if (!visible) return;
+    setActive(`#${visible.target.id}`);
+  }, { rootMargin: "-90px 0px -65% 0px", threshold: 0.01 });
+
+  for (const { target } of sections) observer.observe(target);
+}
+
+initSectionNavigation();
 refresh();
 setInterval(refresh, REFRESH_MS);

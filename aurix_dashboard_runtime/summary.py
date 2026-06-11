@@ -406,8 +406,8 @@ def build_runtime_dashboard_summary(
     pipeline_result = str(pipeline_status.get("latest_result") or "UNKNOWN")
     if pipeline_result in {"STRATEGY_EVALUATION_MISSING", "STRATEGY_NOT_REGISTERED"} and market_data_fresh:
         decision["action"] = decision.get("action") or "WAIT"
-        decision["confidence"] = decision.get("confidence") if decision.get("confidence") is not None else 0
-        decision["score"] = decision.get("score") if decision.get("score") is not None else 0
+        decision["confidence"] = decision.get("confidence")
+        decision["score"] = decision.get("score")
         decision["strategy"] = decision.get("strategy") or "none"
         decision["setup_reason"] = "STRATEGY_NOT_RUNNING"
         decision["top_blocking_reason"] = "strategy evaluation missing"
