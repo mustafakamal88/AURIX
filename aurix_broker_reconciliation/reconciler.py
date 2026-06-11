@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from aurix_demo_oms import DemoOmsStore
@@ -36,6 +37,45 @@ def _as_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _age_seconds(value: Any) -> float | None:
+    if not value:
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return max(0.0, (datetime.now(timezone.utc) - datetime.fromtimestamp(float(value), tz=timezone.utc)).total_seconds())
+        except (OverflowError, OSError, ValueError):
+            return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds())
+
+
+def _mask_login(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    if len(text) <= 4:
+        return "*" * len(text)
+    return f"{'*' * (len(text) - 4)}{text[-4:]}"
+
+
+def _account_value(account: dict[str, Any], raw: dict[str, Any], key: str) -> Any:
+    value = account.get(key)
+    if value is not None:
+        return value
+    account_raw = _as_dict(account.get("raw"))
+    if account_raw.get(key) is not None:
+        return account_raw.get(key)
+    raw_account = _as_dict(raw.get("account"))
+    if raw_account.get(key) is not None:
+        return raw_account.get(key)
+    return None
 
 
 class BrokerReconciler:
@@ -107,6 +147,8 @@ class BrokerReconciler:
         raw = _as_dict(snapshot.get("raw")) if snapshot else {}
         tick = _as_dict(snapshot.get("tick")) if snapshot else {}
         symbol = tick.get("symbol") or self.config.symbol
+        age_candidates = [_age_seconds(snapshot.get("received_at")), _age_seconds(tick.get("time"))] if snapshot else []
+        snapshot_age = min([item for item in age_candidates if item is not None], default=None)
         checks: list[ReconciliationCheck] = []
         mismatches: list[ReconciliationMismatch] = []
         warnings: list[str] = []
@@ -148,6 +190,15 @@ class BrokerReconciler:
         else:
             check("event_bus_available", "PASS", "event bus available")
 
+        if snapshot is None:
+            warnings.append("mt5 snapshot unavailable")
+            check("mt5_snapshot", "WARN", "mt5 snapshot unavailable")
+        elif snapshot_age is not None and snapshot_age > 180:
+            warnings.append("mt5 snapshot stale")
+            check("mt5_snapshot", "WARN", f"mt5 snapshot stale: {round(snapshot_age, 3)}s")
+        else:
+            check("mt5_snapshot", "PASS", "mt5 snapshot fresh")
+
         if snapshot is None or not account_raw:
             warnings.append("broker account data unavailable")
             check("broker_account_data", "WARN", "broker account data unavailable")
@@ -155,11 +206,11 @@ class BrokerReconciler:
             check("broker_account_data", "PASS", "broker account data available")
 
         account = BrokerAccountSnapshot(
-            balance=_as_float(account_raw.get("balance")),
-            equity=_as_float(account_raw.get("equity")),
-            currency=account_raw.get("currency"),
-            login=account_raw.get("login"),
-            server=account_raw.get("server"),
+            balance=_as_float(_account_value(account_raw, raw, "balance")),
+            equity=_as_float(_account_value(account_raw, raw, "equity")),
+            currency=_account_value(account_raw, raw, "currency"),
+            login=_account_value(account_raw, raw, "login"),
+            server=_account_value(account_raw, raw, "server"),
             raw=account_raw,
         ) if account_raw else None
 
@@ -235,18 +286,20 @@ class BrokerReconciler:
             order_filled_event_count=filled_events,
         )
 
-        if any(item.severity == "BLOCKED" for item in mismatches):
-            status = "BLOCKED"
-            recommendations.append("Restore read-only safety flags before continuing.")
-        elif snapshot is None or account is None:
-            status = "NO_BROKER_DATA"
+        required_missing = snapshot is None or account is None or any("unavailable" in item for item in warnings if "history" not in item)
+        required_stale = bool(snapshot_age is not None and snapshot_age > 180)
+        dirty = bool(mismatches or symbol_positions or symbol_orders)
+        reasons = [item.message for item in mismatches]
+        if required_missing or required_stale:
+            status = "UNKNOWN"
+            if required_missing:
+                reasons.append("required MT5 broker snapshot/account data missing")
+            if required_stale:
+                reasons.append("MT5 snapshot stale")
             recommendations.append("Wait for the MT5 bridge EA to publish a fresh snapshot.")
-        elif any(item.severity == "MISMATCH" for item in mismatches):
-            status = "MISMATCH"
+        elif dirty:
+            status = "DIRTY"
             recommendations.append("Investigate broker exposure before enabling any future demo command queueing.")
-        elif warnings:
-            status = "WARNINGS"
-            recommendations.append("Review missing non-critical broker data before advancing execution work.")
         else:
             status = "CLEAN"
             recommendations.append("Broker state matches AURIX dry-run/no-execution expectations.")
@@ -255,6 +308,17 @@ class BrokerReconciler:
             symbol=self.config.symbol,
             mode=self.config.mode,
             status=status,  # type: ignore[arg-type]
+            account_login_masked=_mask_login(account.login) if account else None,
+            server=account.server if account else None,
+            snapshot_age_seconds=round(snapshot_age, 3) if snapshot_age is not None else None,
+            positions_count=len(symbol_positions),
+            orders_count=len(symbol_orders),
+            expected_positions_count=self.config.expected_max_broker_positions,
+            expected_orders_count=self.config.expected_max_broker_orders,
+            unexpected_exposure=bool(symbol_positions or symbol_orders),
+            mismatches_count=len(mismatches),
+            dirty_evidence_found=dirty,
+            reasons=list(dict.fromkeys(reasons)),
             account=account,
             broker_positions=positions,
             broker_orders=orders,

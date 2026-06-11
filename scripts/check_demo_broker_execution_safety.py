@@ -4,6 +4,7 @@ from __future__ import annotations
 import tempfile
 import sys
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -14,6 +15,7 @@ from aurix_demo_broker_execution import DemoBrokerExecutionGate, DemoBrokerExecu
 def snapshot(**overrides):
     base = {
         "terminal_id": "AURIX-VPS-001",
+        "received_at": datetime.now(timezone.utc).isoformat(),
         "account": {
             "server": "Exness-MT5Trial15",
             "name": "mk-demo",
@@ -22,7 +24,7 @@ def snapshot(**overrides):
             "equity": 100.0,
             "is_demo": True,
         },
-        "tick": {"symbol": "XAUUSDm", "spread_points": 100.0},
+        "tick": {"symbol": "XAUUSDm", "spread_points": 100.0, "time": datetime.now(timezone.utc).isoformat()},
         "positions": [],
         "orders": [],
     }

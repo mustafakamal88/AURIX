@@ -144,12 +144,13 @@ function setProvenanceValue(id, value) {
 
 function dailyRiskDisplay(dailyRisk) {
   const hasLoss = hasDisplayValue(dailyRisk.equity_loss);
-  const hasDrawdown = hasDisplayValue(dailyRisk.drawdown_percent);
+  const drawdown = hasDisplayValue(dailyRisk.drawdown_percent) ? dailyRisk.drawdown_percent : dailyRisk.equity_loss_pct;
+  const hasDrawdown = hasDisplayValue(drawdown);
   const dataMissing = !hasLoss || !hasDrawdown;
   return {
     status: dataMissing ? "DATA_MISSING" : (dailyRisk.status || "UNKNOWN"),
     equityLoss: hasLoss ? dailyRisk.equity_loss : "UNKNOWN",
-    drawdownPercent: hasDrawdown ? dailyRisk.drawdown_percent : "UNKNOWN",
+    drawdownPercent: hasDrawdown ? drawdown : "UNKNOWN",
   };
 }
 
@@ -159,7 +160,7 @@ function brokerReconciliationDisplay(broker) {
     Number(broker.warnings || 0) > 0 ||
     broker.unexpected_exposure === true;
   const missingOrStale = broker.latest_exists === false || broker.artifact_stale === true || !broker.status;
-  const status = missingOrStale || (broker.status !== "CLEAN" && !dirtyEvidence) ? "UNKNOWN" : broker.status;
+  const status = missingOrStale ? "UNKNOWN" : broker.status;
   if (status === "CLEAN") {
     return { status, reason: "Broker Reconciliation: CLEAN" };
   }
@@ -572,6 +573,14 @@ function render(summary) {
   setText("strategyAgentsSignal",        agents.latest_signal_direction || pipeline.latest_direction_candidate || "NONE");
   setStatus("strategyAgentsLatestResult", pipeline.latest_result || "UNKNOWN");
   setStatusAlias("strategyAgentsLatestRejection", pipeline.latest_rejection_reason || "--");
+  setTextTitle("strategyAgentsCompactLine", agents.compact_status_line || "--");
+  setText("strategyAgentsTimeframe", `raw ${agents.raw_timeframe || "UNKNOWN"} → strategy ${agents.strategy_timeframe || "UNKNOWN"}`);
+  setText("strategyAgentsCandleMemory", agents.candle_memory || "--");
+  setText(
+    "strategyAgentsBuckets",
+    `${agents.m15_bucket_count_complete ?? 0}/${agents.m15_bucket_count_total ?? 0} complete · ${agents.m15_bucket_count_incomplete ?? 0} incomplete`
+  );
+  setText("strategyAgentsLatestStrategyCandle", fmtTime(agents.latest_strategy_closed_candle_timestamp));
   setExecLock("strategyAgentsPaperAllowed",  agents.paper_trade_creation_allowed);
   setExecLock("strategyAgentsOrderAllowed",  agents.order_request_creation_allowed);
   renderStrategyAgentStatuses(agents.latest_statuses);

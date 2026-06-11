@@ -167,10 +167,13 @@ class StrategyOrchestrationTests(unittest.TestCase):
 
     def test_insufficient_memory_forces_all_wait(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(24), [signal("xauusd_paper_v1", "BUY", 0.99)])
+            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(25), [signal("xauusd_paper_v1", "BUY", 0.99)])
             results = evaluator.evaluate_all_agents()
             trace = evaluator.recent_traces(1)[0]
 
+            self.assertEqual(trace["strategy_candle_count"], 25)
+            self.assertEqual(trace["required_strategy_candle_count"], 26)
+            self.assertEqual(trace["candle_memory_status"], "WAITING_FOR_STRATEGY_TIMEFRAME_CANDLES")
             self.assertTrue(all(result.status == "SKIPPED" for result in results))
             self.assertTrue(all("insufficient_strategy_timeframe_candles" in item["reasons"] for item in trace["strategy_outputs"]))
             self.assertEqual(trace["selected_strategy_id"], None)
@@ -217,35 +220,79 @@ class StrategyOrchestrationTests(unittest.TestCase):
         self.assertEqual(candles[0]["real_volume"], sum(item["real_volume"] for item in raw[:15]))
         self.assertEqual(candles[0]["spread"], raw[14]["spread"])
 
+    def test_m1_resampling_sorts_and_deduplicates_before_bucket_build(self) -> None:
+        raw = m1_candles(30)
+        duplicate = {**raw[5], "high": 999.0, "close": 998.0, "tick_volume": 50}
+        shuffled = raw[15:] + raw[:15] + [duplicate]
+        normalized = normalize_candles_for_timeframe(shuffled, strategy_timeframe="M15")
+        candles = normalized["candles"]
+
+        self.assertEqual(normalized["deduped_raw_duplicate_count"], 1)
+        self.assertEqual(len(candles), 2)
+        self.assertEqual(candles[0]["time"], 0)
+        self.assertEqual(candles[0]["high"], 999.0)
+
     def test_incomplete_latest_m15_bucket_is_excluded(self) -> None:
         normalized = normalize_candles_for_timeframe(m1_candles(37), strategy_timeframe="M15")
 
         self.assertEqual(len(normalized["candles"]), 2)
         self.assertEqual(normalized["incomplete_strategy_bucket_count"], 1)
+        self.assertEqual(normalized["m15_bucket_count_total"], 3)
+        self.assertEqual(normalized["m15_bucket_count_complete"], 2)
+        self.assertEqual(normalized["m15_bucket_count_incomplete"], 1)
+        self.assertTrue(normalized["dropped_latest_incomplete_bucket"])
         self.assertEqual(normalized["latest_strategy_closed_candle_timestamp"], 900)
+
+    def test_incomplete_historical_m15_bucket_dropped_without_destroying_history(self) -> None:
+        raw = [item for item in m1_candles(45) if item["time"] != 900 + (5 * 60)]
+        normalized = normalize_candles_for_timeframe(raw, strategy_timeframe="M15")
+        candles = normalized["candles"]
+
+        self.assertEqual(normalized["m15_bucket_count_total"], 3)
+        self.assertEqual(normalized["m15_bucket_count_complete"], 2)
+        self.assertEqual(normalized["m15_bucket_count_incomplete"], 1)
+        self.assertFalse(normalized["dropped_latest_incomplete_bucket"])
+        self.assertEqual([item["time"] for item in candles], [0, 1800])
 
     def test_strategy_agents_receive_m15_candles_from_m1_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, m1_candles(25 * 15), [signal("xauusd_paper_v1", "BUY", 0.70)])
+            evaluator = self.make_evaluator(tmpdir, m1_candles(26 * 15), [signal("xauusd_paper_v1", "BUY", 0.70)])
             evaluator.evaluate_all_agents()
             trace = evaluator.recent_traces(1)[0]
 
             self.assertEqual(trace["raw_timeframe"], "M1")
             self.assertEqual(trace["strategy_timeframe"], "M15")
             self.assertTrue(trace["resampled"])
-            self.assertEqual(trace["strategy_candle_count"], 25)
+            self.assertEqual(trace["strategy_candle_count"], 26)
+            self.assertEqual(trace["required_strategy_candle_count"], 26)
+            self.assertEqual(trace["candle_memory_status"], "READY")
             self.assertTrue(all(item["strategy_timeframe"] == "M15" for item in trace["strategy_outputs"]))
             self.assertTrue(all(item["candle_memory_used"] == 25 for item in trace["strategy_outputs"]))
+            self.assertFalse(any("insufficient_strategy_timeframe_candles" in item["reasons"] for item in trace["strategy_outputs"]))
 
     def test_insufficient_resampled_m15_candles_waits(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, m1_candles((24 * 15) + 14), [signal("xauusd_paper_v1", "BUY", 0.99)])
+            evaluator = self.make_evaluator(tmpdir, m1_candles(25 * 15), [signal("xauusd_paper_v1", "BUY", 0.99)])
             results = evaluator.evaluate_all_agents()
             trace = evaluator.recent_traces(1)[0]
 
-            self.assertEqual(trace["strategy_candle_count"], 24)
+            self.assertEqual(trace["strategy_candle_count"], 25)
+            self.assertEqual(trace["required_strategy_candle_count"], 26)
+            self.assertEqual(trace["block_stage"], "DATA")
             self.assertTrue(all(result.status == "SKIPPED" for result in results))
             self.assertTrue(all("insufficient_strategy_timeframe_candles" in item["reasons"] for item in trace["strategy_outputs"]))
+
+    def test_strategy_status_and_trace_report_same_candle_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            evaluator = self.make_evaluator(tmpdir, m1_candles(26 * 15), [signal("xauusd_paper_v1", "BUY", 0.70)])
+            evaluator.evaluate_all_agents()
+            trace = evaluator.recent_traces(1)[0]
+            status = evaluator.status()
+
+            self.assertEqual(status["strategy_candle_count"], trace["strategy_candle_count"])
+            self.assertEqual(status["required_strategy_candle_count"], trace["required_strategy_candle_count"])
+            self.assertEqual(status["latest_strategy_closed_candle_timestamp"], trace["latest_strategy_closed_candle_timestamp"])
+            self.assertEqual(status["candle_memory_status"], trace["candle_memory_status"])
 
     def test_highest_confidence_candidate_selected(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

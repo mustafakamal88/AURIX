@@ -199,8 +199,36 @@ decision_engine = AurixDecisionEngine(
     demo_command_queue_store=demo_command_queue.store,
     risk_status_provider=lambda: risk_status(),
 )
-durable_audit_store = DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+
+
+def build_durable_audit_store() -> DurableAuditStore:
+    database_url = os.getenv("DATABASE_URL")
+    sqlite_path = os.getenv("AURIX_DURABLE_AUDIT_SQLITE_PATH")
+    try:
+        if not database_url and RUNTIME_PROFILE == "LOCAL_DEV":
+            return DurableAuditStore.sqlite_local(
+                DATA_DIR,
+                path=sqlite_path or Path(DATA_DIR) / "aurix_durable_audit.sqlite",
+                runtime_session_id=runtime_session.runtime_session_id,
+            )
+        return DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+    except Exception as exc:
+        logger.warning("durable audit disabled during startup: %s", exc)
+        fallback = DurableAuditStore(DATA_DIR, database_url="", runtime_session_id=runtime_session.runtime_session_id)
+        fallback._status.update({"durable_audit": "DISABLED", "database_connected": False, "last_db_error": f"startup disabled durable audit: {exc}"})
+        fallback._write_status()
+        return fallback
+
+
+durable_audit_store = build_durable_audit_store()
 trade_explanation_store = TradeExplanationStore(DATA_DIR)
+
+
+def durable_audit_available() -> bool:
+    try:
+        return durable_audit_store.available()
+    except Exception:
+        return False
 
 
 def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
@@ -216,7 +244,7 @@ def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
 
 
 def mirror_historical_trade_explanation_to_db() -> None:
-    if not durable_audit_store.database_url:
+    if not durable_audit_available():
         return
     path = Path(DATA_DIR) / "trade_explanations" / "1765078137.json"
     if not path.exists():
@@ -598,6 +626,9 @@ async def read_lenient_json_object(request: Request) -> dict[str, Any]:
 def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     account = _dict_or_empty(payload.get("account"))
     tick = _dict_or_empty(payload.get("tick"))
+    raw = _dict_or_empty(payload.get("raw"))
+    account_raw = _dict_or_empty(account.get("raw"))
+    raw_account = _dict_or_empty(raw.get("account"))
     symbol = payload.get("symbol") or tick.get("symbol") or os.getenv("AURIX_SYMBOL", "XAUUSDm")
     if not account:
         account = {
@@ -625,6 +656,12 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
                 if payload.get(alias) is not None:
                     account[target] = payload.get(alias)
                     break
+    for target in ["balance", "equity"]:
+        if account.get(target) is None:
+            if account_raw.get(target) is not None:
+                account[target] = account_raw.get(target)
+            elif raw_account.get(target) is not None:
+                account[target] = raw_account.get(target)
     if not tick:
         tick = {
             "symbol": symbol,
@@ -645,7 +682,7 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "positions": _list_or_empty(payload.get("positions")),
         "orders": _list_or_empty(payload.get("orders")),
         "deals": _list_or_empty(payload.get("deals")),
-        "raw": _dict_or_empty(payload.get("raw")),
+        "raw": raw,
     }
 
 
@@ -705,6 +742,14 @@ def run_runtime_diagnostics_cycle(source: str = "runtime_snapshot") -> dict[str,
     except Exception as exc:
         logger.exception("runtime observation collection failed")
         result["errors"].append(f"observation collection failed: {exc}")
+
+    try:
+        report = broker_reconciler.run()
+        result["broker_reconciliation_status"] = report.get("status")
+    except Exception as exc:
+        logger.exception("broker reconciliation refresh failed")
+        result["ok"] = False
+        result["errors"].append(f"broker reconciliation failed: {exc}")
 
     try:
         strategy_results = strategy_agent_evaluator.evaluate_all_agents()
@@ -804,7 +849,7 @@ async def receive_execution_result(request: Request) -> dict[str, Any]:
         "provenance": result.provenance,
     }
     demo_broker_execution_store.append_execution_result(demo_result)
-    if durable_audit_store.database_url:
+    if durable_audit_available():
         try:
             durable_audit_store.write_broker_execution_result(demo_result)
         except DurableAuditError as exc:
@@ -997,7 +1042,7 @@ def _durable_audit_block(reason: str, detail: str | None = None) -> dict[str, An
 
 
 def prepare_durable_audit_for_broker_command(gate: dict[str, Any], terminal_id: str) -> dict[str, Any]:
-    if not durable_audit_store.database_url:
+    if not durable_audit_available():
         raise DurableAuditError("DURABLE_AUDIT_DISABLED")
     signal = latest_broker_execution_signal() or {}
     decision = _latest_decision_payload()

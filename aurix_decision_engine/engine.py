@@ -243,7 +243,8 @@ class AurixDecisionEngine:
         broker_positions = int(broker.get("broker_position_count") or len(broker.get("broker_positions") or []) or 0)
         broker_orders = int(broker.get("broker_order_count") or len(broker.get("broker_orders") or []) or 0)
         if self.config.require_broker_reconciliation_clean and not broker_clean:
-            block("broker_reconciliation_not_clean", "broker reconciliation is not CLEAN")
+            detail = "; ".join(str(item) for item in broker.get("reasons") or []) or f"broker reconciliation status {broker.get('status') or 'UNKNOWN'}"
+            block("broker_reconciliation_not_clean", detail)
         if broker_positions > self.config.max_broker_positions or broker_orders > self.config.max_broker_orders:
             block("broker_exposure_present", "broker position/order count exceeds decision limits")
 
@@ -299,8 +300,8 @@ class AurixDecisionEngine:
             action = AurixDecisionAction.BLOCKED_BY_NO_SIGNAL
             status = AurixDecisionStatus.BLOCKED
         elif any(item.code == "no_actionable_signal" for item in blocks):
-            action = AurixDecisionAction.BLOCKED_BY_NO_SIGNAL
-            status = AurixDecisionStatus.BLOCKED
+            action = AurixDecisionAction.WAIT
+            status = AurixDecisionStatus.WAITING
         elif selected:
             action = AurixDecisionAction.TRADE_LONG if selected.get("direction") == "BUY" else AurixDecisionAction.TRADE_SHORT
             action = apply_autonomy(self.config.autonomy_level, action)
