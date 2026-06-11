@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -194,8 +193,12 @@ class DurableAuditStore:
     ):
         self.data_dir = Path(data_dir)
         self.root = self.data_dir / "durable_audit"
-        self.root.mkdir(parents=True, exist_ok=True)
         self.status_file = self.root / "status.json"
+        self._status_write_error: str | None = None
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            self._status_write_error = str(exc)
         self.database_url = database_url if database_url is not None else os.getenv("DATABASE_URL")
         self.runtime_session_id = runtime_session_id
         self.deployment_commit = deployment_commit if deployment_commit is not None else _deployment_commit()
@@ -206,11 +209,14 @@ class DurableAuditStore:
         if self.database_url or self._connect is not None:
             try:
                 self.init_schema()
-            except DurableAuditError:
-                pass
+            except Exception as exc:
+                self._status.update({"durable_audit": "DISABLED", "database_connected": False, "last_db_error": str(exc)})
+                self._write_status()
 
     @classmethod
     def sqlite_for_tests(cls, path: str | Path, data_dir: str | Path, runtime_session_id: str = "test-runtime") -> "DurableAuditStore":
+        import sqlite3
+
         db_path = Path(path)
         return cls(
             data_dir=data_dir,
@@ -230,6 +236,8 @@ class DurableAuditStore:
         runtime_session_id: str | None = None,
         deployment_commit: str | None = None,
     ) -> "DurableAuditStore":
+        import sqlite3
+
         db_path = Path(path) if path is not None else Path(data_dir) / "aurix_durable_audit.sqlite"
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return cls(
@@ -266,9 +274,18 @@ class DurableAuditStore:
     def status(self) -> dict[str, Any]:
         return dict(self._status)
 
+    def available(self) -> bool:
+        return bool(self._status.get("durable_audit") == "ENABLED" and self._status.get("database_connected") is True)
+
     def _write_status(self) -> None:
         self._status["generated_at"] = utc_now_iso()
-        write_json_atomic(self.status_file, self._status)
+        if self._status_write_error and not self._status.get("last_db_error"):
+            self._status["last_db_error"] = f"status file unavailable: {self._status_write_error}"
+        try:
+            write_json_atomic(self.status_file, self._status)
+        except Exception as exc:
+            self._status_write_error = str(exc)
+            self._status["last_db_error"] = f"status file unavailable: {exc}"
 
     def _connect_db(self) -> Any:
         if self._connect is not None:
@@ -307,7 +324,7 @@ class DurableAuditStore:
                 except Exception:
                     pass
         except Exception as exc:
-            self._status.update({"durable_audit": "ERROR", "database_connected": False, "last_db_error": str(exc)})
+            self._status.update({"durable_audit": "DISABLED", "database_connected": False, "last_db_error": str(exc)})
             self._write_status()
             raise DurableAuditError(str(exc)) from exc
         self._status.update({"durable_audit": "ENABLED", "database_connected": True, "last_db_error": None})
@@ -334,7 +351,7 @@ class DurableAuditStore:
                 except Exception:
                     pass
         except Exception as exc:
-            self._status.update({"durable_audit": "ERROR", "database_connected": False, "last_db_error": str(exc)})
+            self._status.update({"durable_audit": "DISABLED", "database_connected": False, "last_db_error": str(exc)})
             self._write_status()
             raise DurableAuditError(str(exc)) from exc
 

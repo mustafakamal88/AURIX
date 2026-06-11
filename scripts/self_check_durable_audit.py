@@ -84,7 +84,7 @@ def main() -> int:
         except DurableAuditError:
             pass
         require(queued_commands == [], "DB write failure must not queue MT5 commands")
-        require(failing.status()["durable_audit"] == "ERROR", f"failing DB did not set ERROR: {failing.status()}")
+        require(failing.status()["durable_audit"] == "DISABLED", f"failing DB did not safely disable audit: {failing.status()}")
 
         local_data = Path(tmpdir) / "local-data"
         local_store = DurableAuditStore.sqlite_local(local_data, runtime_session_id="local-runtime")

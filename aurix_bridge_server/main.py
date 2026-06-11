@@ -204,17 +204,31 @@ decision_engine = AurixDecisionEngine(
 def build_durable_audit_store() -> DurableAuditStore:
     database_url = os.getenv("DATABASE_URL")
     sqlite_path = os.getenv("AURIX_DURABLE_AUDIT_SQLITE_PATH")
-    if not database_url and RUNTIME_PROFILE == "LOCAL_DEV":
-        return DurableAuditStore.sqlite_local(
-            DATA_DIR,
-            path=sqlite_path or Path(DATA_DIR) / "aurix_durable_audit.sqlite",
-            runtime_session_id=runtime_session.runtime_session_id,
-        )
-    return DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+    try:
+        if not database_url and RUNTIME_PROFILE == "LOCAL_DEV":
+            return DurableAuditStore.sqlite_local(
+                DATA_DIR,
+                path=sqlite_path or Path(DATA_DIR) / "aurix_durable_audit.sqlite",
+                runtime_session_id=runtime_session.runtime_session_id,
+            )
+        return DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+    except Exception as exc:
+        logger.warning("durable audit disabled during startup: %s", exc)
+        fallback = DurableAuditStore(DATA_DIR, database_url="", runtime_session_id=runtime_session.runtime_session_id)
+        fallback._status.update({"durable_audit": "DISABLED", "database_connected": False, "last_db_error": f"startup disabled durable audit: {exc}"})
+        fallback._write_status()
+        return fallback
 
 
 durable_audit_store = build_durable_audit_store()
 trade_explanation_store = TradeExplanationStore(DATA_DIR)
+
+
+def durable_audit_available() -> bool:
+    try:
+        return durable_audit_store.available()
+    except Exception:
+        return False
 
 
 def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
@@ -230,7 +244,7 @@ def runtime_provenance_metadata(component: str, source: str) -> dict[str, Any]:
 
 
 def mirror_historical_trade_explanation_to_db() -> None:
-    if not durable_audit_store.database_url:
+    if not durable_audit_available():
         return
     path = Path(DATA_DIR) / "trade_explanations" / "1765078137.json"
     if not path.exists():
@@ -835,7 +849,7 @@ async def receive_execution_result(request: Request) -> dict[str, Any]:
         "provenance": result.provenance,
     }
     demo_broker_execution_store.append_execution_result(demo_result)
-    if durable_audit_store.database_url:
+    if durable_audit_available():
         try:
             durable_audit_store.write_broker_execution_result(demo_result)
         except DurableAuditError as exc:
@@ -1028,7 +1042,7 @@ def _durable_audit_block(reason: str, detail: str | None = None) -> dict[str, An
 
 
 def prepare_durable_audit_for_broker_command(gate: dict[str, Any], terminal_id: str) -> dict[str, Any]:
-    if not durable_audit_store.database_url:
+    if not durable_audit_available():
         raise DurableAuditError("DURABLE_AUDIT_DISABLED")
     signal = latest_broker_execution_signal() or {}
     decision = _latest_decision_payload()
