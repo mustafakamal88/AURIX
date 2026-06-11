@@ -28,6 +28,9 @@ DEFAULT_CONFIG = {
     "divergence_pivot_left": 3,
     "divergence_pivot_right": 3,
     "min_bars_required": 50,
+    "min_context_candles": 25,
+    "max_context_candles": 100,
+    "min_context_close_movement_pct": 0.005,
     "min_confidence": 0.60,
     "allow_signal_generation": True,
     "allow_paper_trade_creation": False,
@@ -116,6 +119,45 @@ def _meter_label(score: Optional[float]) -> str:
     return "STRONG_BEAR"
 
 
+def _context_profile(opens: list[float], highs: list[float], lows: list[float], closes: list[float], *, trigger_index: int, cfg: dict[str, Any]) -> dict[str, Any]:
+    min_context = max(_as_int(cfg.get("min_context_candles"), 25), 25)
+    max_context = min(max(_as_int(cfg.get("max_context_candles"), 100), min_context), 100)
+    context_start = max(0, trigger_index - max_context)
+    short_start = max(0, trigger_index - min_context)
+    context_highs = highs[context_start:trigger_index]
+    context_lows = lows[context_start:trigger_index]
+    short_opens = opens[short_start:trigger_index]
+    short_closes = closes[short_start:trigger_index]
+    if len(short_closes) < min_context:
+        return {
+            "ok": False,
+            "reason": "insufficient_candle_memory",
+            "candle_memory_used": len(short_closes),
+            "structure_window_used": len(context_highs),
+        }
+    structure_high = max(context_highs)
+    structure_low = min(context_lows)
+    structure_range = structure_high - structure_low
+    close_changes = [abs(short_closes[index] - short_closes[index - 1]) for index in range(1, len(short_closes))]
+    avg_close_change = sum(close_changes) / len(close_changes) if close_changes else 0.0
+    avg_body = sum(abs(close - open_) for open_, close in zip(short_opens, short_closes)) / len(short_closes)
+    reference_price = max(abs(closes[trigger_index]), 1.0)
+    min_change = reference_price * (float(cfg.get("min_context_close_movement_pct") or 0.005) / 100.0)
+    has_market_memory = avg_close_change >= min_change or avg_body >= min_change
+    return {
+        "ok": has_market_memory,
+        "reason": None if has_market_memory else "insufficient_market_context",
+        "candle_memory_used": len(short_closes),
+        "structure_window_used": len(context_highs),
+        "structure_high": structure_high,
+        "structure_low": structure_low,
+        "structure_range": structure_range,
+        "avg_context_close_change": avg_close_change,
+        "avg_context_body": avg_body,
+        "min_context_change": min_change,
+    }
+
+
 @dataclass(frozen=True)
 class BlackCatSignal:
     strategy_id: str
@@ -132,6 +174,8 @@ class BlackCatSignal:
     reasons: list[str]
     confluence: dict[str, Any]
     closed_candle_count: int
+    candle_memory_used: int
+    structure_window_used: int
     ignored_unfinished_candle: bool
 
     def model_dump(self) -> dict[str, Any]:
@@ -150,6 +194,8 @@ class BlackCatSignal:
             "reasons": self.reasons,
             "confluence": self.confluence,
             "closed_candle_count": self.closed_candle_count,
+            "candle_memory_used": self.candle_memory_used,
+            "structure_window_used": self.structure_window_used,
             "ignored_unfinished_candle": self.ignored_unfinished_candle,
         }
 
@@ -174,9 +220,11 @@ def evaluate_blackcat_cloud_signal(candles: list[dict[str, Any]], *, symbol: str
             cloud_score=0.0,
             meter_score=0.0,
             meter_label="NEUTRAL",
-            reasons=["insufficient_candles"],
+            reasons=["insufficient_candle_memory"],
             confluence={},
             closed_candle_count=len(candles),
+            candle_memory_used=0,
+            structure_window_used=0,
             ignored_unfinished_candle=ignored_unfinished,
         )
 
@@ -201,6 +249,8 @@ def evaluate_blackcat_cloud_signal(candles: list[dict[str, Any]], *, symbol: str
             reasons=["invalid_candle_data"],
             confluence={},
             closed_candle_count=len(candles),
+            candle_memory_used=0,
+            structure_window_used=0,
             ignored_unfinished_candle=ignored_unfinished,
         )
 
@@ -310,6 +360,7 @@ def evaluate_blackcat_cloud_signal(candles: list[dict[str, Any]], *, symbol: str
     )
 
     regime = "BULLISH" if is_green else "BEARISH" if is_red else "CHOP"
+    context = _context_profile(numeric_opens, numeric_highs, numeric_lows, numeric_closes, trigger_index=index, cfg=cfg)
     long_candidate = bool(turned_green and latest_meter_score > 0.2)
     short_candidate = bool(turned_red and latest_meter_score < -0.2)
     reasons: list[str] = []
@@ -361,6 +412,10 @@ def evaluate_blackcat_cloud_signal(candles: list[dict[str, Any]], *, symbol: str
         action = "WAIT"
         direction = "NONE"
         reasons.append("blackcat_meter_neutral")
+    if action != "WAIT" and not context.get("ok"):
+        action = "WAIT"
+        direction = "NONE"
+        reasons.append(str(context.get("reason") or "insufficient_market_context"))
     if action != "WAIT" and confidence < float(cfg.get("min_confidence") or 0.60):
         action = "WAIT"
         direction = "NONE"
@@ -387,6 +442,7 @@ def evaluate_blackcat_cloud_signal(candles: list[dict[str, Any]], *, symbol: str
         "avg_slope": avg_slopes[index],
         "fast_ema": fast[index],
         "slow_ema": slow[index],
+        "context": context,
     }
     return BlackCatSignal(
         strategy_id="blackcat_cloud_v1",
@@ -403,6 +459,8 @@ def evaluate_blackcat_cloud_signal(candles: list[dict[str, Any]], *, symbol: str
         reasons=list(dict.fromkeys(reasons)),
         confluence=confluence,
         closed_candle_count=len(candles),
+        candle_memory_used=int(context.get("candle_memory_used") or 0),
+        structure_window_used=int(context.get("structure_window_used") or 0),
         ignored_unfinished_candle=ignored_unfinished,
     )
 
@@ -439,6 +497,8 @@ class BlackCatCloudV1Agent(StrategyAgent):
             "blackcat_signal": signal.model_dump(),
             "rule_checks": {
                 "enough_candles": signal.closed_candle_count >= int(self.config.get("min_bars_required") or 50),
+                "candle_memory_used": signal.candle_memory_used,
+                "structure_window_used": signal.structure_window_used,
                 "ignored_unfinished_candle": signal.ignored_unfinished_candle,
                 "confidence_threshold": self.config.get("min_confidence"),
             },
@@ -469,5 +529,5 @@ class BlackCatCloudV1Agent(StrategyAgent):
         if signal.action in {"TRADE_LONG", "TRADE_SHORT"} and bool(self.config.get("allow_signal_generation", True)):
             return self._base_result(signal, "SIGNAL", [])
         code = signal.reasons[0] if signal.reasons else "blackcat_no_trade_setup"
-        status = "SKIPPED" if code in {"insufficient_candles", "invalid_candle_data"} else "NO_SIGNAL"
+        status = "SKIPPED" if code in {"insufficient_candle_memory", "invalid_candle_data"} else "NO_SIGNAL"
         return self._base_result(signal, status, [_reject(code, code)])
