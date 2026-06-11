@@ -444,8 +444,50 @@ main {
 .card.full { grid-column: span 12; }
 .card.half { grid-column: span 6; }
 .card.span3 { grid-column: span 3; }
+.card.span4 { grid-column: span 4; }
 .card.span5 { grid-column: span 5; }
+.card.span6 { grid-column: span 6; }
 .card.span7 { grid-column: span 7; }
+
+#opsGrid {
+  gap: 10px;
+}
+#opsGrid .ops-row-label {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+#opsGrid .ops-row-label:first-child {
+  margin-top: 0;
+}
+#opsGrid .ops-card {
+  padding: 14px;
+}
+#opsGrid .ops-card h2 {
+  margin-bottom: 10px;
+}
+#opsGrid .ops-card .tile {
+  padding: 8px 10px;
+}
+#opsGrid .ops-card .tile.kpi .tile-value {
+  font-size: 18px;
+}
+#opsGrid .ops-why .why-grid {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+#opsGrid .ops-why .why-block {
+  padding: 9px 11px;
+}
+#opsGrid .ops-why .why-block-label {
+  margin-bottom: 4px;
+}
 
 .card h2 {
   margin: 0 0 14px 0;
@@ -832,7 +874,9 @@ footer .dot.err { background: var(--danger); box-shadow: 0 0 10px var(--danger);
   .decision-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .card        { grid-column: span 6; }
   .card.span3  { grid-column: span 6; }
+  .card.span4  { grid-column: span 6; }
   .card.span5  { grid-column: span 6; }
+  .card.span6  { grid-column: span 6; }
   .card.span7  { grid-column: span 6; }
   .card.wide   { grid-column: span 12; }
   .card.full   { grid-column: span 12; }
@@ -883,7 +927,7 @@ footer .dot.err { background: var(--danger); box-shadow: 0 0 10px var(--danger);
 @media (max-width: 720px) {
   .mission-control { grid-template-columns: 1fr; }
   .decision-strip { grid-template-columns: 1fr; }
-  .card, .card.wide, .card.full, .card.half, .card.span3, .card.span5, .card.span7 { grid-column: span 12; }
+  .card, .card.wide, .card.full, .card.half, .card.span3, .card.span4, .card.span5, .card.span6, .card.span7 { grid-column: span 12; }
   .why-grid { grid-template-columns: 1fr; }
   .market-hero { grid-template-columns: 1fr; }
   .rt-label { min-width: 0; }

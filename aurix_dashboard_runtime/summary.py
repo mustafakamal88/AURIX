@@ -191,6 +191,86 @@ def _spread_block_reason(market: dict[str, Any], cockpit: dict[str, Any]) -> str
     return f"spread gate blocked: current spread {current} points > max spread {maximum} points"
 
 
+def _daily_risk_summary(demo_broker_execution: dict[str, Any], latest_gate: dict[str, Any]) -> dict[str, Any]:
+    raw = _dict(demo_broker_execution.get("daily_risk_guard")) or _dict(latest_gate.get("daily_risk_guard"))
+    if not raw:
+        return {
+            "status": "DATA_MISSING",
+            "allowed": None,
+            "reason": "daily risk artifact missing: data/demo_broker_execution/status.json latest_gate_decision.daily_risk_guard",
+            "equity_loss": None,
+            "drawdown_percent": None,
+            "daily_risk_limit_percent": None,
+            "daily_loss_limit": None,
+            "daily_loss_used": None,
+            "remaining_daily_risk": None,
+        }
+    required = ["equity_loss", "drawdown_percent", "daily_risk_limit_percent", "daily_loss_limit"]
+    missing = [key for key in required if raw.get(key) is None]
+    if missing:
+        return {
+            **raw,
+            "status": "DATA_MISSING",
+            "allowed": None,
+            "reason": raw.get("reason") or f"daily risk values missing: {', '.join(missing)}",
+            "daily_loss_used": raw.get("equity_loss"),
+            "remaining_daily_risk": None,
+        }
+    try:
+        equity_loss = float(raw.get("equity_loss"))
+        daily_loss_limit = float(raw.get("daily_loss_limit"))
+    except (TypeError, ValueError):
+        return {**raw, "status": "DATA_MISSING", "allowed": None, "reason": raw.get("reason") or "daily risk values are not numeric"}
+    return {
+        **raw,
+        "status": raw.get("status") or ("OK" if raw.get("allowed") else "BLOCKED"),
+        "daily_loss_used": round(equity_loss, 4),
+        "remaining_daily_risk": round(max(0.0, daily_loss_limit - equity_loss), 4),
+    }
+
+
+def _broker_reconciliation_summary(status: dict[str, Any], report: dict[str, Any], *, threshold_seconds: int = 180) -> dict[str, Any]:
+    latest_exists = bool(status.get("latest_exists") or report)
+    age = _age_seconds(status.get("updated_at") or report.get("generated_at"))
+    broker_positions = status.get("broker_position_count", len(_list(report.get("broker_positions"))))
+    broker_orders = status.get("broker_order_count", len(_list(report.get("broker_orders"))))
+    mismatches = status.get("mismatch_count", len(_list(report.get("mismatches"))))
+    warnings = status.get("warning_count", len(_list(report.get("warnings"))))
+    unexpected_exposure = bool(mismatches or broker_positions or broker_orders)
+    if not latest_exists:
+        recon_status = "UNKNOWN"
+        reason = "missing/stale reconciliation artifact"
+    elif age is None or age > threshold_seconds:
+        recon_status = "UNKNOWN"
+        reason = "missing/stale reconciliation artifact"
+    elif mismatches or warnings or unexpected_exposure:
+        recon_status = "DIRTY"
+        reason = "; ".join(
+            item
+            for item in [
+                f"{mismatches} mismatches" if mismatches else "",
+                f"{warnings} warnings" if warnings else "",
+                "unexpected exposure" if unexpected_exposure else "",
+            ]
+            if item
+        )
+    else:
+        recon_status = status.get("status") or report.get("status") or "CLEAN"
+        reason = "clean reconciliation artifact"
+    return {
+        "status": recon_status,
+        "reason": reason,
+        "status_reason": reason,
+        "artifact_age_seconds": age,
+        "latest_exists": latest_exists,
+        "broker_positions": broker_positions,
+        "broker_orders": broker_orders,
+        "mismatches": mismatches,
+        "warnings": warnings,
+        "unexpected_exposure": unexpected_exposure,
+    }
+
+
 def _dashboard_trading_session(now: datetime | None = None) -> dict[str, Any]:
     try:
         config = load_context_config()
@@ -316,6 +396,8 @@ def build_runtime_dashboard_summary(
     latest_gate = _dict(demo_broker_execution.get("latest_gate_decision"))
     latest_command = _dict(demo_broker_execution.get("latest_command"))
     risk_model = _dict(demo_broker_execution.get("risk_model"))
+    daily_risk_guard = _daily_risk_summary(demo_broker_execution, latest_gate)
+    broker_reconciliation = _broker_reconciliation_summary(broker_status, broker_report)
     latest_v2 = next((item for item in reversed(strategy_latest) if item.get("strategy_name") == "xauusd_paper_v2"), {})
     quick_summary = _dict(quick_validation.get("summary"))
     broker_execution_cockpit = {
@@ -348,6 +430,17 @@ def build_runtime_dashboard_summary(
         "no_commands_from_dashboard": True,
     }
     no_actionable_signal = _has_no_actionable_signal(broker_execution_cockpit, decision)
+    if broker_reconciliation.get("status") in {"UNKNOWN", "STALE"}:
+        warning = f"Broker Reconciliation: {broker_reconciliation['status']} - {broker_reconciliation['reason']}"
+        if warning not in warnings:
+            warnings.append(warning)
+    elif broker_reconciliation.get("status") == "DIRTY":
+        broker_block = f"broker reconciliation dirty: {broker_reconciliation['reason']}"
+        if no_actionable_signal:
+            if broker_block not in warnings:
+                warnings.append(broker_block)
+        elif broker_block not in blocks:
+            blocks.insert(0, broker_block)
     if no_actionable_signal:
         if "no actionable signal" not in blocks:
             blocks.insert(0, "no actionable signal")
@@ -380,6 +473,14 @@ def build_runtime_dashboard_summary(
         decision["top_blocking_reason"] = "strategy evaluation missing"
         blocks = ["strategy evaluation missing", "market data fresh but no strategy result found"] + [item for item in blocks if item not in {"strategy evaluation missing", "market data fresh but no strategy result found"}]
         next_action = "Check strategy daemon/decision loop."
+    elif pipeline_result == "WAITING_FOR_DATA":
+        decision["action"] = decision.get("action") or "WAIT"
+        decision["strategy"] = decision.get("strategy") or pipeline_status.get("latest_strategy_name")
+        decision["confidence"] = decision.get("confidence") if decision.get("confidence") is not None else pipeline_status.get("latest_confidence")
+        decision["setup_reason"] = decision.get("setup_reason") or pipeline_status.get("latest_rejection_reason")
+        decision["top_blocking_reason"] = "waiting for strategy data"
+        blocks = ["waiting for strategy data"] + [item for item in blocks if item != "waiting for strategy data"]
+        next_action = "Wait for enough closed candles and the next strategy evaluation."
     elif pipeline_result in {"NO_SETUP", "BLOCKED", "WAITING_FOR_NEXT_CANDLE"}:
         decision["action"] = decision.get("action") or "WAIT"
         decision["strategy"] = decision.get("strategy") or pipeline_status.get("latest_strategy_name")
@@ -443,15 +544,8 @@ def build_runtime_dashboard_summary(
             "mt5_command_id": latest_payload.get("mt5_command_id"),
             "broker_order_id": latest_payload.get("broker_order_id"),
         },
-        demo_broker_execution=demo_broker_execution,
-        broker_reconciliation={
-            "status": broker_status.get("status") or broker_report.get("status"),
-            "broker_positions": broker_status.get("broker_position_count", len(_list(broker_report.get("broker_positions")))),
-            "broker_orders": broker_status.get("broker_order_count", len(_list(broker_report.get("broker_orders")))),
-            "mismatches": broker_status.get("mismatch_count", len(_list(broker_report.get("mismatches")))),
-            "warnings": broker_status.get("warning_count", len(_list(broker_report.get("warnings")))),
-            "unexpected_exposure": bool(_list(broker_report.get("mismatches"))),
-        },
+        demo_broker_execution={**demo_broker_execution, "daily_risk_guard": daily_risk_guard},
+        broker_reconciliation=broker_reconciliation,
         live_readiness=live_readiness,
         evidence_growth=evidence_growth,
         signal_certification=signal_cert,

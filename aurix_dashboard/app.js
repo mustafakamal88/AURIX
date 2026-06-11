@@ -52,6 +52,9 @@ function displayAlias(value) {
     STRATEGY_NOT_REGISTERED: "NOT_REGISTERED",
     STRATEGY_EVALUATION_MISSING: "EVAL_MISSING",
     DURABLE_AUDIT_WRITE_FAILED: "AUDIT_FAIL",
+    BROKER_RECONCILIATION_UNKNOWN: "RECON_UNKNOWN",
+    RECONCILIATION_UNKNOWN: "RECON_UNKNOWN",
+    DATA_MISSING: "DATA_MISSING",
     RISK_PER_TRADE_EXCEEDED: "RISK_EXCEEDED",
     MIN_VOLUME_EXCEEDS_RISK_LIMIT: "MIN_VOL_BLOCK",
   };
@@ -89,8 +92,8 @@ function statusColor(value) {
   if (value === undefined || value === null || value === "" || value === "--") return "";
   const v = String(value).toUpperCase().trim();
   const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY", "READ_ONLY", "CANNOT_CREATE_COMMANDS", "RUNNING", "ACTIONABLE"]);
-  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "NEUTRAL", "NONE", "UNKNOWN"]);
-  const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING"]);
+  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "WAITING_DATA", "NEUTRAL", "NONE", "UNKNOWN", "DATA_MISSING", "RECON_UNKNOWN", "BROKER_RECONCILIATION_UNKNOWN", "INSUFF_CANDLES"]);
+  const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING", "DIRTY"]);
   const BLUE_SET = new Set(["RUNNING", "WAITING", "MONITORING", "EVALUATING", "SCANNING", "ACTIVE", "LIVE"]);
 
   if (GOOD_SET.has(v)) return "good";
@@ -261,6 +264,75 @@ function renderWarnings(items) {
   list.innerHTML = items.map(w => `<li>${safeStr(w)}</li>`).join("");
 }
 
+function cardForField(fieldId) {
+  return byId(fieldId)?.closest("article.card") || null;
+}
+
+function organizeOperationsLayout() {
+  const ops = byId("opsGrid");
+  if (!ops || ops.dataset.organized === "true") return;
+  ops.dataset.organized = "true";
+  const initialCards = Array.from(ops.querySelectorAll("article.card"));
+  const usedCards = new Set();
+  ops.querySelectorAll(".ops-row-label").forEach(node => node.remove());
+  const rows = [
+    ["System Running Proof", [["bid", "span3"], ["pipelineRegistered", "span3"], ["durableAuditState", "span3"], ["eventBusCount", "span3"]]],
+    ["Decision + Signal", [["decisionAction", "span3"], ["fastRsiStatus", "span3"], ["strategyAgentsRegistered", "span3"], ["whyPrimary", "span3 ops-why"]]],
+    ["Execution Readiness", [["cockpitRailwayExecution", "span3"], ["gateQueueState", "span3"], ["dailyRiskStatus", "span3"], ["opsBrokerOrderPermission", "span3"]]],
+    ["Broker + Queue", [["demoBrokerEnabled", "span3"], ["brokerReconStatus", "span3"], ["demoCommandQueueMode", "span3"], ["demoOmsMode", "span3"]]],
+    ["Audit + Evidence", [["tradeExplanationOrderId", "span4"], ["evidenceIntegrityStatus", "span4"], ["liveReadinessStatus", "span4"]]],
+    ["Runtime / Infrastructure", [["runtimeSessionId", "span6"], ["vpsProfile", "span6"]]],
+  ];
+  rows.forEach(([label, cards]) => {
+    const row = document.createElement("div");
+    row.className = "ops-row-label";
+    row.textContent = label;
+    ops.appendChild(row);
+    cards.forEach(([fieldId, width]) => {
+      const card = cardForField(fieldId);
+      if (!card) return;
+      card.classList.remove("full", "wide", "half", "span3", "span4", "span5", "span6", "span7");
+      width.split(" ").forEach(cls => card.classList.add(cls));
+      card.classList.add("ops-card");
+      card.hidden = false;
+      usedCards.add(card);
+      ops.appendChild(card);
+    });
+  });
+  initialCards.forEach(card => {
+    if (!usedCards.has(card)) card.hidden = true;
+  });
+  document.querySelectorAll("main > .grid").forEach(grid => {
+    if (grid === ops) return;
+    const hasVisibleCards = Array.from(grid.querySelectorAll("article.card")).some(card => card.offsetParent !== null);
+    if (!hasVisibleCards) {
+      grid.hidden = true;
+      const group = grid.previousElementSibling;
+      if (group && group.classList.contains("section-group")) group.hidden = true;
+    }
+  });
+}
+
+function brokerReconDisplay(broker) {
+  const status = broker.status || "UNKNOWN";
+  const reason = broker.reason || broker.status_reason || (status === "UNKNOWN" ? "missing/stale reconciliation artifact" : "--");
+  if (status === "CLEAN") return { label: "Broker Reconciliation: CLEAN", reason };
+  if (status === "UNKNOWN" || status === "STALE") return { label: "Broker Reconciliation: UNKNOWN", reason: "missing/stale reconciliation artifact" };
+  if (status === "DIRTY") return { label: "Broker Reconciliation: DIRTY", reason };
+  return { label: `Broker Reconciliation: ${status}`, reason };
+}
+
+function candleRequirementText(fastRsi) {
+  const reasons = Array.isArray(fastRsi.rejection_reasons) ? fastRsi.rejection_reasons : [];
+  const item = reasons.find(reason => String(reason?.code || reason).toLowerCase().includes("insufficient"));
+  const detail = item && typeof item === "object" ? (item.detail || item.context || item) : {};
+  const needed = detail.required_candles || detail.min_candles || detail.needed_candles;
+  const got = detail.actual_candles || detail.available_candles || detail.current_candles || detail.got_candles;
+  if (needed != null && got != null) return `Need at least ${needed} candles, got ${got}`;
+  if (item) return "Need more closed M1 candles";
+  return null;
+}
+
 function render(summary) {
   const account       = summary.account                  || {};
   const market        = summary.market                   || {};
@@ -295,6 +367,7 @@ function render(summary) {
   const demoAccount          = demoBroker.demo_account_verification || {};
   const demoGate             = demoBroker.latest_gate_decision || {};
   const dailyRisk            = demoBroker.daily_risk_guard || {};
+  const dailyRiskStatus      = dailyRisk.status || "DATA_MISSING";
   const latestDemoCommand    = demoBroker.latest_command || {};
   const latestDemoResult     = demoBroker.latest_execution_result || {};
   const symbol = summary.symbol || market.symbol;
@@ -310,21 +383,13 @@ function render(summary) {
   const actionLabel          = displayAlias(action);
   const block                = decision.top_blocking_reason || summary.top_blocks?.[0] || "--";
   const signalState          = cockpit.latest_signal_status || pipeline.latest_result || demoBroker.latest_signal_status || "--";
-  const riskState            = dailyRisk.status || cockpit.broker_order_permission || "--";
+  const riskState            = cockpit.broker_order_permission || dailyRiskStatus || "UNKNOWN";
   const queueState           = cockpit.aurix_queue_state || queue.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--";
   const mt5DeliveryState     = queue.mt5_delivery_state || latestDemoCommand.status || "NO_COMMAND";
   const brokerExecutionState = railwayBrokerEnabled ? "ENABLED" : "DISABLED";
   const brokerReconStatus    = broker.status || "UNKNOWN";
-  const brokerReconReason    = broker.status
-    ? broker.status === "CLEAN"
-      ? "Broker Reconciliation: CLEAN"
-      : [
-          Number(broker.mismatches || 0) ? `${broker.mismatches} mismatches` : null,
-          Number(broker.warnings || 0) ? `${broker.warnings} warnings` : null,
-          broker.unexpected_exposure ? "unexpected exposure" : null,
-          broker.reason || broker.status_reason || null,
-        ].filter(Boolean).join("; ") || `Broker Reconciliation: ${broker.status}`
-    : "Broker Reconciliation: UNKNOWN · missing/stale reconciliation artifact";
+  const brokerRecon          = brokerReconDisplay(broker);
+  const brokerReconReason    = brokerRecon.reason;
 
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
@@ -372,7 +437,7 @@ function render(summary) {
   setMissionCard("mcSignalCard", signalState);
 
   setStatusAlias("mcRiskGate", riskState);
-  setStatusAlias("mcDailyRisk", dailyRisk.status || "--");
+  setStatusAlias("mcDailyRisk", dailyRiskStatus);
   setStatusAlias("mcSpreadGate", cockpit.spread_gate_state || demoGate.spread_gate || market.spread_status || "--");
   setStatusAlias("mcSignalGate", cockpit.signal_gate_state || "--");
   setMissionCard("mcRiskCard", riskState);
@@ -385,7 +450,7 @@ function render(summary) {
 
   setTextTitle("mcNextExpected", summary.next_expected_action || decision.next_expected_action || "Continue monitoring");
   setTextTitle("mcPrimaryBlock", displayAlias(block), block);
-  setTextTitle("mcBrokerRecon", brokerReconReason);
+  setTextTitle("mcBrokerRecon", `${brokerRecon.label} · ${brokerReconReason}`, brokerReconReason);
   setMissionCard("mcNextCard", brokerReconStatus);
 
   // ── Decision Strip ──────────────────────────────────────────────
@@ -512,7 +577,7 @@ function render(summary) {
   renderStrategyAgentStatuses(agents.latest_statuses);
 
   // ── Broker Reconciliation ───────────────────────────────────────
-  setStatus("brokerReconStatus",    brokerReconStatus);
+  setStatusAlias("brokerReconStatus", brokerReconStatus);
   setText("brokerReconPositions",   broker.broker_positions);
   setText("brokerReconOrders",      broker.broker_orders);
   setText("brokerReconMismatches",  broker.mismatches);
@@ -564,7 +629,7 @@ function render(summary) {
   setStatus("opsBrokerExecution", brokerExecutionState, railwayBrokerEnabled ? "danger" : "good");
   setStatusAlias("opsQueuePermission", queueState);
   setStatusAlias("opsMt5Delivery", mt5DeliveryState);
-  setStatus("opsBrokerReconStatus", brokerReconStatus);
+  setStatusAlias("opsBrokerReconStatus", brokerReconStatus);
   setTextTitle("opsBrokerReconReason", brokerReconReason);
 
   // Session activity — false = green (nothing created this session)
@@ -658,7 +723,7 @@ function render(summary) {
   setStatus("demoBrokerQueueEnabled", demoBroker.queue_state || demoGate.queue_state || "--");
   setStatus("demoBrokerLiveLocked", demoBroker.spread_gate || demoGate.spread_gate || "--");
   setText("demoBrokerOnePosition", demoBroker.engine_max_spread_points != null ? `${demoBroker.engine_max_spread_points} points` : "--");
-  setStatus("demoBrokerGate", dailyRisk.status || (demoGate.daily_risk_guard ? demoGate.daily_risk_guard.status : "--"));
+  setStatusAlias("demoBrokerGate", dailyRiskStatus);
   setStatus("demoBrokerSignalGate", cockpit.signal_gate_state || (demoGate.allowed ? "PASS" : (demoGate.primary_block === "no actionable signal" || demoGate.primary_block === "signal direction missing" ? "BLOCKED" : "--")));
   setText("demoBrokerReason", demoBroker.latest_gate_block || demoGate.primary_block || demoGate.reason);
   setText("demoBrokerSelectedStrategy", cockpit.selected_strategy || demoBroker.selected_strategy);
@@ -669,12 +734,16 @@ function render(summary) {
   setText("demoAccountServer", demoAccount.account_server);
   setText("demoAccountLogin", demoAccount.account_login_masked);
   setText("demoAccountCurrency", demoAccount.account_currency);
-  setStatus("dailyRiskStatus", dailyRisk.status);
+  setStatusAlias("dailyRiskStatus", dailyRiskStatus);
   setText("dailyRiskLoss", dailyRisk.equity_loss);
   setText("dailyRiskDrawdown", dailyRisk.drawdown_percent);
+  setText("dailyRiskLimit", dailyRisk.daily_risk_limit_percent != null ? `${dailyRisk.daily_risk_limit_percent}%` : "--");
+  setText("dailyLossUsed", dailyRisk.daily_loss_used ?? dailyRisk.equity_loss);
+  setText("dailyRiskRemaining", dailyRisk.remaining_daily_risk);
+  setTextTitle("dailyRiskReason", dailyRisk.reason || "--");
   setText("latestMt5Command", latestDemoCommand.command_id);
-  setStatus("latestMt5CommandStatus", latestDemoCommand.status);
-  setStatus("latestMt5ExecutionResult", latestDemoResult.status);
+  setStatus("latestMt5CommandStatus", latestDemoCommand.status || "NO_COMMAND");
+  setStatus("latestMt5ExecutionResult", latestDemoResult.status || "NO_RESULT");
 
   // ── Event Bus ────────────────────────────────────────────────────
   setText("eventBusCount",         eventBus.event_count);
@@ -687,8 +756,14 @@ function render(summary) {
     "--");
 
   // ── Why No Trade ─────────────────────────────────────────────────
-  setText("whyPrimary",   summary.top_blocks?.[0]                       || decision.top_blocking_reason || "--");
-  setText("whySecondary", joinItems((summary.top_blocks || []).slice(1)));
+  const waitingForData = pipeline.latest_result === "WAITING_FOR_DATA" || fastRsi.latest_result === "WAITING_FOR_DATA";
+  const candleText = candleRequirementText(fastRsi);
+  const primaryWhy = waitingForData ? "Waiting for strategy data" : (summary.top_blocks?.[0] || decision.top_blocking_reason || "--");
+  const secondaryItems = waitingForData
+    ? [candleText, ...(summary.top_blocks || []).filter(item => item !== "no actionable signal")]
+    : (summary.top_blocks || []).slice(1);
+  setText("whyPrimary", primaryWhy);
+  setText("whySecondary", joinItems(secondaryItems.filter(Boolean)));
   setStatus("whySignalGate", cockpit.signal_gate_state || "--");
   setText("whyQueue", cockpit.aurix_queue_state ? `${cockpit.aurix_queue_state}${cockpit.aurix_queue_reason ? ` because ${cockpit.aurix_queue_reason}` : ""}` : "--");
   setText("whyWarnings",  joinItems(summary.top_warnings || []));
@@ -740,5 +815,6 @@ async function refresh() {
 
 const logoutButton = byId("dashboardLogout");
 if (logoutButton) logoutButton.addEventListener("click", logoutDashboard);
+organizeOperationsLayout();
 refresh();
 setInterval(refresh, REFRESH_MS);

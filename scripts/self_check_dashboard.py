@@ -239,6 +239,10 @@ def main() -> int:
         "durableAuditCommandId",
         "durableAuditMt5OrderId",
         "durableAuditTradeResult",
+        "dailyRiskLimit",
+        "dailyLossUsed",
+        "dailyRiskRemaining",
+        "dailyRiskReason",
     ]
     for field in required_fields:
         require(f'id="{field}"' in index or f"text(\"{field}\"" in app_js, f"missing dashboard field: {field}")
@@ -246,6 +250,11 @@ def main() -> int:
     require('id="hdrHealthReason"' not in index, "header must not render long health reason in topbar")
     require("Runtime Health Detail" in index, "dashboard should show health reason in a dedicated detail row")
     require(".runtime-health-detail" in styles and "overflow-wrap: anywhere" in styles, "health detail should wrap normally")
+    for label in ["System Running Proof", "Decision + Signal", "Execution Readiness", "Broker + Queue", "Audit + Evidence", "Runtime / Infrastructure"]:
+        require(label in app_js, f"dashboard operations layout missing row label: {label}")
+    require("organizeOperationsLayout()" in app_js, "dashboard should organize cards into operations rows")
+    require("Daily Risk Status" in index and "Remaining Daily Risk" in index and "Reason" in index, "daily risk card missing required fields")
+    require("Latest Command</span><span class=\"tile-value\" id=\"latestMt5Command\"" not in index, "daily risk card should not mix MT5 command fields")
 
     sys.path.insert(0, str(ROOT))
     import aurix_bridge_server.main as main_module
@@ -309,6 +318,9 @@ def main() -> int:
         require(true_summary["demo_command_queue"]["mt5_delivery_state"] == "NO_COMMAND", "dashboard summary should not create an MT5 command")
         require(true_summary["latest_trade_explanation"] == {}, "empty trade explanation ledger should render as empty summary data")
         require(true_summary["durable_audit"]["durable_audit"] == "DISABLED", f"missing durable audit dashboard state: {true_summary['durable_audit']}")
+        require(true_summary["demo_broker_execution"]["daily_risk_guard"]["status"] == "DATA_MISSING", f"missing daily risk should be DATA_MISSING: {true_summary['demo_broker_execution'].get('daily_risk_guard')}")
+        require(true_summary["broker_reconciliation"]["status"] == "UNKNOWN", f"missing broker reconciliation should be UNKNOWN: {true_summary['broker_reconciliation']}")
+        require(true_summary["broker_reconciliation"]["reason"] == "missing/stale reconciliation artifact", f"broker reconciliation reason unclear: {true_summary['broker_reconciliation']}")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
         require(true_summary["session"]["trading_session"]["name"] in {"ASIA", "LONDON", "NEW_YORK", "OFF_SESSION"}, f"trading session missing: {true_summary['session']}")
 
@@ -333,6 +345,7 @@ def main() -> int:
         require(waiting_summary["strategy_pipeline"]["strategy_registry_loaded"] is True, f"registry should stay loaded with insufficient data: {waiting_summary['strategy_pipeline']}")
         require(waiting_summary["strategy_pipeline"]["latest_result"] == "WAITING_FOR_DATA", f"insufficient data should be waiting: {waiting_summary['strategy_pipeline']}")
         require(waiting_summary["fast_rsi"]["latest_result"] == "WAITING_FOR_DATA", f"Fast RSI should show waiting: {waiting_summary['fast_rsi']}")
+        require(waiting_summary["top_blocks"][0] == "waiting for strategy data", f"waiting for data should be primary: {waiting_summary['top_blocks']}")
 
         seed_runtime(temp_root, broker_execution=False, ea_execution=False, evaluations=[strategy_eval(status="SIGNAL", confidence=0.9, direction="BUY", rejection_code="")])
         actionable_false = build_runtime_dashboard_summary(temp_root, runtime_environment={"broker_execution_enabled": False, "data_dir": temp_dir}, runtime_provenance=runtime_provenance).model_dump(mode="json")
