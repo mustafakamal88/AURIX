@@ -1180,9 +1180,49 @@ footer {
   margin-top: 56px;
   z-index: 70;
   padding: 8px 16px;
+  gap: 8px;
+  align-items: stretch;
   background: rgba(16, 19, 27, 0.94);
   border-bottom: 1px solid var(--line);
   justify-content: flex-start;
+}
+
+.banner-group {
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.banner-label {
+  align-items: center;
+  background: rgba(255,255,255,0.035);
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.banner-group .banner-slot {
+  min-width: 0;
+}
+
+.banner-group .pill {
+  border: 0;
+  border-radius: 0;
+  min-height: 28px;
+  padding: 7px 10px;
+}
+
+.banner-group:has(.banner-slot.hidden) {
+  display: none;
 }
 
 .meta-strip {
@@ -1565,6 +1605,102 @@ main {
   border-radius: var(--radius);
   box-shadow: none;
   overflow: visible;
+}
+
+.account-card .tile-grid,
+.gates-card .tile-grid,
+.strategy-card .tile-grid {
+  align-content: start;
+  grid-auto-rows: auto;
+}
+
+.account-card > .tile-grid,
+.gates-card > .tile-grid,
+.strategy-card > .tile-grid {
+  flex: 0 0 auto !important;
+}
+
+#opsGrid > .account-card,
+#opsGrid > .gates-card,
+#opsGrid > .strategy-card {
+  height: auto;
+  min-height: 0;
+}
+
+.account-card .tile,
+.gates-card .tile,
+.strategy-card .tile {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+}
+
+.account-card .tile-label,
+.gates-card .tile-label,
+.strategy-card .tile-label {
+  line-height: 1.2;
+}
+
+.account-card .tile-value,
+.gates-card .tile-value,
+.strategy-card .tile-value {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.account-card .tile.kpi .tile-value,
+.strategy-card .tile.kpi .tile-value {
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.account-card .tile-sub {
+  align-self: end;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.account-card .card-section {
+  margin-top: 14px;
+}
+
+.account-card .card-section .tile-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.account-card > .tile-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.gates-card > .tile-grid,
+.strategy-card > .tile-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.gates-card .tile:first-child,
+.gates-card .tile:nth-child(2) {
+  min-height: 104px;
+}
+
+.gates-card .tile:nth-child(n+3),
+.strategy-card .tile {
+  min-height: 84px;
+}
+
+.gates-card .tile:last-child {
+  grid-column: 1 / -1;
+}
+
+.strategy-card .tile.kpi {
+  min-height: 104px;
 }
 
 .tile::before {

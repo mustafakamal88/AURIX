@@ -536,8 +536,8 @@ function render(summary) {
   // ── Fast RSI ────────────────────────────────────────────────────
   setStatus("fastRsiStatus",       fastRsi.status);
   setText("fastRsiDirection",      fastRsi.direction);
-  setText("fastRsiRsi",            fastRsi.rsi_current);
-  setText("fastRsiSma",            fastRsi.rsi_sma_current);
+  setText("fastRsiRsi",            fixed(fastRsi.rsi_current, 2));
+  setText("fastRsiSma",            fixed(fastRsi.rsi_sma_current, 2));
   setText("fastRsiBuyThreshold",   fastRsi.buy_extreme_threshold);
   setText("fastRsiSellThreshold",  fastRsi.sell_extreme_threshold);
   setText("fastRsiBuyExtreme",     fastRsi.buy_extreme_state);

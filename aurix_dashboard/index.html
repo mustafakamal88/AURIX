@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AURIX · Operations Cockpit</title>
-    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-mission-card-readable-kv">
+    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-organized-status-sections-3">
   </head>
   <body>
 
@@ -41,12 +41,12 @@
     </aside>
 
     <section class="topbar-pills" aria-label="Safety status">
-      <span id="bannerBrokerExecution" class="banner-slot"><span class="pill safe">BROKER EXECUTION DISABLED</span></span>
-      <span id="bannerEaExecution" class="banner-slot"><span class="pill safe">EA EXECUTION DISABLED</span></span>
-      <span id="bannerExecutionMatch" class="banner-slot"><span class="pill neutral">EXECUTION STATE UNKNOWN</span></span>
-      <span id="bannerDurableAudit" class="banner-slot hidden"><span class="pill neutral">DURABLE AUDIT --</span></span>
-      <span id="bannerReadOnly" class="banner-slot"><span class="pill safe">READ-ONLY DASHBOARD</span></span>
-      <span id="bannerNoCommands" class="banner-slot"><span class="pill safe">NO COMMANDS FROM DASHBOARD</span></span>
+      <span class="banner-group"><span class="banner-label">Broker</span><span id="bannerBrokerExecution" class="banner-slot"><span class="pill safe">BROKER EXECUTION DISABLED</span></span></span>
+      <span class="banner-group"><span class="banner-label">EA</span><span id="bannerEaExecution" class="banner-slot"><span class="pill safe">EA EXECUTION DISABLED</span></span></span>
+      <span class="banner-group"><span class="banner-label">Match</span><span id="bannerExecutionMatch" class="banner-slot"><span class="pill neutral">EXECUTION STATE UNKNOWN</span></span></span>
+      <span class="banner-group"><span class="banner-label">Audit</span><span id="bannerDurableAudit" class="banner-slot hidden"><span class="pill neutral">DURABLE AUDIT --</span></span></span>
+      <span class="banner-group"><span class="banner-label">Dashboard</span><span id="bannerReadOnly" class="banner-slot"><span class="pill safe">READ-ONLY DASHBOARD</span></span></span>
+      <span class="banner-group"><span class="banner-label">Commands</span><span id="bannerNoCommands" class="banner-slot"><span class="pill safe">NO COMMANDS FROM DASHBOARD</span></span></span>
     </section>
 
     <section class="meta-strip" aria-label="Runtime ticker">
@@ -242,7 +242,7 @@
         </article>
 
         <!-- Row 2: Account · Gates · Fast RSI (balanced status grids) -->
-        <article class="card">
+        <article class="card account-card">
           <h2>Account · MT5 Snapshot</h2>
           <div class="tile-grid cols-3">
             <div class="tile kpi"><span class="tile-label">Balance</span><span class="tile-value" id="balance">--</span><span class="tile-sub" id="currency">--</span></div>
@@ -263,7 +263,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card gates-card">
           <h2>AURIX Gates</h2>
           <div class="tile-grid cols-2">
             <div class="tile status"><span class="tile-label">AURIX Queue</span><span class="tile-value" id="gateQueueState">--</span></div>
@@ -276,7 +276,7 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card strategy-card">
           <h2>Fast RSI Strategy</h2>
           <div class="tile-grid cols-2">
             <div class="tile status is-blue"><span class="tile-label">Status</span><span class="tile-value" id="fastRsiStatus">--</span></div>
@@ -671,7 +671,7 @@
       <span>AURIX · Read-Only Dashboard · No execution capability</span>
     </footer>
 
-    <script src="/dashboard/static/app.js?v=20260611-mission-card-readable-kv"></script>
+    <script src="/dashboard/static/app.js?v=20260611-organized-status-sections-3"></script>
     <script>
       // Post-render enhancements: drive the SVG ring + spread meter from
       // values that JS has already written to existing IDs. No data fetch.
