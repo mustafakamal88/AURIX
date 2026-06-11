@@ -60,7 +60,7 @@ def make_evaluator(tmpdir: str, config: StrategyAgentsConfig, signals: list[dict
         registry=registry,
         event_bus=event_bus,
         latest_signals=lambda: signals,
-        candles=lambda: [],
+        candles=lambda: candle_series([100.0 + (((index % 5) - 2) * 0.05) for index in range(80)]),
         context=lambda: {"session_name": "TEST", "session_allowed": False},
     )
 
@@ -75,9 +75,14 @@ def candle_series(closes: list[float], spread: int = 10) -> list[dict[str, Any]]
             "low": close - 0.1,
             "close": close,
             "spread": spread,
+            "closed": True,
         }
         for index, close in enumerate(closes)
     ]
+
+
+def with_candle_memory(tail: list[float], memory: int = 25) -> list[float]:
+    return [100.0 for _ in range(memory)] + tail
 
 
 def fast_config(max_spread_points: int = 999) -> StrategyAgentsConfig:
@@ -260,7 +265,12 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmpdir:
         evaluator = make_evaluator(tmpdir, config, [v1_signal(False)])
         result = evaluator.evaluate_agent("xauusd_paper_v1_adapter")
-        if result.status != "SIGNAL" or result.decision_trace is not None:
+        trace = result.decision_trace if isinstance(result.decision_trace, dict) else {}
+        if (
+            result.status != "SIGNAL"
+            or not trace.get("shared_candle_context")
+            or trace.get("normalized_output", {}).get("strategy_id") != "xauusd_paper_v1"
+        ):
             raise AssertionError(f"V1 legacy signal adaptation failed: {result}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -271,7 +281,7 @@ def main() -> int:
         ref = {"closes": [100, 99, 98]}
         evaluator = make_fast_evaluator(tmpdir, ref)
         insufficient = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
-        if insufficient.status != "SKIPPED" or insufficient.rejection_reasons[0].code != "insufficient_m1_candles_for_rsi":
+        if insufficient.status != "SKIPPED" or insufficient.rejection_reasons[0].code != "insufficient_candle_memory":
             raise AssertionError(f"insufficient candles failed: {insufficient}")
         evaluator.store.save_results([insufficient], evaluator.registry)
         pipeline = build_strategy_pipeline_snapshot(
@@ -283,24 +293,24 @@ def main() -> int:
         )
         if pipeline["strategy_registry_loaded"] is not True:
             raise AssertionError(f"insufficient data should not unload registry: {pipeline}")
-        if pipeline["latest_result"] != "WAITING_FOR_DATA" or pipeline["latest_rejection_reason"] != "INSUFFICIENT_CANDLES":
-            raise AssertionError(f"insufficient candles should produce WAITING_FOR_DATA: {pipeline}")
+        if pipeline["latest_result"] != "BLOCKED" or pipeline["latest_rejection_reason"] != "INSUFFICIENT_CANDLE_MEMORY":
+            raise AssertionError(f"insufficient candles should produce insufficient memory block: {pipeline}")
 
-        ref["closes"] = [100, 99, 98, 97, 96, 95, 94]
+        ref["closes"] = with_candle_memory([100, 99, 98, 97, 96, 95, 94])
         below = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         state = json.loads((Path(tmpdir) / "strategy_agents" / "fast_rsi_first_reversal_state.json").read_text(encoding="utf-8"))
         if state.get("rsi_was_below_buy_extreme") is not True:
             raise AssertionError(f"below-extreme state was not set: {below} {state}")
 
-        ref["closes"] = [100, 99, 98, 97, 96, 95, 94, 94.5, 95]
+        ref["closes"] = with_candle_memory([100, 99, 98, 97, 96, 95, 94, 94.5, 95])
         balance = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         state = json.loads((Path(tmpdir) / "strategy_agents" / "fast_rsi_first_reversal_state.json").read_text(encoding="utf-8"))
         if balance.status != "NO_SIGNAL" or state.get("rsi_was_below_buy_extreme") is not False:
             raise AssertionError(f"balance reset failed: {balance} {state}")
 
-        ref["closes"] = [100, 99, 98, 97, 96, 95, 94]
+        ref["closes"] = with_candle_memory([100, 99, 98, 97, 96, 95, 94])
         evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
-        ref["closes"] = [100, 99, 98, 97, 96, 95, 94, 93, 94]
+        ref["closes"] = with_candle_memory([100, 99, 98, 97, 96, 95, 94, 93, 94])
         buy = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         if buy.status != "SIGNAL" or buy.direction != "BUY" or buy.command_id is not None or not buy.decision_trace:
             raise AssertionError(f"BUY signal failed: {buy}")
@@ -320,28 +330,28 @@ def main() -> int:
             raise AssertionError("Fast RSI evaluation queued commands or order requests")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ref = {"closes": [100, 98.24, 95.88, 93.54, 91.38, 93.44, 95.18, 94.69]}
+        ref = {"closes": with_candle_memory([100, 98.24, 95.88, 93.54, 91.38, 93.44, 95.18, 94.69])}
         evaluator = make_fast_evaluator(tmpdir, ref)
         above = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         state = json.loads((Path(tmpdir) / "strategy_agents" / "fast_rsi_first_reversal_state.json").read_text(encoding="utf-8"))
         if state.get("rsi_was_above_sell_extreme") is not True:
             raise AssertionError(f"above-extreme state was not set: {above} {state}")
-        ref["closes"] = [100, 98.24, 95.88, 93.54, 91.38, 93.44, 95.18, 94.69, 96.03]
+        ref["closes"] = with_candle_memory([100, 98.24, 95.88, 93.54, 91.38, 93.44, 95.18, 94.69, 96.03])
         sell = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         if sell.status != "SIGNAL" or sell.direction != "SELL" or sell.command_id is not None or not sell.decision_trace:
             raise AssertionError(f"SELL signal failed: {sell}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ref = {"closes": [100, 99, 98, 97, 96, 95, 94], "spread": 999}
+        ref = {"closes": with_candle_memory([100, 99, 98, 97, 96, 95, 94]), "spread": 999}
         evaluator = make_fast_evaluator(tmpdir, ref, max_spread_points=10)
         evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
-        ref["closes"] = [100, 99, 98, 97, 96, 95, 94, 93, 94]
+        ref["closes"] = with_candle_memory([100, 99, 98, 97, 96, 95, 94, 93, 94])
         blocked = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
         if blocked.status != "SKIPPED" or blocked.rejection_reasons[0].code != "spread_above_max":
             raise AssertionError(f"spread block failed: {blocked}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ref = {"closes": [100, 99, 98, 97, 96, 95, 94]}
+        ref = {"closes": with_candle_memory([100, 99, 98, 97, 96, 95, 94])}
         evaluator = make_fast_evaluator(tmpdir, ref)
         agent = evaluator.registry.get_agent("fast_rsi_first_reversal_v1")
         if agent is None:

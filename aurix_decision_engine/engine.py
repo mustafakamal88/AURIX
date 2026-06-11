@@ -132,7 +132,42 @@ class AurixDecisionEngine:
             snapshot=self._snapshot(),
         )
 
-    def _select_signal(self, latest: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, bool]:
+    def _select_signal(self, latest: list[dict[str, Any]], strategy_status: dict[str, Any]) -> tuple[dict[str, Any] | None, bool, bool]:
+        trace = _as_dict(strategy_status.get("last_decision_trace"))
+        selected_candidate = _as_dict(trace.get("selected_candidate"))
+        if selected_candidate:
+            direction = selected_candidate.get("direction")
+            mapped_direction = "BUY" if direction == "LONG" else "SELL" if direction == "SHORT" else None
+            if mapped_direction in {"BUY", "SELL"} and float(selected_candidate.get("confidence") or 0.0) >= self.config.min_signal_confidence:
+                return (
+                    {
+                        "id": trace.get("cycle_id"),
+                        "strategy_name": selected_candidate.get("strategy_id"),
+                        "strategy_version": None,
+                        "direction": mapped_direction,
+                        "status": "SIGNAL",
+                        "confidence": selected_candidate.get("confidence"),
+                        "setup_reason": "; ".join(selected_candidate.get("reasons") or []),
+                        "strategy_id": selected_candidate.get("strategy_id"),
+                        "signal_confidence": selected_candidate.get("confidence"),
+                        "signal_reasons": selected_candidate.get("reasons") or [],
+                        "decision_cycle_id": trace.get("cycle_id"),
+                        "final_gate_result": None,
+                        "decision_trace": {
+                            "decision_cycle_id": trace.get("cycle_id"),
+                            "selected_candidate": selected_candidate,
+                            "latest_closed_candle_timestamp": trace.get("latest_closed_candle_timestamp"),
+                        },
+                        "event_id": None,
+                        "command_id": None,
+                    },
+                    False,
+                    False,
+                )
+        if trace.get("selection_reason") == "strategy_conflict":
+            return None, False, True
+        if trace.get("selection_reason") == "confidence_rejection":
+            return None, True, False
         low_conf = False
         for strategy in self.config.strategy_priority:
             matches = [item for item in latest if item.get("strategy_name") == strategy or item.get("agent_id") == strategy]
@@ -147,8 +182,8 @@ class AurixDecisionEngine:
                 if confidence < self.config.min_signal_confidence:
                     low_conf = True
                     continue
-                return item, low_conf
-        return None, low_conf
+                return item, low_conf, False
+        return None, low_conf, False
 
     def build_decision(self) -> AurixDecisionReport:
         data = self.build_input()
@@ -224,11 +259,13 @@ class AurixDecisionEngine:
         if session_allowed is False or context.get("session_allowed") is False:
             block("session_not_allowed", "runtime state reports session not allowed")
 
-        selected, low_conf = self._select_signal(data.strategy_agent_latest)
-        if not selected and not low_conf:
+        selected, low_conf, conflict = self._select_signal(data.strategy_agent_latest, data.strategy_agents_status)
+        if not selected and not low_conf and not conflict:
             block("no_actionable_signal", "no prioritized actionable strategy signal is available")
         if not selected and low_conf:
             block("signal_confidence_below_threshold", "latest actionable signal confidence is below threshold")
+        if conflict:
+            block("strategy_conflict", "conflicting long/short strategy candidates are too close in confidence")
 
         if risk and risk.get("can_trade") is False:
             block("risk_governor_block", "risk governor status reports can_trade=false")
@@ -258,6 +295,9 @@ class AurixDecisionEngine:
         elif any(item.code == "signal_confidence_below_threshold" for item in blocks):
             action = AurixDecisionAction.BLOCKED_BY_LOW_CONFIDENCE
             status = AurixDecisionStatus.BLOCKED
+        elif any(item.code == "strategy_conflict" for item in blocks):
+            action = AurixDecisionAction.BLOCKED_BY_NO_SIGNAL
+            status = AurixDecisionStatus.BLOCKED
         elif any(item.code == "no_actionable_signal" for item in blocks):
             action = AurixDecisionAction.BLOCKED_BY_NO_SIGNAL
             status = AurixDecisionStatus.BLOCKED
@@ -280,7 +320,7 @@ class AurixDecisionEngine:
         if action in {AurixDecisionAction.TRADE_LONG, AurixDecisionAction.TRADE_SHORT}:
             recs.append(AurixDecisionRecommendation(message="Candidate can be monitored or passed to later dry-run workflows only."))
 
-        return AurixDecisionReport(
+        report = AurixDecisionReport(
             symbol=self.config.symbol,
             mode=self.config.mode,
             autonomy_level=self.config.autonomy_level,
@@ -303,3 +343,31 @@ class AurixDecisionEngine:
             execution_view={"demo_oms": demo_oms, "demo_command_queue": queue, "order_request_created": False, "mt5_command_queued": False},
             broker_view={"status": broker.get("status"), "positions": broker_positions, "orders": broker_orders},
         )
+        stage = "NONE"
+        if report.blocking_reasons:
+            first = report.blocking_reasons[0].code
+            if "spread" in first:
+                stage = "SPREAD"
+            elif "risk" in first:
+                stage = "RISK"
+            elif "session" in first:
+                stage = "SESSION"
+            elif "broker" in first or "execution" in first:
+                stage = "BROKER_EXECUTION"
+            elif "strategy" in first or "signal" in first:
+                stage = "STRATEGY"
+            else:
+                stage = "EVIDENCE"
+        self.strategy_agent_store.update_latest_trace_decision(
+            {
+                "final_decision": report.action.value,
+                "block_stage": stage,
+                "block_reason": report.blocking_reasons[0].code if report.blocking_reasons else None,
+                "selected_strategy_id": report.strategy,
+                "selected_action": report.action.value if selected else "WAIT",
+                "selected_confidence": report.confidence,
+                "broker_execution_enabled": bool(self.config.allow_demo_execution or self.config.allow_live_execution),
+                "paper_enabled": True,
+            }
+        )
+        return report

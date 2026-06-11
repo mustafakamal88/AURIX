@@ -99,7 +99,29 @@ class DemoBrokerExecutionStore:
             return False
         return any(cmd.get("signal_id") == signal_id and cmd.get("status") in {"PENDING", "DELIVERED"} for cmd in self.list_commands())
 
-    def create_command(self, *, terminal_id: str, side: str, symbol: str, volume: float, stop_loss: float, take_profit: float, strategy_id: str, signal_id: str, runtime_session_id: str, provenance: dict[str, Any], safety_checks_snapshot: dict[str, Any], ttl_seconds: int, magic_number: int, command_id: str | None = None, comment: str | None = None) -> dict[str, Any]:
+    def create_command(
+        self,
+        *,
+        terminal_id: str,
+        side: str,
+        symbol: str,
+        volume: float,
+        stop_loss: float,
+        take_profit: float,
+        strategy_id: str,
+        signal_id: str,
+        runtime_session_id: str,
+        provenance: dict[str, Any],
+        safety_checks_snapshot: dict[str, Any],
+        ttl_seconds: int,
+        magic_number: int,
+        command_id: str | None = None,
+        comment: str | None = None,
+        signal_confidence: float | None = None,
+        signal_reasons: list[Any] | None = None,
+        decision_cycle_id: str | None = None,
+        final_gate_result: str | None = None,
+    ) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
         command_id = command_id or uuid4().hex
         command = {
@@ -116,6 +138,10 @@ class DemoBrokerExecutionStore:
             "comment": comment or "AURIX-DEMO",
             "strategy_id": strategy_id,
             "signal_id": signal_id,
+            "signal_confidence": signal_confidence,
+            "signal_reasons": signal_reasons or [],
+            "decision_cycle_id": decision_cycle_id,
+            "final_gate_result": final_gate_result,
             "runtime_session_id": runtime_session_id,
             "created_at": now.isoformat(),
             "expires_at": (now + timedelta(seconds=ttl_seconds)).isoformat(),

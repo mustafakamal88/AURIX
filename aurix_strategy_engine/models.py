@@ -48,6 +48,11 @@ class StrategySignal(BaseModel):
     range_high: Optional[float] = None
     range_low: Optional[float] = None
     decision_trace: Optional[dict[str, Any]] = None
+    strategy_id: Optional[str] = None
+    signal_confidence: Optional[float] = None
+    signal_reasons: list[str] = Field(default_factory=list)
+    decision_cycle_id: Optional[str] = None
+    final_gate_result: Optional[str] = None
     paper_risk_checked: bool = False
     paper_risk_decision_id: Optional[str] = None
     paper_risk_status: Optional[str] = None
