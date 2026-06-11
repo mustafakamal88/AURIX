@@ -454,9 +454,24 @@ def build_runtime_dashboard_summary(
             "strategy_timeframe": strategy_trace.get("strategy_timeframe") or strategy_status.get("strategy_timeframe") or "UNKNOWN",
             "resampled": bool(strategy_trace.get("resampled") or strategy_status.get("resampled")),
             "source_candle_count": strategy_trace.get("source_candle_count") or strategy_status.get("source_candle_count") or 0,
+            "raw_closed_candle_count": strategy_trace.get("raw_closed_candle_count") or strategy_status.get("raw_closed_candle_count") or 0,
+            "m15_bucket_count_total": strategy_trace.get("m15_bucket_count_total") or strategy_status.get("m15_bucket_count_total") or 0,
+            "m15_bucket_count_complete": strategy_trace.get("m15_bucket_count_complete") or strategy_status.get("m15_bucket_count_complete") or 0,
+            "m15_bucket_count_incomplete": strategy_trace.get("m15_bucket_count_incomplete") or strategy_status.get("m15_bucket_count_incomplete") or 0,
             "strategy_candle_count": strategy_trace.get("strategy_candle_count") or strategy_status.get("strategy_candle_count") or strategy_status.get("available_closed_candle_count") or 0,
+            "required_strategy_candle_count": strategy_trace.get("required_strategy_candle_count") or strategy_status.get("required_strategy_candle_count") or 26,
+            "dropped_latest_incomplete_bucket": bool(strategy_trace.get("dropped_latest_incomplete_bucket") or strategy_status.get("dropped_latest_incomplete_bucket")),
+            "last_incomplete_bucket_start": strategy_trace.get("last_incomplete_bucket_start") or strategy_status.get("last_incomplete_bucket_start"),
+            "candle_memory_status": strategy_trace.get("candle_memory_status") or strategy_status.get("candle_memory_status"),
             "latest_strategy_closed_candle_timestamp": strategy_trace.get("latest_strategy_closed_candle_timestamp") or strategy_status.get("latest_strategy_closed_candle_timestamp"),
-            "candle_memory": f"{strategy_trace.get('strategy_candle_count') or strategy_status.get('strategy_candle_count') or strategy_trace.get('available_candle_count') or 0} closed {strategy_trace.get('strategy_timeframe') or strategy_status.get('strategy_timeframe') or ''} candles".strip(),
+            "candle_memory": f"{strategy_trace.get('strategy_candle_count') or strategy_status.get('strategy_candle_count') or strategy_trace.get('available_candle_count') or 0}/{strategy_trace.get('required_strategy_candle_count') or strategy_status.get('required_strategy_candle_count') or 26} closed {strategy_trace.get('strategy_timeframe') or strategy_status.get('strategy_timeframe') or ''} candles".strip(),
+            "compact_status_line": (
+                f"{strategy_status.get('current_engine_status') or ('RUNNING' if strategy_status.get('enabled') else 'DISABLED')} | "
+                f"SCANNING {strategy_status.get('enabled_count') or 0}/{strategy_status.get('registered_count') or 0} | "
+                f"raw {strategy_trace.get('raw_timeframe') or strategy_status.get('raw_timeframe') or 'UNKNOWN'} -> strategy {strategy_trace.get('strategy_timeframe') or strategy_status.get('strategy_timeframe') or 'UNKNOWN'} | "
+                f"{strategy_trace.get('strategy_candle_count') or strategy_status.get('strategy_candle_count') or 0}/{strategy_trace.get('required_strategy_candle_count') or strategy_status.get('required_strategy_candle_count') or 26} closed {strategy_trace.get('strategy_timeframe') or strategy_status.get('strategy_timeframe') or ''} candles | "
+                f"{'WAITING_FOR_DATA' if (strategy_trace.get('candle_memory_status') or strategy_status.get('candle_memory_status')) == 'WAITING_FOR_STRATEGY_TIMEFRAME_CANDLES' else strategy_trace.get('selected_action') or 'WAIT'}"
+            ),
             "last_scan_time": strategy_trace.get("timestamp") or strategy_status.get("last_evaluation_at"),
             "selected_strategy": strategy_trace.get("selected_strategy_id") or "NONE",
             "last_action": strategy_trace.get("selected_action") or "WAIT",
