@@ -39,6 +39,39 @@ def _age_seconds(value: Any) -> float | None:
     return (datetime.now(timezone.utc) - parsed).total_seconds()
 
 
+def _broker_reconciliation_summary(status: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
+    generated_at = report.get("generated_at")
+    updated_at = status.get("updated_at")
+    artifact_age = _age_seconds(generated_at or updated_at)
+    latest_exists = bool(status.get("latest_exists")) or bool(report)
+    mismatches = status.get("mismatch_count", len(_list(report.get("mismatches"))))
+    warnings = status.get("warning_count", len(_list(report.get("warnings"))))
+    broker_positions = status.get("broker_position_count", len(_list(report.get("broker_positions"))))
+    broker_orders = status.get("broker_order_count", len(_list(report.get("broker_orders"))))
+    dirty_evidence = bool(mismatches or warnings or broker_positions or broker_orders)
+    artifact_stale = artifact_age is not None and artifact_age > 900
+    effective_status = status.get("status") or report.get("status")
+    if not latest_exists or artifact_stale:
+        effective_status = "UNKNOWN"
+    elif effective_status != "CLEAN" and not dirty_evidence:
+        effective_status = "UNKNOWN"
+    return {
+        "status": effective_status,
+        "raw_status": status.get("status") or report.get("status"),
+        "latest_exists": latest_exists,
+        "artifact_stale": artifact_stale,
+        "generated_at": generated_at,
+        "updated_at": updated_at,
+        "artifact_age_seconds": artifact_age,
+        "broker_positions": broker_positions,
+        "broker_orders": broker_orders,
+        "mismatches": mismatches,
+        "warnings": warnings,
+        "unexpected_exposure": bool(broker_positions or broker_orders or mismatches),
+        "dirty_evidence": dirty_evidence,
+    }
+
+
 def _count_status(items: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:
@@ -444,14 +477,7 @@ def build_runtime_dashboard_summary(
             "broker_order_id": latest_payload.get("broker_order_id"),
         },
         demo_broker_execution=demo_broker_execution,
-        broker_reconciliation={
-            "status": broker_status.get("status") or broker_report.get("status"),
-            "broker_positions": broker_status.get("broker_position_count", len(_list(broker_report.get("broker_positions")))),
-            "broker_orders": broker_status.get("broker_order_count", len(_list(broker_report.get("broker_orders")))),
-            "mismatches": broker_status.get("mismatch_count", len(_list(broker_report.get("mismatches")))),
-            "warnings": broker_status.get("warning_count", len(_list(broker_report.get("warnings")))),
-            "unexpected_exposure": bool(_list(broker_report.get("mismatches"))),
-        },
+        broker_reconciliation=_broker_reconciliation_summary(broker_status, broker_report),
         live_readiness=live_readiness,
         evidence_growth=evidence_growth,
         signal_certification=signal_cert,

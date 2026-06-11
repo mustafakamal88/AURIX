@@ -296,8 +296,10 @@ def main() -> int:
         true_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
         cockpit = true_summary["broker_execution_cockpit"]
         pipeline = true_summary["strategy_pipeline"]
+        broker_recon = true_summary["broker_reconciliation"]
         require(pipeline["latest_result"] == "STRATEGY_EVALUATION_MISSING", f"expected missing strategy evaluation, got {pipeline}")
         require(pipeline["latest_rejection_reason"] == "STRATEGY_NOT_RUNNING", f"expected strategy not running, got {pipeline}")
+        require(broker_recon["status"] == "UNKNOWN" and broker_recon["latest_exists"] is False, f"missing broker reconciliation should be UNKNOWN: {broker_recon}")
         require(cockpit["broker_execution_matched"] is True, "broker execution true + EA true should match")
         require(cockpit["latest_primary_block"] == "no actionable signal", f"expected no actionable signal, got {cockpit}")
         require(cockpit["signal_gate_state"] == "BLOCKED", f"signal gate should be blocked, got {cockpit}")
@@ -311,6 +313,21 @@ def main() -> int:
         require(true_summary["durable_audit"]["durable_audit"] == "DISABLED", f"missing durable audit dashboard state: {true_summary['durable_audit']}")
         require(true_summary["health"] == "HEALTHY", f"fresh snapshot should be healthy, got {true_summary['health']} {true_summary.get('health_reason')}")
         require(true_summary["session"]["trading_session"]["name"] in {"ASIA", "LONDON", "NEW_YORK", "OFF_SESSION"}, f"trading session missing: {true_summary['session']}")
+
+        write_json(temp_root, "broker_reconciliation/report.json", {"generated_at": iso_age(1200), "status": "CLEAN", "mismatches": [], "warnings": [], "broker_positions": [], "broker_orders": []})
+        write_json(temp_root, "broker_reconciliation/status.json", {"latest_exists": True, "status": "CLEAN", "mismatch_count": 0, "warning_count": 0, "broker_position_count": 0, "broker_order_count": 0, "updated_at": iso_age(1200)})
+        stale_recon_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(stale_recon_summary["broker_reconciliation"]["status"] == "UNKNOWN", f"stale broker reconciliation should be UNKNOWN: {stale_recon_summary['broker_reconciliation']}")
+
+        write_json(temp_root, "broker_reconciliation/report.json", {"generated_at": iso_age(1), "status": "BLOCKED", "mismatches": [], "warnings": [], "broker_positions": [], "broker_orders": []})
+        write_json(temp_root, "broker_reconciliation/status.json", {"latest_exists": True, "status": "BLOCKED", "mismatch_count": 0, "warning_count": 0, "broker_position_count": 0, "broker_order_count": 0, "updated_at": iso_age(1)})
+        no_evidence_recon_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(no_evidence_recon_summary["broker_reconciliation"]["status"] == "UNKNOWN", f"non-clean broker reconciliation without dirty evidence should be UNKNOWN: {no_evidence_recon_summary['broker_reconciliation']}")
+
+        write_json(temp_root, "broker_reconciliation/report.json", {"generated_at": iso_age(1), "status": "BLOCKED", "mismatches": [{"code": "unexpected_position"}], "warnings": [], "broker_positions": [], "broker_orders": []})
+        write_json(temp_root, "broker_reconciliation/status.json", {"latest_exists": True, "status": "BLOCKED", "mismatch_count": 1, "warning_count": 0, "broker_position_count": 0, "broker_order_count": 0, "updated_at": iso_age(1)})
+        dirty_recon_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
+        require(dirty_recon_summary["broker_reconciliation"]["status"] == "BLOCKED", f"dirty broker reconciliation evidence should preserve status: {dirty_recon_summary['broker_reconciliation']}")
 
         seed_runtime(temp_root, evaluations=[], registered_count=1, enabled_count=0)
         disabled_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")

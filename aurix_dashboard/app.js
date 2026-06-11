@@ -13,6 +13,10 @@ function safeStr(value) {
   return value === undefined || value === null || value === "" ? "--" : String(value);
 }
 
+function hasDisplayValue(value) {
+  return value !== undefined && value !== null && value !== "" && value !== "--";
+}
+
 function setText(id, value) {
   const el = byId(id);
   if (!el) return;
@@ -89,7 +93,7 @@ function statusColor(value) {
   if (value === undefined || value === null || value === "" || value === "--") return "";
   const v = String(value).toUpperCase().trim();
   const GOOD_SET = new Set(["OK", "CLEAN", "SAFE", "HEALTHY", "PASS", "PASSED", "ACTIVE", "CERTIFIED", "VALID", "TRUE", "ENABLED", "SUCCESS", "READY", "READ_ONLY", "CANNOT_CREATE_COMMANDS", "RUNNING", "ACTIONABLE"]);
-  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "NEUTRAL", "NONE", "UNKNOWN"]);
+  const WARN_SET = new Set(["WARNING", "WARN", "DEGRADED", "STALE", "PARTIAL", "COLLECTING", "PENDING", "NO_SETUP", "LOW_CONFIDENCE", "WAITING_FOR_NEXT_CANDLE", "WAITING_FOR_DATA", "NEUTRAL", "NONE", "UNKNOWN", "DATA_MISSING"]);
   const DANGER_SET = new Set(["ERROR", "BLOCKED", "LOCKED", "DISABLED", "FAIL", "FAILED", "CORRUPT", "CORRUPTED", "INVALID", "FALSE", "MISSING"]);
   const BLUE_SET = new Set(["RUNNING", "WAITING", "MONITORING", "EVALUATING", "SCANNING", "ACTIVE", "LIVE"]);
 
@@ -129,6 +133,44 @@ function setProvenanceValue(id, value) {
   } else {
     el.textContent = display.label;
   }
+}
+
+function dailyRiskDisplay(dailyRisk) {
+  const hasLoss = hasDisplayValue(dailyRisk.equity_loss);
+  const hasDrawdown = hasDisplayValue(dailyRisk.drawdown_percent);
+  const dataMissing = !hasLoss || !hasDrawdown;
+  return {
+    status: dataMissing ? "DATA_MISSING" : (dailyRisk.status || "UNKNOWN"),
+    equityLoss: hasLoss ? dailyRisk.equity_loss : "UNKNOWN",
+    drawdownPercent: hasDrawdown ? dailyRisk.drawdown_percent : "UNKNOWN",
+  };
+}
+
+function brokerReconciliationDisplay(broker) {
+  const dirtyEvidence = broker.dirty_evidence === true ||
+    Number(broker.mismatches || 0) > 0 ||
+    Number(broker.warnings || 0) > 0 ||
+    broker.unexpected_exposure === true;
+  const missingOrStale = broker.latest_exists === false || broker.artifact_stale === true || !broker.status;
+  const status = missingOrStale || (broker.status !== "CLEAN" && !dirtyEvidence) ? "UNKNOWN" : broker.status;
+  if (status === "CLEAN") {
+    return { status, reason: "Broker Reconciliation: CLEAN" };
+  }
+  if (status === "UNKNOWN") {
+    const reason = broker.artifact_stale
+      ? "Broker Reconciliation: UNKNOWN · stale reconciliation artifact"
+      : "Broker Reconciliation: UNKNOWN · missing reconciliation artifact or no dirty evidence";
+    return { status, reason };
+  }
+  return {
+    status,
+    reason: [
+      Number(broker.mismatches || 0) ? `${broker.mismatches} mismatches` : null,
+      Number(broker.warnings || 0) ? `${broker.warnings} warnings` : null,
+      broker.unexpected_exposure ? "unexpected exposure" : null,
+      broker.reason || broker.status_reason || null,
+    ].filter(Boolean).join("; ") || `Broker Reconciliation: ${status}`,
+  };
 }
 
 // Set a status badge in an rt-value element
@@ -295,6 +337,7 @@ function render(summary) {
   const demoAccount          = demoBroker.demo_account_verification || {};
   const demoGate             = demoBroker.latest_gate_decision || {};
   const dailyRisk            = demoBroker.daily_risk_guard || {};
+  const dailyRiskView        = dailyRiskDisplay(dailyRisk);
   const latestDemoCommand    = demoBroker.latest_command || {};
   const latestDemoResult     = demoBroker.latest_execution_result || {};
   const symbol = summary.symbol || market.symbol;
@@ -310,21 +353,13 @@ function render(summary) {
   const actionLabel          = displayAlias(action);
   const block                = decision.top_blocking_reason || summary.top_blocks?.[0] || "--";
   const signalState          = cockpit.latest_signal_status || pipeline.latest_result || demoBroker.latest_signal_status || "--";
-  const riskState            = dailyRisk.status || cockpit.broker_order_permission || "--";
+  const riskState            = dailyRiskView.status;
   const queueState           = cockpit.aurix_queue_state || queue.aurix_queue_state || demoBroker.queue_state || demoGate.queue_state || "--";
   const mt5DeliveryState     = queue.mt5_delivery_state || latestDemoCommand.status || "NO_COMMAND";
   const brokerExecutionState = railwayBrokerEnabled ? "ENABLED" : "DISABLED";
-  const brokerReconStatus    = broker.status || "UNKNOWN";
-  const brokerReconReason    = broker.status
-    ? broker.status === "CLEAN"
-      ? "Broker Reconciliation: CLEAN"
-      : [
-          Number(broker.mismatches || 0) ? `${broker.mismatches} mismatches` : null,
-          Number(broker.warnings || 0) ? `${broker.warnings} warnings` : null,
-          broker.unexpected_exposure ? "unexpected exposure" : null,
-          broker.reason || broker.status_reason || null,
-        ].filter(Boolean).join("; ") || `Broker Reconciliation: ${broker.status}`
-    : "Broker Reconciliation: UNKNOWN · missing/stale reconciliation artifact";
+  const brokerReconView      = brokerReconciliationDisplay(broker);
+  const brokerReconStatus    = brokerReconView.status;
+  const brokerReconReason    = brokerReconView.reason;
 
   // ── Header ─────────────────────────────────────────────────────
   setText("hdrSymbol", symbol);
@@ -658,7 +693,7 @@ function render(summary) {
   setStatus("demoBrokerQueueEnabled", demoBroker.queue_state || demoGate.queue_state || "--");
   setStatus("demoBrokerLiveLocked", demoBroker.spread_gate || demoGate.spread_gate || "--");
   setText("demoBrokerOnePosition", demoBroker.engine_max_spread_points != null ? `${demoBroker.engine_max_spread_points} points` : "--");
-  setStatus("demoBrokerGate", dailyRisk.status || (demoGate.daily_risk_guard ? demoGate.daily_risk_guard.status : "--"));
+  setStatus("demoBrokerGate", dailyRiskView.status);
   setStatus("demoBrokerSignalGate", cockpit.signal_gate_state || (demoGate.allowed ? "PASS" : (demoGate.primary_block === "no actionable signal" || demoGate.primary_block === "signal direction missing" ? "BLOCKED" : "--")));
   setText("demoBrokerReason", demoBroker.latest_gate_block || demoGate.primary_block || demoGate.reason);
   setText("demoBrokerSelectedStrategy", cockpit.selected_strategy || demoBroker.selected_strategy);
@@ -669,9 +704,9 @@ function render(summary) {
   setText("demoAccountServer", demoAccount.account_server);
   setText("demoAccountLogin", demoAccount.account_login_masked);
   setText("demoAccountCurrency", demoAccount.account_currency);
-  setStatus("dailyRiskStatus", dailyRisk.status);
-  setText("dailyRiskLoss", dailyRisk.equity_loss);
-  setText("dailyRiskDrawdown", dailyRisk.drawdown_percent);
+  setStatus("dailyRiskStatus", dailyRiskView.status);
+  setText("dailyRiskLoss", dailyRiskView.equityLoss);
+  setText("dailyRiskDrawdown", dailyRiskView.drawdownPercent);
   setText("latestMt5Command", latestDemoCommand.command_id);
   setStatus("latestMt5CommandStatus", latestDemoCommand.status);
   setStatus("latestMt5ExecutionResult", latestDemoResult.status);
