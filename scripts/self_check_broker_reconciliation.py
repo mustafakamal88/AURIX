@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,12 +23,15 @@ def snapshot(
     deals: list[dict[str, Any]] | None = None,
     currency: str = "GBP",
     ea_live: bool = False,
+    age_seconds: int = 0,
+    account: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    received_at = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
     return {
         "terminal_id": "AURIX-MAC-001",
-        "received_at": datetime.now(timezone.utc).isoformat(),
-        "account": {"balance": 10000.0, "equity": 10000.0, "currency": currency},
-        "tick": {"symbol": "XAUUSDm", "bid": 2300.1, "ask": 2300.3, "spread_points": 20},
+        "received_at": received_at.isoformat(),
+        "account": account or {"balance": 10000.0, "equity": 10000.0, "currency": currency},
+        "tick": {"symbol": "XAUUSDm", "bid": 2300.1, "ask": 2300.3, "spread_points": 20, "time": received_at.isoformat()},
         "positions": positions or [],
         "orders": orders or [],
         "deals": deals or [{"ticket": 1, "symbol": "XAUUSDm"}],
@@ -87,6 +90,42 @@ def main() -> int:
             raise AssertionError(f"clean empty broker state should be CLEAN: {report}")
         if bus.load_events_by_type(AurixEventType.BROKER_RECONCILIATION_EVENT.value, 5)[-1]["payload"]["report_id"] != report["id"]:
             raise AssertionError("event bus did not receive BROKER_RECONCILIATION_EVENT")
+
+        live_style = snapshot(
+            positions=[],
+            orders=[],
+            deals=[],
+            account={"balance": None, "equity": None, "currency": "GBP", "raw": {"balance": 108.76, "equity": 108.76}},
+        )
+        reconciler, _ = build(tmpdir, snap=live_style)
+        report = reconciler.run()
+        report_file = Path(tmpdir) / "broker_reconciliation" / "report.json"
+        if not report_file.exists():
+            raise AssertionError("live broker reconciliation report file was not generated")
+        live_report = reconciler.latest()
+        if not live_report:
+            raise AssertionError("live broker reconciliation report path did not load")
+        expected_clean_fields = {
+            "status": "CLEAN",
+            "positions_count": 0,
+            "orders_count": 0,
+            "expected_positions_count": 0,
+            "expected_orders_count": 0,
+            "unexpected_exposure": False,
+            "mismatches_count": 0,
+        }
+        for key, expected in expected_clean_fields.items():
+            if live_report.get(key) != expected:
+                raise AssertionError(f"live clean report field {key} expected {expected}: {live_report}")
+        account_report = live_report.get("account") or {}
+        if account_report.get("balance") != 108.76 or account_report.get("equity") != 108.76:
+            raise AssertionError(f"raw account balance/equity were not normalized: {live_report}")
+        if (live_report.get("snapshot_age_seconds") or 999999) > 10:
+            raise AssertionError(f"live snapshot age should be small: {live_report}")
+
+        stale_report = build(tmpdir, snap=snapshot(age_seconds=600))[0].run()
+        if stale_report["status"] != "UNKNOWN" or "MT5 snapshot stale" not in stale_report.get("reasons", []):
+            raise AssertionError(f"stale broker snapshot should be UNKNOWN: {stale_report}")
 
         position = {"ticket": 100, "symbol": "XAUUSDm", "volume": 0.01}
         report = build(tmpdir, snap=snapshot(positions=[position]))[0].run()

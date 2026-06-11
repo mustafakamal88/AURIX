@@ -33,6 +33,10 @@ def _as_list(value: Any) -> list[Any]:
 def _as_float(value: Any) -> float | None:
     if value is None:
         return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _age_seconds(value: Any) -> float | None:
@@ -59,10 +63,19 @@ def _mask_login(value: Any) -> str | None:
     if len(text) <= 4:
         return "*" * len(text)
     return f"{'*' * (len(text) - 4)}{text[-4:]}"
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+
+
+def _account_value(account: dict[str, Any], raw: dict[str, Any], key: str) -> Any:
+    value = account.get(key)
+    if value is not None:
+        return value
+    account_raw = _as_dict(account.get("raw"))
+    if account_raw.get(key) is not None:
+        return account_raw.get(key)
+    raw_account = _as_dict(raw.get("account"))
+    if raw_account.get(key) is not None:
+        return raw_account.get(key)
+    return None
 
 
 class BrokerReconciler:
@@ -193,11 +206,11 @@ class BrokerReconciler:
             check("broker_account_data", "PASS", "broker account data available")
 
         account = BrokerAccountSnapshot(
-            balance=_as_float(account_raw.get("balance")),
-            equity=_as_float(account_raw.get("equity")),
-            currency=account_raw.get("currency"),
-            login=account_raw.get("login"),
-            server=account_raw.get("server"),
+            balance=_as_float(_account_value(account_raw, raw, "balance")),
+            equity=_as_float(_account_value(account_raw, raw, "equity")),
+            currency=_account_value(account_raw, raw, "currency"),
+            login=_account_value(account_raw, raw, "login"),
+            server=_account_value(account_raw, raw, "server"),
             raw=account_raw,
         ) if account_raw else None
 
