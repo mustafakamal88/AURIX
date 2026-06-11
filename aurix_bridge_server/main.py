@@ -871,6 +871,10 @@ def mt5_next_command(terminal_id: str = Query(default=DEFAULT_TERMINAL_ID)) -> d
                     take_profit=float(gate["take_profit"]),
                     strategy_id=str(gate.get("strategy_id") or ""),
                     signal_id=str(gate.get("signal_id") or ""),
+                    signal_confidence=gate.get("signal_confidence"),
+                    signal_reasons=gate.get("signal_reasons") or [],
+                    decision_cycle_id=gate.get("decision_cycle_id"),
+                    final_gate_result=gate.get("final_gate_result"),
                     runtime_session_id=runtime_session.runtime_session_id,
                     provenance=audited.get("provenance") or runtime_provenance_metadata("demo_broker_mt5_command", "aurix_bridge_server.main.mt5_next_command"),
                     safety_checks_snapshot=gate,
@@ -1017,6 +1021,10 @@ def prepare_durable_audit_for_broker_command(gate: dict[str, Any], terminal_id: 
         "comment": comment,
         "strategy_id": gate.get("strategy_id"),
         "signal_id": gate.get("signal_id"),
+        "signal_confidence": gate.get("signal_confidence"),
+        "signal_reasons": gate.get("signal_reasons") or [],
+        "decision_cycle_id": gate.get("decision_cycle_id"),
+        "final_gate_result": gate.get("final_gate_result"),
         "runtime_session_id": runtime_session.runtime_session_id,
         "provenance": runtime_provenance_metadata("demo_broker_mt5_command", "aurix_bridge_server.main.mt5_next_command"),
         "safety_checks_snapshot": gate,
@@ -1086,7 +1094,7 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
                 "daily_loss_limit": round(balance_value * (daily_risk_limit / 100.0), 4) if balance_value is not None else None,
                 "source": "account_balance",
             },
-            "strategy_engine": "v1 / v2 / Fast RSI",
+            "strategy_engine": "v1 / v2 / Fast RSI / BlackCat Cloud",
             "selected_strategy": latest_gate_decision.get("strategy_id"),
             "selected_signal": latest_gate_decision.get("signal_id"),
             "latest_gate_block": latest_gate_decision.get("primary_block") or latest_gate_decision.get("reason"),
@@ -1415,6 +1423,11 @@ def strategy_agents_evaluate() -> dict[str, Any]:
 @app.get("/strategy-agents/history")
 def strategy_agents_history(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
     return {"items": strategy_agent_evaluator.history(limit), "limit": limit}
+
+
+@app.get("/strategy-agents/trace/recent")
+def strategy_agents_trace_recent(limit: int = Query(20, ge=1, le=500)) -> dict[str, Any]:
+    return {"items": strategy_agent_evaluator.recent_traces(limit), "limit": limit}
 
 
 @app.post("/strategy-agents/reset")
@@ -2645,7 +2658,8 @@ def strategy_agents_operator_status() -> dict[str, Any]:
     latest = strategy_agent_evaluator.latest()
     latest_signal = next((item for item in reversed(latest) if item.get("status") == "SIGNAL"), None)
     latest_fast_rsi = next((item for item in reversed(latest) if item.get("agent_id") == "fast_rsi_first_reversal_v1"), None)
-    return {**status, "latest": latest, "latest_signal": latest_signal, "latest_fast_rsi": latest_fast_rsi}
+    latest_blackcat = next((item for item in reversed(latest) if item.get("agent_id") == "blackcat_cloud_v1" or item.get("strategy_name") == "blackcat_cloud_v1"), None)
+    return {**status, "latest": latest, "latest_signal": latest_signal, "latest_fast_rsi": latest_fast_rsi, "latest_blackcat_cloud_v1": latest_blackcat}
 
 
 def operator_status_payload() -> dict[str, Any]:

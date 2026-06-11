@@ -29,6 +29,11 @@ class PaperTrade(BaseModel):
     pnl_points: Optional[float] = None
     r_multiple: Optional[float] = None
     risk_decision_id: Optional[str] = None
+    strategy_id: Optional[str] = None
+    signal_confidence: Optional[float] = None
+    signal_reasons: list[str] = Field(default_factory=list)
+    decision_cycle_id: Optional[str] = None
+    final_gate_result: Optional[str] = None
     reasons: list[str] = Field(default_factory=list)
     snapshot_opened_at: Optional[str] = None
     snapshot_closed_at: Optional[str] = None

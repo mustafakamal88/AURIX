@@ -262,6 +262,8 @@ def build_runtime_dashboard_summary(
     strategy_status = _dict(store.read_json("strategy_agents/status.json", {}))
     strategy_latest = [item for item in _list(store.read_json("strategy_agents/latest_evaluations.json", [])) if isinstance(item, dict)]
     fast_state = _dict(store.read_json("strategy_agents/fast_rsi_first_reversal_state.json", {}))
+    latest_blackcat = next((item for item in reversed(strategy_latest) if item.get("strategy_name") == "blackcat_cloud_v1"), {})
+    strategy_trace = _dict(strategy_status.get("last_decision_trace"))
     event_bus_status = _dict(store.read_json("event_bus/status.json", {}))
     event_bus_state = _dict(store.read_json("event_bus/state_snapshot.json", {}))
     recent_events = store.read_jsonl("event_bus/events.jsonl", 20)
@@ -443,6 +445,23 @@ def build_runtime_dashboard_summary(
             "latest_statuses": strategy_status.get("latest_status_counts") or _count_status(strategy_latest),
             "latest_signal_strategy": _dict(strategy_status.get("latest_signal")).get("strategy_name"),
             "latest_signal_direction": _dict(strategy_status.get("latest_signal")).get("direction"),
+            "latest_blackcat_cloud_v1": latest_blackcat,
+            "engine_status": strategy_status.get("current_engine_status") or ("RUNNING" if strategy_status.get("enabled") else "DISABLED"),
+            "scan_status": "SCANNING",
+            "active_strategy_count": strategy_status.get("enabled_count"),
+            "registered_strategy_count": strategy_status.get("registered_count"),
+            "raw_timeframe": strategy_trace.get("raw_timeframe") or strategy_status.get("raw_timeframe") or "UNKNOWN",
+            "strategy_timeframe": strategy_trace.get("strategy_timeframe") or strategy_status.get("strategy_timeframe") or "UNKNOWN",
+            "resampled": bool(strategy_trace.get("resampled") or strategy_status.get("resampled")),
+            "source_candle_count": strategy_trace.get("source_candle_count") or strategy_status.get("source_candle_count") or 0,
+            "strategy_candle_count": strategy_trace.get("strategy_candle_count") or strategy_status.get("strategy_candle_count") or strategy_status.get("available_closed_candle_count") or 0,
+            "latest_strategy_closed_candle_timestamp": strategy_trace.get("latest_strategy_closed_candle_timestamp") or strategy_status.get("latest_strategy_closed_candle_timestamp"),
+            "candle_memory": f"{strategy_trace.get('strategy_candle_count') or strategy_status.get('strategy_candle_count') or strategy_trace.get('available_candle_count') or 0} closed {strategy_trace.get('strategy_timeframe') or strategy_status.get('strategy_timeframe') or ''} candles".strip(),
+            "last_scan_time": strategy_trace.get("timestamp") or strategy_status.get("last_evaluation_at"),
+            "selected_strategy": strategy_trace.get("selected_strategy_id") or "NONE",
+            "last_action": strategy_trace.get("selected_action") or "WAIT",
+            "last_final_result": strategy_trace.get("final_decision") or "WAIT",
+            "last_block_reason": strategy_trace.get("block_reason"),
             "paper_trade_creation_allowed": False,
             "order_request_creation_allowed": False,
         },

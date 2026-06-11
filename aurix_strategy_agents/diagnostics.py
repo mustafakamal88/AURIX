@@ -175,6 +175,7 @@ def build_strategy_pipeline_snapshot(
         latest_row["rejection_reason"] = "STRATEGY_NOT_RUNNING"
 
     fast_rsi_result = next((item for item in reversed(latest_evaluations) if item.get("strategy_name") == "fast_rsi_first_reversal"), {})
+    blackcat_result = next((item for item in reversed(latest_evaluations) if item.get("strategy_name") == "blackcat_cloud_v1"), {})
     v1_result = next((item for item in reversed(latest_evaluations) if item.get("strategy_name") == "xauusd_paper_v1"), {})
     v2_result = next((item for item in reversed(latest_evaluations) if item.get("strategy_name") == "xauusd_paper_v2"), {})
 
@@ -205,6 +206,7 @@ def build_strategy_pipeline_snapshot(
             **strategy_diagnostic_row(fast_rsi_result, registered=registered_count > 0, min_confidence=min_confidence),
             "runtime_state": _dict(fast_rsi_state),
         },
+        "blackcat_cloud_v1_state": strategy_diagnostic_row(blackcat_result, registered=registered_count > 0, min_confidence=min_confidence),
         "evaluations": [strategy_diagnostic_row(item, min_confidence=min_confidence) for item in latest_evaluations],
     }
 

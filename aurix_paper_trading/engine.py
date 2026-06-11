@@ -130,6 +130,11 @@ class PaperTradingEngine:
             stop_loss=stop_loss,
             take_profit=take_profit,
             volume=self.config.default_volume,
+            strategy_id=signal.strategy_id or signal.strategy_name,
+            signal_confidence=signal.signal_confidence if signal.signal_confidence is not None else signal.confidence,
+            signal_reasons=signal.signal_reasons or list(signal.reasons),
+            decision_cycle_id=signal.decision_cycle_id,
+            final_gate_result=signal.final_gate_result or "PAPER_RISK_APPROVED",
             reasons=["created from paper signal" if signal.status == "PAPER_SIGNAL" else "created from shadow signal", *signal.reasons],
             snapshot_opened_at=snapshot.get("received_at") if snapshot else None,
         )
