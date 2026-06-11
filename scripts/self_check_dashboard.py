@@ -327,7 +327,7 @@ def main() -> int:
         write_json(temp_root, "broker_reconciliation/report.json", {"generated_at": iso_age(1), "status": "BLOCKED", "mismatches": [{"code": "unexpected_position"}], "warnings": [], "broker_positions": [], "broker_orders": []})
         write_json(temp_root, "broker_reconciliation/status.json", {"latest_exists": True, "status": "BLOCKED", "mismatch_count": 1, "warning_count": 0, "broker_position_count": 0, "broker_order_count": 0, "updated_at": iso_age(1)})
         dirty_recon_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")
-        require(dirty_recon_summary["broker_reconciliation"]["status"] == "BLOCKED", f"dirty broker reconciliation evidence should preserve status: {dirty_recon_summary['broker_reconciliation']}")
+        require(dirty_recon_summary["broker_reconciliation"]["status"] == "DIRTY", f"dirty broker reconciliation evidence should preserve status: {dirty_recon_summary['broker_reconciliation']}")
 
         seed_runtime(temp_root, evaluations=[], registered_count=1, enabled_count=0)
         disabled_summary = build_runtime_dashboard_summary(temp_root, runtime_environment=runtime_env, runtime_provenance=runtime_provenance).model_dump(mode="json")

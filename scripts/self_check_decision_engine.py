@@ -88,8 +88,8 @@ def main() -> int:
             raise AssertionError(f"spread did not block: {report}")
 
         report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [])).evaluate()
-        if report["action"] != "BLOCKED_BY_NO_SIGNAL":
-            raise AssertionError(f"no signal did not block: {report}")
+        if report["action"] != "WAIT" or report["status"] != "WAITING":
+            raise AssertionError(f"no signal should wait without marking the system blocked: {report}")
 
         report = engine(tmpdir, event_bus=bus(tmpdir), strategy=seed_strategy(tmpdir, [signal(confidence=0.4)])).evaluate()
         if report["action"] != "BLOCKED_BY_LOW_CONFIDENCE":
