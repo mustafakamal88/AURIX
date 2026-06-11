@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AURIX · Operations Cockpit</title>
-    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-organized-status-sections-3">
+    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-all-card-internals-2">
   </head>
   <body>
 
@@ -182,7 +182,7 @@
                 <div class="meter-head"><span>Decision Score</span><span class="meter-value" id="decisionScore">--</span></div>
                 <div class="meter-track"><div class="meter-fill" id="scoreMeter"></div></div>
               </div>
-              <div class="tile-grid cols-2">
+              <div class="tile-grid cols-2 decision-summary-grid">
                 <div class="tile status is-blue"><span class="tile-label">Action</span><span class="tile-value" id="decisionAction">--</span></div>
                 <div class="tile"><span class="tile-label">Direction</span><span class="tile-value" id="decisionDirection">--</span></div>
                 <div class="tile"><span class="tile-label">Signal Confidence</span><span class="tile-value" id="decisionConfidence">--</span></div>
@@ -192,7 +192,7 @@
           </div>
 
           <div class="card-section">
-            <div class="tile-grid cols-2">
+            <div class="tile-grid cols-2 decision-detail-grid">
               <div class="tile"><span class="tile-label">Setup Reason</span><span class="tile-value" id="decisionSetup">--</span></div>
               <div class="tile"><span class="tile-label">Top Block</span><span class="tile-value" id="decisionTopBlock">--</span></div>
               <div class="tile"><span class="tile-label">Top Warning</span><span class="tile-value" id="decisionTopWarning">--</span></div>
@@ -671,7 +671,7 @@
       <span>AURIX · Read-Only Dashboard · No execution capability</span>
     </footer>
 
-    <script src="/dashboard/static/app.js?v=20260611-organized-status-sections-3"></script>
+    <script src="/dashboard/static/app.js?v=20260611-all-card-internals-2"></script>
     <script>
       // Post-render enhancements: drive the SVG ring + spread meter from
       // values that JS has already written to existing IDs. No data fetch.

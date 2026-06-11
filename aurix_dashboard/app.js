@@ -402,8 +402,8 @@ function render(summary) {
   setText("hdrUptime", provenance.uptime_seconds != null
     ? `${Math.round(Number(provenance.uptime_seconds))}s`
     : "--");
-  setStatus("bannerBrokerExecution", railwayBrokerEnabled ? "BROKER EXECUTION ENABLED" : "BROKER EXECUTION DISABLED", railwayBrokerEnabled ? "danger" : "good");
-  setStatus("bannerEaExecution", eaBrokerEnabled ? "EA EXECUTION ENABLED" : "EA EXECUTION DISABLED", eaBrokerEnabled ? "danger" : "good");
+  setStatus("bannerBrokerExecution", railwayBrokerEnabled ? "BROKER EXECUTION ENABLED" : "BROKER EXECUTION DISABLED", "good");
+  setStatus("bannerEaExecution", eaBrokerEnabled ? "EA EXECUTION ENABLED" : "EA EXECUTION DISABLED", "good");
   setStatus("bannerExecutionMatch", matched === true ? "EXECUTION STATE MATCHED" : matched === false ? "EXECUTION STATE MISMATCH" : "EXECUTION STATE UNKNOWN", matched === true ? "good" : matched === false ? "danger" : "warn");
   setStatus("bannerReadOnly", "READ-ONLY DASHBOARD", "good");
   setStatus("bannerNoCommands", "NO COMMANDS FROM DASHBOARD", "good");
