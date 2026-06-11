@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AURIX · Operations Cockpit</title>
-    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-topbar-primary-layout-4">
+    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-topbar-brand-rail">
   </head>
   <body>
 
@@ -14,6 +14,9 @@
 
     <!-- ═══ Top Bar ════════════════════════════════════════════ -->
     <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">AURIX_CORE</div>
+      </div>
       <div class="topbar-right">
         <div class="symbol-chip"><strong id="hdrSymbolTop">--</strong></div>
         <div class="system-live"><span class="live-dot"></span><span>LIVE</span></div>
@@ -23,13 +26,6 @@
     </header>
 
     <aside class="side-rail" aria-label="AURIX command center navigation">
-      <div class="side-brand">
-        <span class="side-icon">⌁</span>
-        <div>
-          <div class="side-title">AURIX_CORE</div>
-          <div class="side-version">XAUUSD · PERSONAL</div>
-        </div>
-      </div>
       <nav class="side-nav">
         <a class="active" href="#primaryOperations"><span>▣</span>Operations</a>
         <a href="#whyNoTrade"><span>?</span>No Trade</a>
@@ -675,7 +671,7 @@
       <span>AURIX · Read-Only Dashboard · No execution capability</span>
     </footer>
 
-    <script src="/dashboard/static/app.js?v=20260611-topbar-primary-layout-4"></script>
+    <script src="/dashboard/static/app.js?v=20260611-topbar-brand-rail"></script>
     <script>
       // Post-render enhancements: drive the SVG ring + spread meter from
       // values that JS has already written to existing IDs. No data fetch.
