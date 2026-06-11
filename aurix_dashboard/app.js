@@ -289,14 +289,15 @@ function renderDashboardSession(session) {
   const authConfigured = session && session.dashboard_auth_configured === true;
   const authenticated = session && session.authenticated === true;
   const logoutButton = byId("dashboardLogout");
+  const sessionStatus = byId("dashboardSessionStatus");
   if (logoutButton) logoutButton.hidden = !authConfigured;
+  if (sessionStatus) sessionStatus.hidden = !authConfigured;
 
   if (!session) {
     setStatus("dashboardSessionStatus", "Dashboard session unknown", "warn");
     return;
   }
   if (!authConfigured) {
-    setStatus("dashboardSessionStatus", "Local dashboard session", "good");
     return;
   }
   setStatus(
