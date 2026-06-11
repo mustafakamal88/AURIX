@@ -598,6 +598,9 @@ async def read_lenient_json_object(request: Request) -> dict[str, Any]:
 def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     account = _dict_or_empty(payload.get("account"))
     tick = _dict_or_empty(payload.get("tick"))
+    raw = _dict_or_empty(payload.get("raw"))
+    account_raw = _dict_or_empty(account.get("raw"))
+    raw_account = _dict_or_empty(raw.get("account"))
     symbol = payload.get("symbol") or tick.get("symbol") or os.getenv("AURIX_SYMBOL", "XAUUSDm")
     if not account:
         account = {
@@ -625,6 +628,12 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
                 if payload.get(alias) is not None:
                     account[target] = payload.get(alias)
                     break
+    for target in ["balance", "equity"]:
+        if account.get(target) is None:
+            if account_raw.get(target) is not None:
+                account[target] = account_raw.get(target)
+            elif raw_account.get(target) is not None:
+                account[target] = raw_account.get(target)
     if not tick:
         tick = {
             "symbol": symbol,
@@ -645,7 +654,7 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "positions": _list_or_empty(payload.get("positions")),
         "orders": _list_or_empty(payload.get("orders")),
         "deals": _list_or_empty(payload.get("deals")),
-        "raw": _dict_or_empty(payload.get("raw")),
+        "raw": raw,
     }
 
 
@@ -705,6 +714,14 @@ def run_runtime_diagnostics_cycle(source: str = "runtime_snapshot") -> dict[str,
     except Exception as exc:
         logger.exception("runtime observation collection failed")
         result["errors"].append(f"observation collection failed: {exc}")
+
+    try:
+        report = broker_reconciler.run()
+        result["broker_reconciliation_status"] = report.get("status")
+    except Exception as exc:
+        logger.exception("broker reconciliation refresh failed")
+        result["ok"] = False
+        result["errors"].append(f"broker reconciliation failed: {exc}")
 
     try:
         strategy_results = strategy_agent_evaluator.evaluate_all_agents()

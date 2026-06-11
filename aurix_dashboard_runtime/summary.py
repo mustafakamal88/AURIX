@@ -6,10 +6,12 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from aurix_broker_reconciliation import BrokerReconciler, load_broker_reconciliation_config
 from aurix_common import legacy_runtime_provenance
 from aurix_common.persistence import write_json_atomic
 from aurix_context_engine import load_context_config
 from aurix_context_engine.session import classify_session
+from aurix_event_bus import AurixEventBus, load_event_bus_config
 from aurix_strategy_agents.diagnostics import build_strategy_pipeline_snapshot, normalize_rejection_reason, write_strategy_pipeline_snapshot
 
 from .evidence_integrity import build_evidence_integrity_status
@@ -39,6 +41,44 @@ def _age_seconds(value: Any) -> float | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return (datetime.now(timezone.utc) - parsed).total_seconds()
+
+
+def _parse_time(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _refresh_broker_reconciliation_report(data_dir: str | Path, snapshot: dict[str, Any] | None, report: dict[str, Any]) -> None:
+    if not snapshot:
+        return
+    report_generated = _parse_time(report.get("generated_at"))
+    snapshot_received = _parse_time(snapshot.get("received_at"))
+    report_age = _age_seconds(report.get("generated_at"))
+    snapshot_age = _age_seconds(snapshot.get("received_at"))
+    report_missing = not report
+    report_stale = report_age is not None and report_age > 900
+    snapshot_newer = snapshot_received is not None and (report_generated is None or snapshot_received > report_generated)
+    snapshot_stale = snapshot_age is not None and snapshot_age > 180 and report.get("status") != "UNKNOWN"
+    if not (report_missing or report_stale or snapshot_newer or snapshot_stale):
+        return
+    try:
+        event_bus = AurixEventBus(data_dir, load_event_bus_config())
+        reconciler = BrokerReconciler(
+            data_dir,
+            load_broker_reconciliation_config(),
+            event_bus=event_bus,
+            snapshot_provider=lambda: snapshot,
+        )
+        reconciler.run()
+    except Exception:
+        return
 
 
 def _broker_reconciliation_summary(status: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
@@ -370,6 +410,9 @@ def build_runtime_dashboard_summary(
     durable_audit = _dict(store.read_json("durable_audit/status.json", {}))
     demo_broker_execution = _dict(store.read_json("demo_broker_execution/status.json", {}))
     daily_risk_state = _dict(store.read_json("risk/daily_risk_state.json", {}))
+    broker_status = _dict(store.read_json("broker_reconciliation/status.json", {}))
+    broker_report = _dict(store.read_json("broker_reconciliation/report.json", {}))
+    _refresh_broker_reconciliation_report(data_dir, snapshot, broker_report)
     broker_status = _dict(store.read_json("broker_reconciliation/status.json", {}))
     broker_report = _dict(store.read_json("broker_reconciliation/report.json", {}))
     live_readiness = _dict(store.read_json("live_readiness_report.json", {}))
