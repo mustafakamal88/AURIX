@@ -1210,18 +1210,22 @@ footer {
 }
 
 .mission-card {
-  min-height: 76px;
-  padding: 12px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 154px;
+  padding: 16px 18px 16px;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: none;
+  overflow: hidden;
 }
 
 .mission-card::before {
-  inset: auto auto 12px 12px;
-  width: 8px;
-  height: 8px;
+  inset: 18px 18px auto auto;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: var(--good);
   box-shadow: 0 0 8px var(--good);
@@ -1260,6 +1264,41 @@ footer {
   color: var(--text-dim);
   font-size: 11px;
   letter-spacing: 0.06em;
+}
+
+.mission-card .mc-label {
+  padding-right: 18px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+}
+
+.mission-card .mc-value {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+}
+
+.mission-card .mc-detail,
+.mission-card .mc-meta {
+  align-items: center;
+  color: var(--text-dim);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.mission-card .mc-detail {
+  align-content: flex-start;
+}
+
+.mission-card .mc-meta {
+  align-self: end;
+  min-height: 24px;
 }
 
 .mc-value,
@@ -1581,9 +1620,15 @@ main {
 
 .mission-card .pill {
   max-width: 100%;
+  line-height: 1.25;
   white-space: normal;
   overflow-wrap: anywhere;
   flex-wrap: wrap;
+}
+
+.mission-card .mc-meta .pill,
+.mission-card .mc-detail .pill {
+  flex: 0 1 auto;
 }
 
 .compact-note,
