@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AURIX · Operations Cockpit</title>
-    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-mission-card-internals-2">
+    <link rel="stylesheet" href="/dashboard/static/styles.css?v=20260611-mission-card-readable-kv">
   </head>
   <body>
 
@@ -67,51 +67,51 @@
     <section class="mission-control" aria-label="Mission Control">
       <article class="mission-card" id="mcHealthCard">
         <span class="mc-label">System Health</span>
-        <span class="mc-value" id="mcHealth">--</span>
-        <span class="mc-detail" id="mcHealthDetail">--</span>
-        <span class="mc-meta">MT5 age <span id="mcSnapshotAge">--</span></span>
+        <div class="mc-row mc-primary"><span>Status</span><span class="mc-value" id="mcHealth">--</span></div>
+        <div class="mc-row mc-detail-row"><span>Reason</span><span class="mc-detail" id="mcHealthDetail">--</span></div>
+        <div class="mc-row mc-meta-row"><span>MT5 age</span><span class="mc-meta" id="mcSnapshotAge">--</span></div>
       </article>
       <article class="mission-card" id="mcSafetyCard">
         <span class="mc-label">Execution Safety</span>
-        <span class="mc-value" id="mcRuntimeSafety">--</span>
-        <span class="mc-detail" id="mcReadOnly">--</span>
-        <span class="mc-meta" id="mcNoCommands">--</span>
+        <div class="mc-row mc-primary"><span>Runtime</span><span class="mc-value" id="mcRuntimeSafety">--</span></div>
+        <div class="mc-row"><span>Dashboard</span><span class="mc-detail" id="mcReadOnly">--</span></div>
+        <div class="mc-row mc-meta-row"><span>Commands</span><span class="mc-meta" id="mcNoCommands">--</span></div>
       </article>
       <article class="mission-card" id="mcAuditCard">
         <span class="mc-label">Durable Audit</span>
-        <span class="mc-value" id="mcAuditState">--</span>
-        <span class="mc-detail">DB connected <span id="mcAuditConnected">--</span></span>
-        <span class="mc-meta">Last write <span id="mcAuditLastWrite">--</span></span>
+        <div class="mc-row mc-primary"><span>Status</span><span class="mc-value" id="mcAuditState">--</span></div>
+        <div class="mc-row"><span>DB connected</span><span class="mc-detail" id="mcAuditConnected">--</span></div>
+        <div class="mc-row mc-meta-row"><span>Last write</span><span class="mc-meta" id="mcAuditLastWrite">--</span></div>
       </article>
       <article class="mission-card" id="mcPipelineCard">
         <span class="mc-label">Strategy Pipeline</span>
-        <span class="mc-value" id="mcPipelineAlive">--</span>
-        <span class="mc-detail">Registry <span id="mcRegistryLoaded">--</span></span>
-        <span class="mc-meta"><span id="mcStrategyCounts">--</span> · evals <span id="mcEvaluations">--</span></span>
+        <div class="mc-row mc-primary"><span>Loop</span><span class="mc-value" id="mcPipelineAlive">--</span></div>
+        <div class="mc-row"><span>Registry</span><span class="mc-detail" id="mcRegistryLoaded">--</span></div>
+        <div class="mc-row mc-meta-row"><span>Strategies</span><span class="mc-meta"><span id="mcStrategyCounts">--</span> · evals <span id="mcEvaluations">--</span></span></div>
       </article>
       <article class="mission-card" id="mcSignalCard">
         <span class="mc-label">Signal State</span>
-        <span class="mc-value" id="mcSignalStatus">--</span>
-        <span class="mc-detail" id="mcSignalStrategy">--</span>
-        <span class="mc-meta"><span id="mcSignalResult">--</span> · <span id="mcSignalRejection">--</span></span>
+        <div class="mc-row mc-primary"><span>Status</span><span class="mc-value" id="mcSignalStatus">--</span></div>
+        <div class="mc-row mc-detail-row"><span>Strategy</span><span class="mc-detail" id="mcSignalStrategy">--</span></div>
+        <div class="mc-row mc-meta-row"><span>Result</span><span class="mc-meta"><span id="mcSignalResult">--</span> · <span id="mcSignalRejection">--</span></span></div>
       </article>
       <article class="mission-card" id="mcRiskCard">
         <span class="mc-label">Risk / Gates</span>
-        <span class="mc-value" id="mcRiskGate">--</span>
-        <span class="mc-detail">Daily <span id="mcDailyRisk">--</span></span>
-        <span class="mc-meta">Spread <span id="mcSpreadGate">--</span> · Signal <span id="mcSignalGate">--</span></span>
+        <div class="mc-row mc-primary"><span>Overall</span><span class="mc-value" id="mcRiskGate">--</span></div>
+        <div class="mc-row"><span>Daily</span><span class="mc-detail" id="mcDailyRisk">--</span></div>
+        <div class="mc-row mc-meta-row"><span>Spread / Signal</span><span class="mc-meta"><span id="mcSpreadGate">--</span> · <span id="mcSignalGate">--</span></span></div>
       </article>
       <article class="mission-card" id="mcBrokerCard">
         <span class="mc-label">Broker / Queue</span>
-        <span class="mc-value" id="mcBrokerExecution">--</span>
-        <span class="mc-detail">Queue <span id="mcQueuePermission">--</span></span>
-        <span class="mc-meta">MT5 <span id="mcMt5Delivery">--</span> · cmd <span id="mcCommandResponse">--</span></span>
+        <div class="mc-row mc-primary"><span>Execution</span><span class="mc-value" id="mcBrokerExecution">--</span></div>
+        <div class="mc-row"><span>Queue</span><span class="mc-detail" id="mcQueuePermission">--</span></div>
+        <div class="mc-row mc-meta-row"><span>MT5 / cmd</span><span class="mc-meta"><span id="mcMt5Delivery">--</span> · <span id="mcCommandResponse">--</span></span></div>
       </article>
       <article class="mission-card" id="mcNextCard">
         <span class="mc-label">Next Expected</span>
-        <span class="mc-value" id="mcNextExpected">--</span>
-        <span class="mc-detail" id="mcPrimaryBlock">--</span>
-        <span class="mc-meta" id="mcBrokerRecon">--</span>
+        <div class="mc-row mc-primary"><span>Action</span><span class="mc-value" id="mcNextExpected">--</span></div>
+        <div class="mc-row mc-detail-row"><span>Block</span><span class="mc-detail" id="mcPrimaryBlock">--</span></div>
+        <div class="mc-row mc-meta-row"><span>Broker recon</span><span class="mc-meta" id="mcBrokerRecon">--</span></div>
       </article>
     </section>
 
@@ -671,7 +671,7 @@
       <span>AURIX · Read-Only Dashboard · No execution capability</span>
     </footer>
 
-    <script src="/dashboard/static/app.js?v=20260611-mission-card-internals-2"></script>
+    <script src="/dashboard/static/app.js?v=20260611-mission-card-readable-kv"></script>
     <script>
       // Post-render enhancements: drive the SVG ring + spread meter from
       // values that JS has already written to existing IDs. No data fetch.
