@@ -17,6 +17,29 @@ def calculate_sma(values: list[Optional[float]], period: int) -> list[Optional[f
     return output
 
 
+def calculate_ema(values: list[Optional[float]], period: int) -> list[Optional[float]]:
+    if period <= 0:
+        return [None for _ in values]
+    output: list[Optional[float]] = []
+    previous: Optional[float] = None
+    multiplier = 2.0 / (period + 1.0)
+    for index, value in enumerate(values):
+        if value is None:
+            output.append(None)
+            continue
+        numeric = float(value)
+        if previous is None:
+            window = values[index - period + 1 : index + 1]
+            if len(window) < period or any(item is None for item in window):
+                output.append(None)
+                continue
+            previous = sum(float(item) for item in window if item is not None) / period
+        else:
+            previous = (numeric - previous) * multiplier + previous
+        output.append(previous)
+    return output
+
+
 def calculate_rsi(closes: list[float], period: int) -> list[Optional[float]]:
     if period <= 0:
         return [None for _ in closes]

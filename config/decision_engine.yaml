@@ -37,6 +37,7 @@ block_when_command_queue_disabled: false
 block_when_execution_disabled: false
 
 strategy_priority:
+  - "blackcat_cloud_v1"
   - "fast_rsi_first_reversal"
   - "xauusd_paper_v1"
   - "xauusd_paper_v2"

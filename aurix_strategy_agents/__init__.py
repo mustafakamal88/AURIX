@@ -1,7 +1,8 @@
 from .config import StrategyAgentsConfig, load_strategy_agent_config
 from .evaluator import StrategyAgentEvaluator, StrategyAgentStore
+from .blackcat_cloud_v1 import BlackCatCloudV1Agent, evaluate_blackcat_cloud_signal
 from .fast_rsi_reversal import FastRsiFirstReversalAgent
-from .indicators import calculate_rsi, calculate_sma, detect_cross_down, detect_cross_up
+from .indicators import calculate_ema, calculate_rsi, calculate_sma, detect_cross_down, detect_cross_up
 from .models import (
     StrategyAgentSafety,
     StrategyAgentSpec,
@@ -25,14 +26,17 @@ __all__ = [
     "StrategyDecisionTrace",
     "StrategyEvaluationInput",
     "StrategyEvaluationResult",
+    "BlackCatCloudV1Agent",
     "FastRsiFirstReversalAgent",
     "StrategyRejectionReason",
     "StrategyRegistryStatus",
     "StrategySignalCandidate",
     "StrategyAgentRegistry",
+    "calculate_ema",
     "calculate_rsi",
     "calculate_sma",
     "detect_cross_down",
     "detect_cross_up",
     "load_strategy_agent_config",
+    "evaluate_blackcat_cloud_signal",
 ]

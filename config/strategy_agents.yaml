@@ -25,6 +25,10 @@ registered_agents:
     enabled: true
     source_strategy: "fast_rsi_first_reversal"
     mode: "OBSERVATION_ONLY"
+  - id: "blackcat_cloud_v1"
+    enabled: true
+    source_strategy: "blackcat_cloud_v1"
+    mode: "OBSERVATION_ONLY"
 fast_rsi_first_reversal:
   enabled: true
   symbol: "XAUUSDm"
@@ -51,6 +55,34 @@ fast_rsi_first_reversal:
   max_margin_use_percent: 20.0
   hmr_margin_multiplier: 3.0
   max_slippage_points: 50
+  allow_signal_generation: true
+  allow_paper_trade_creation: false
+  allow_order_request_creation: false
+  allow_demo_execution: false
+  allow_live_arming: false
+  allow_live_execution: false
+  allow_command_queueing: false
+blackcat_cloud_v1:
+  enabled: true
+  symbol: "XAUUSDm"
+  strategy_name: "blackcat_cloud_v1"
+  strategy_version: "1.0.0"
+  mode: "OBSERVATION_ONLY"
+  timeframe: "M15"
+  closed_bar_only: true
+  ema_fast: 8
+  ema_slow: 21
+  chop_threshold_pct: 0.2
+  score_speed: 0.3
+  volume_ma_len: 20
+  climax_mult: 3.0
+  rsi_len: 14
+  meter_ema_len: 20
+  meter_smoothing: 3
+  divergence_pivot_left: 3
+  divergence_pivot_right: 3
+  min_bars_required: 50
+  min_confidence: 0.60
   allow_signal_generation: true
   allow_paper_trade_creation: false
   allow_order_request_creation: false

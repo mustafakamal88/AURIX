@@ -262,6 +262,7 @@ def build_runtime_dashboard_summary(
     strategy_status = _dict(store.read_json("strategy_agents/status.json", {}))
     strategy_latest = [item for item in _list(store.read_json("strategy_agents/latest_evaluations.json", [])) if isinstance(item, dict)]
     fast_state = _dict(store.read_json("strategy_agents/fast_rsi_first_reversal_state.json", {}))
+    latest_blackcat = next((item for item in reversed(strategy_latest) if item.get("strategy_name") == "blackcat_cloud_v1"), {})
     event_bus_status = _dict(store.read_json("event_bus/status.json", {}))
     event_bus_state = _dict(store.read_json("event_bus/state_snapshot.json", {}))
     recent_events = store.read_jsonl("event_bus/events.jsonl", 20)
@@ -443,6 +444,7 @@ def build_runtime_dashboard_summary(
             "latest_statuses": strategy_status.get("latest_status_counts") or _count_status(strategy_latest),
             "latest_signal_strategy": _dict(strategy_status.get("latest_signal")).get("strategy_name"),
             "latest_signal_direction": _dict(strategy_status.get("latest_signal")).get("direction"),
+            "latest_blackcat_cloud_v1": latest_blackcat,
             "paper_trade_creation_allowed": False,
             "order_request_creation_allowed": False,
         },

@@ -310,6 +310,7 @@ class StrategyAgentEvaluator:
         latest = self.latest()
         latest_signal = next((item for item in reversed(latest) if item.get("status") == "SIGNAL"), None)
         latest_fast_rsi = next((item for item in reversed(latest) if item.get("agent_id") == "fast_rsi_first_reversal_v1"), None)
+        latest_blackcat = next((item for item in reversed(latest) if item.get("agent_id") == "blackcat_cloud_v1" or item.get("strategy_name") == "blackcat_cloud_v1"), None)
         status.update(
             {
                 "paper_trade_creation_allowed": safety.get("paper_trade_creation_allowed", False),
@@ -318,6 +319,7 @@ class StrategyAgentEvaluator:
                 "command_queueing_allowed": safety.get("command_queueing_allowed", False),
                 "latest_signal": latest_signal,
                 "latest_fast_rsi": latest_fast_rsi,
+                "latest_blackcat_cloud_v1": latest_blackcat,
             }
         )
         return status

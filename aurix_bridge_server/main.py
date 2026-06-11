@@ -1086,7 +1086,7 @@ def build_demo_broker_execution_status(latest_gate_decision: dict[str, Any] | No
                 "daily_loss_limit": round(balance_value * (daily_risk_limit / 100.0), 4) if balance_value is not None else None,
                 "source": "account_balance",
             },
-            "strategy_engine": "v1 / v2 / Fast RSI",
+            "strategy_engine": "v1 / v2 / Fast RSI / BlackCat Cloud",
             "selected_strategy": latest_gate_decision.get("strategy_id"),
             "selected_signal": latest_gate_decision.get("signal_id"),
             "latest_gate_block": latest_gate_decision.get("primary_block") or latest_gate_decision.get("reason"),
@@ -2645,7 +2645,8 @@ def strategy_agents_operator_status() -> dict[str, Any]:
     latest = strategy_agent_evaluator.latest()
     latest_signal = next((item for item in reversed(latest) if item.get("status") == "SIGNAL"), None)
     latest_fast_rsi = next((item for item in reversed(latest) if item.get("agent_id") == "fast_rsi_first_reversal_v1"), None)
-    return {**status, "latest": latest, "latest_signal": latest_signal, "latest_fast_rsi": latest_fast_rsi}
+    latest_blackcat = next((item for item in reversed(latest) if item.get("agent_id") == "blackcat_cloud_v1" or item.get("strategy_name") == "blackcat_cloud_v1"), None)
+    return {**status, "latest": latest, "latest_signal": latest_signal, "latest_fast_rsi": latest_fast_rsi, "latest_blackcat_cloud_v1": latest_blackcat}
 
 
 def operator_status_payload() -> dict[str, Any]:

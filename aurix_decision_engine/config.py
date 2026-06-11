@@ -36,7 +36,7 @@ class DecisionEngineConfig(BaseModel):
     max_trades_per_day: int = 1
     block_when_command_queue_disabled: bool = False
     block_when_execution_disabled: bool = False
-    strategy_priority: list[str] = Field(default_factory=lambda: ["fast_rsi_first_reversal", "xauusd_paper_v1", "xauusd_paper_v2"])
+    strategy_priority: list[str] = Field(default_factory=lambda: ["blackcat_cloud_v1", "fast_rsi_first_reversal", "xauusd_paper_v1", "xauusd_paper_v2"])
     write_history: bool = True
     history_limit: int = 1000
 

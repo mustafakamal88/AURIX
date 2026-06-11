@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 from .adapters import XauusdPaperV1Adapter, XauusdPaperV2Adapter
 from .base import StrategyAgent
 from .config import StrategyAgentsConfig
+from .blackcat_cloud_v1 import BlackCatCloudV1Agent
 from .fast_rsi_reversal import FastRsiFirstReversalAgent
 from .models import StrategyAgentSafety, StrategyAgentSpec, StrategyRegistryStatus
 
@@ -13,6 +14,7 @@ from .models import StrategyAgentSafety, StrategyAgentSpec, StrategyRegistryStat
 def _spec_for_entry(entry: Any, symbol: str, config: StrategyAgentsConfig) -> StrategyAgentSpec:
     source = entry.source_strategy
     fast_config = config.fast_rsi_first_reversal or {}
+    blackcat_config = config.blackcat_cloud_v1 or {}
     if source == "xauusd_paper_v1":
         name = "XAUUSD Paper Strategy V1 Adapter"
         version = "0.1.0"
@@ -34,6 +36,13 @@ def _spec_for_entry(entry: Any, symbol: str, config: StrategyAgentsConfig) -> St
         strategy_type = "STRATEGY_AGENT"
         timeframe = str(fast_config.get("timeframe") or "M1")
         description = "Observation-only Fast RSI first-reversal strategy agent."
+    elif source == "blackcat_cloud_v1":
+        name = "BlackCat Cloud V1"
+        version = str(blackcat_config.get("strategy_version") or "1.0.0")
+        source_module = "aurix_strategy_agents.blackcat_cloud_v1"
+        strategy_type = "STRATEGY_AGENT"
+        timeframe = str(blackcat_config.get("timeframe") or "M15")
+        description = "Observation-only BlackCat EMA cloud signal provider."
     else:
         name = f"{source} Adapter"
         version = "0.1.0"
@@ -63,6 +72,8 @@ def create_agent(spec: StrategyAgentSpec, source_strategy: str, config: Strategy
         return XauusdPaperV2Adapter(spec)
     if source_strategy == "fast_rsi_first_reversal":
         return FastRsiFirstReversalAgent(spec, config.fast_rsi_first_reversal, data_dir)
+    if source_strategy == "blackcat_cloud_v1":
+        return BlackCatCloudV1Agent(spec, config.blackcat_cloud_v1)
     raise KeyError(f"Unsupported strategy agent source_strategy: {source_strategy}")
 
 

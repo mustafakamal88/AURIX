@@ -235,9 +235,9 @@ def main() -> int:
         status = evaluator.status()
         if not status.get("latest_exists") or status.get("latest_status_counts", {}).get("SIGNAL") != 1:
             raise AssertionError(f"latest status was not updated after evaluation: {status}")
-        if status.get("registered_count") != 3 or status.get("enabled_count") != 3:
-            raise AssertionError(f"registry status should include all three strategies: {status}")
-        if status.get("evaluations_this_session", 0) < 3:
+        if status.get("registered_count") != 4 or status.get("enabled_count") != 4:
+            raise AssertionError(f"registry status should include all four strategies: {status}")
+        if status.get("evaluations_this_session", 0) < 4:
             raise AssertionError(f"evaluations_this_session did not increment: {status}")
         pipeline = build_strategy_pipeline_snapshot(
             data_dir=tmpdir,
@@ -246,12 +246,12 @@ def main() -> int:
             registry_status=status,
             latest_evaluations=evaluator.latest(),
         )
-        if pipeline["strategy_registry_loaded"] is not True or pipeline["registered_strategy_count"] != 3 or pipeline["enabled_strategy_count"] != 3:
+        if pipeline["strategy_registry_loaded"] is not True or pipeline["registered_strategy_count"] != 4 or pipeline["enabled_strategy_count"] != 4:
             raise AssertionError(f"pipeline registry diagnostics wrong: {pipeline}")
-        for expected in ["xauusd_paper_v1", "xauusd_paper_v2", "fast_rsi_first_reversal"]:
+        for expected in ["xauusd_paper_v1", "xauusd_paper_v2", "fast_rsi_first_reversal", "blackcat_cloud_v1"]:
             if expected not in pipeline.get("registered_strategy_names", []):
                 raise AssertionError(f"pipeline registry names missing {expected}: {pipeline}")
-        if pipeline["decision_loop_alive"] is not True or pipeline["evaluations_this_session"] < 3:
+        if pipeline["decision_loop_alive"] is not True or pipeline["evaluations_this_session"] < 4:
             raise AssertionError(f"pipeline loop diagnostics wrong: {pipeline}")
         reset = evaluator.reset()
         if reset.get("latest_exists"):
