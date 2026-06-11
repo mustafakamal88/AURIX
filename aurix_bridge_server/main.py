@@ -199,7 +199,21 @@ decision_engine = AurixDecisionEngine(
     demo_command_queue_store=demo_command_queue.store,
     risk_status_provider=lambda: risk_status(),
 )
-durable_audit_store = DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+
+
+def build_durable_audit_store() -> DurableAuditStore:
+    database_url = os.getenv("DATABASE_URL")
+    sqlite_path = os.getenv("AURIX_DURABLE_AUDIT_SQLITE_PATH")
+    if not database_url and RUNTIME_PROFILE == "LOCAL_DEV":
+        return DurableAuditStore.sqlite_local(
+            DATA_DIR,
+            path=sqlite_path or Path(DATA_DIR) / "aurix_durable_audit.sqlite",
+            runtime_session_id=runtime_session.runtime_session_id,
+        )
+    return DurableAuditStore(DATA_DIR, runtime_session_id=runtime_session.runtime_session_id)
+
+
+durable_audit_store = build_durable_audit_store()
 trade_explanation_store = TradeExplanationStore(DATA_DIR)
 
 

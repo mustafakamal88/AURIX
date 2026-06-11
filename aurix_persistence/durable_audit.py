@@ -221,13 +221,35 @@ class DurableAuditStore:
             dialect="sqlite",
         )
 
+    @classmethod
+    def sqlite_local(
+        cls,
+        data_dir: str | Path = "data",
+        *,
+        path: str | Path | None = None,
+        runtime_session_id: str | None = None,
+        deployment_commit: str | None = None,
+    ) -> "DurableAuditStore":
+        db_path = Path(path) if path is not None else Path(data_dir) / "aurix_durable_audit.sqlite"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        return cls(
+            data_dir=data_dir,
+            database_url=f"sqlite:///{db_path}",
+            runtime_session_id=runtime_session_id,
+            deployment_commit=deployment_commit,
+            connect=lambda: sqlite3.connect(db_path),
+            dialect="sqlite",
+        )
+
     def _initial_status(self) -> dict[str, Any]:
         enabled = bool(self.database_url or self._connect is not None)
+        source = "local SQLite durable audit" if self.dialect == "sqlite" and enabled else "Railway Postgres" if enabled else "local JSON cache only"
         return {
             "generated_at": utc_now_iso(),
             "durable_audit": "ENABLED" if enabled else "DISABLED",
             "database_connected": False,
-            "source_of_truth": "Railway Postgres" if enabled else "local JSON cache only",
+            "source_of_truth": source,
+            "database_url_scheme": str(self.database_url or "").split(":", 1)[0] or None,
             "last_db_write": None,
             "last_db_error": None,
             "latest_explanation_id": None,

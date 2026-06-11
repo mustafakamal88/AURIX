@@ -86,40 +86,50 @@ def main() -> int:
         require(queued_commands == [], "DB write failure must not queue MT5 commands")
         require(failing.status()["durable_audit"] == "ERROR", f"failing DB did not set ERROR: {failing.status()}")
 
+        local_data = Path(tmpdir) / "local-data"
+        local_store = DurableAuditStore.sqlite_local(local_data, runtime_session_id="local-runtime")
+        local_status = local_store.status()
+        local_db_path = local_data / "aurix_durable_audit.sqlite"
+        require(local_db_path.exists(), f"local SQLite durable audit DB missing: {local_db_path}")
+        require(local_status["durable_audit"] == "ENABLED" and local_status["database_connected"] is True, f"local SQLite durable audit not connected: {local_status}")
+        require(local_status["source_of_truth"] == "local SQLite durable audit", f"local source of truth wrong: {local_status}")
+
     clean_env = os.environ.copy()
     clean_env.pop("DATABASE_URL", None)
-    missing = subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py")],
-        cwd=PROJECT_ROOT,
-        env=clean_env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    require(missing.returncode == 0, f"missing local DATABASE_URL should exit 0: {missing.stdout} {missing.stderr}")
-    require("DATABASE_URL present: False" in missing.stdout, f"missing DATABASE_URL report unclear: {missing.stdout}")
-    require("local-only warning" in missing.stdout, f"missing DATABASE_URL warning absent: {missing.stdout}")
+    with tempfile.TemporaryDirectory(prefix="aurix-durable-audit-check-") as check_tmp:
+        check_data_dir = str(Path(check_tmp) / "data")
+        missing = subprocess.run(
+            [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py"), "--data-dir", check_data_dir],
+            cwd=PROJECT_ROOT,
+            env=clean_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        require(missing.returncode == 0, f"missing local DATABASE_URL should exit 0: {missing.stdout} {missing.stderr}")
+        require("DATABASE_URL present: False" in missing.stdout, f"missing DATABASE_URL report unclear: {missing.stdout}")
+        require("local-only warning" in missing.stdout, f"missing DATABASE_URL warning absent: {missing.stdout}")
 
-    required_missing = subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py"), "--require-db"],
-        cwd=PROJECT_ROOT,
-        env=clean_env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    require(required_missing.returncode != 0, "--require-db should fail when DATABASE_URL is missing")
+        required_missing = subprocess.run(
+            [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py"), "--require-db", "--data-dir", check_data_dir],
+            cwd=PROJECT_ROOT,
+            env=clean_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        require(required_missing.returncode != 0, "--require-db should fail when DATABASE_URL is missing")
 
-    secret_url = "postgresql://user:super-secret-password@127.0.0.1:1/db"
-    secret_env = clean_env | {"DATABASE_URL": secret_url}
-    redacted = subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py")],
-        cwd=PROJECT_ROOT,
-        env=secret_env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+        secret_url = "postgresql://user:super-secret-password@127.0.0.1:1/db"
+        secret_env = clean_env | {"DATABASE_URL": secret_url}
+        redacted = subprocess.run(
+            [sys.executable, str(PROJECT_ROOT / "scripts" / "check_railway_durable_audit.py"), "--data-dir", check_data_dir],
+            cwd=PROJECT_ROOT,
+            env=secret_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
     combined = redacted.stdout + redacted.stderr
     require(redacted.returncode != 0, "invalid DATABASE_URL should fail connection/schema check")
     require(secret_url not in combined and "super-secret-password" not in combined, f"health-check leaked DATABASE_URL: {combined}")
