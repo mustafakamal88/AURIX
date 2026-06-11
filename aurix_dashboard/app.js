@@ -144,12 +144,13 @@ function setProvenanceValue(id, value) {
 
 function dailyRiskDisplay(dailyRisk) {
   const hasLoss = hasDisplayValue(dailyRisk.equity_loss);
-  const hasDrawdown = hasDisplayValue(dailyRisk.drawdown_percent);
+  const drawdown = hasDisplayValue(dailyRisk.drawdown_percent) ? dailyRisk.drawdown_percent : dailyRisk.equity_loss_pct;
+  const hasDrawdown = hasDisplayValue(drawdown);
   const dataMissing = !hasLoss || !hasDrawdown;
   return {
     status: dataMissing ? "DATA_MISSING" : (dailyRisk.status || "UNKNOWN"),
     equityLoss: hasLoss ? dailyRisk.equity_loss : "UNKNOWN",
-    drawdownPercent: hasDrawdown ? dailyRisk.drawdown_percent : "UNKNOWN",
+    drawdownPercent: hasDrawdown ? drawdown : "UNKNOWN",
   };
 }
 
@@ -159,7 +160,7 @@ function brokerReconciliationDisplay(broker) {
     Number(broker.warnings || 0) > 0 ||
     broker.unexpected_exposure === true;
   const missingOrStale = broker.latest_exists === false || broker.artifact_stale === true || !broker.status;
-  const status = missingOrStale || (broker.status !== "CLEAN" && !dirtyEvidence) ? "UNKNOWN" : broker.status;
+  const status = missingOrStale ? "UNKNOWN" : broker.status;
   if (status === "CLEAN") {
     return { status, reason: "Broker Reconciliation: CLEAN" };
   }

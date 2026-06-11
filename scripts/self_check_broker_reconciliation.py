@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,7 @@ def snapshot(
 ) -> dict[str, Any]:
     return {
         "terminal_id": "AURIX-MAC-001",
-        "received_at": "2026-06-09T12:00:00+00:00",
+        "received_at": datetime.now(timezone.utc).isoformat(),
         "account": {"balance": 10000.0, "equity": 10000.0, "currency": currency},
         "tick": {"symbol": "XAUUSDm", "bid": 2300.1, "ask": 2300.3, "spread_points": 20},
         "positions": positions or [],
@@ -76,8 +77,8 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmpdir:
         reconciler, bus = build(tmpdir, snap=None)
         report = reconciler.run()
-        if report["status"] != "NO_BROKER_DATA":
-            raise AssertionError(f"no broker data should return NO_BROKER_DATA: {report}")
+        if report["status"] != "UNKNOWN" or "required MT5 broker snapshot/account data missing" not in report.get("reasons", []):
+            raise AssertionError(f"no broker data should return UNKNOWN with exact reason: {report}")
         assert_safe(report)
 
         reconciler, bus = build(tmpdir, snap=snapshot())
@@ -89,12 +90,12 @@ def main() -> int:
 
         position = {"ticket": 100, "symbol": "XAUUSDm", "volume": 0.01}
         report = build(tmpdir, snap=snapshot(positions=[position]))[0].run()
-        if report["status"] != "MISMATCH" or "unexpected_broker_position" not in mismatch_codes(report):
+        if report["status"] != "DIRTY" or "unexpected_broker_position" not in mismatch_codes(report):
             raise AssertionError(f"unexpected position did not mismatch: {report}")
 
         order = {"ticket": 200, "symbol": "XAUUSDm", "volume": 0.01}
         report = build(tmpdir, snap=snapshot(orders=[order]))[0].run()
-        if report["status"] != "MISMATCH" or "unexpected_broker_order" not in mismatch_codes(report):
+        if report["status"] != "DIRTY" or "unexpected_broker_order" not in mismatch_codes(report):
             raise AssertionError(f"unexpected order did not mismatch: {report}")
 
         oms_store = DemoOmsStore(tmpdir)
@@ -112,7 +113,7 @@ def main() -> int:
         bus = AurixEventBus(tmpdir, load_event_bus_config())
         reconciler = BrokerReconciler(tmpdir, load_broker_reconciliation_config(), event_bus=bus, snapshot_provider=lambda: snapshot(), demo_oms_store=oms_store)
         report = reconciler.run()
-        if report["status"] != "MISMATCH" or "oms_request_has_broker_order_id" not in mismatch_codes(report):
+        if report["status"] != "DIRTY" or "oms_request_has_broker_order_id" not in mismatch_codes(report):
             raise AssertionError(f"OMS broker_order_id did not mismatch: {report}")
 
         for field, code in [
@@ -121,11 +122,11 @@ def main() -> int:
         ]:
             config = load_broker_reconciliation_config().model_copy(update={field: True})
             report = build(tmpdir, config=config, snap=snapshot())[0].run()
-            if report["status"] != "BLOCKED" or code not in mismatch_codes(report):
+            if report["status"] != "DIRTY" or code not in mismatch_codes(report):
                 raise AssertionError(f"{field}=true did not block: {report}")
 
         report = build(tmpdir, snap=snapshot(ea_live=True))[0].run()
-        if report["status"] != "BLOCKED" or "ea_live_trading_enabled" not in mismatch_codes(report):
+        if report["status"] != "DIRTY" or "ea_live_trading_enabled" not in mismatch_codes(report):
             raise AssertionError(f"EA live trading true did not block: {report}")
 
         reset = reconciler.reset()

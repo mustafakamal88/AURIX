@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from aurix_common import legacy_runtime_provenance
+from aurix_common.persistence import write_json_atomic
 from aurix_context_engine import load_context_config
 from aurix_context_engine.session import classify_session
 from aurix_strategy_agents.diagnostics import build_strategy_pipeline_snapshot, normalize_rejection_reason, write_strategy_pipeline_snapshot
@@ -48,12 +50,16 @@ def _broker_reconciliation_summary(status: dict[str, Any], report: dict[str, Any
     warnings = status.get("warning_count", len(_list(report.get("warnings"))))
     broker_positions = status.get("broker_position_count", len(_list(report.get("broker_positions"))))
     broker_orders = status.get("broker_order_count", len(_list(report.get("broker_orders"))))
-    dirty_evidence = bool(mismatches or warnings or broker_positions or broker_orders)
+    dirty_evidence = bool(report.get("dirty_evidence_found") or mismatches or broker_positions or broker_orders)
     artifact_stale = artifact_age is not None and artifact_age > 900
     effective_status = status.get("status") or report.get("status")
     if not latest_exists or artifact_stale:
         effective_status = "UNKNOWN"
-    elif effective_status != "CLEAN" and not dirty_evidence:
+    elif effective_status in {"MISMATCH", "BLOCKED"} and dirty_evidence:
+        effective_status = "DIRTY"
+    elif effective_status in {"MISMATCH", "BLOCKED"}:
+        effective_status = "UNKNOWN"
+    elif effective_status == "NO_BROKER_DATA":
         effective_status = "UNKNOWN"
     return {
         "status": effective_status,
@@ -69,6 +75,7 @@ def _broker_reconciliation_summary(status: dict[str, Any], report: dict[str, Any
         "warnings": warnings,
         "unexpected_exposure": bool(broker_positions or broker_orders or mismatches),
         "dirty_evidence": dirty_evidence,
+        "reason": "; ".join(str(item) for item in _list(report.get("reasons")) or _list(status.get("reasons"))) or ("clean broker snapshot" if effective_status == "CLEAN" else None),
     }
 
 
@@ -78,6 +85,93 @@ def _count_status(items: list[dict[str, Any]]) -> dict[str, int]:
         status = str(item.get("status") or "UNKNOWN")
         counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _ensure_readiness_reports(data_dir: str | Path, strategy_status: dict[str, Any], broker_status: dict[str, Any], daily_risk: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    root = Path(data_dir)
+    strategy_trace = _dict(strategy_status.get("last_decision_trace"))
+    strategy_candles = int(strategy_trace.get("strategy_candle_count") or strategy_status.get("strategy_candle_count") or 0)
+    required_candles = int(strategy_trace.get("required_strategy_candle_count") or strategy_status.get("required_strategy_candle_count") or 26)
+    active_count = int(strategy_status.get("enabled_count") or strategy_status.get("active_strategy_count") or 0)
+    selected = strategy_trace.get("selected_strategy_id")
+    action = strategy_trace.get("selected_action") or "WAIT"
+    broker_recon_status = broker_status.get("status") or "UNKNOWN"
+    daily_status = daily_risk.get("status") or "UNKNOWN"
+
+    evidence = _read_or_create(
+        root / "evidence_growth_report.json",
+        {
+            "generated_at": _utc_now_iso(),
+            "status": "COLLECTING",
+            "closed_paper_trades": 0,
+            "required_closed_paper_trades": 30,
+            "recorded_strategy_candles": strategy_candles,
+            "required_strategy_candles": required_candles,
+            "forward_test_days": 0,
+            "required_forward_test_days": 14,
+            "overall_progress": min(1.0, strategy_candles / max(required_candles, 1)) * 0.25,
+            "reasons": ["evidence thresholds not met yet"],
+            "warnings": [],
+        },
+    )
+    signal_cert = _read_or_create(
+        root / "signal_path_certification_report.json",
+        {
+            "generated_at": _utc_now_iso(),
+            "status": "BLOCKED",
+            "strategy_engine_running": strategy_status.get("current_engine_status") == "RUNNING" or bool(strategy_status.get("enabled")),
+            "active_strategy_count": active_count,
+            "candle_memory_status": strategy_trace.get("candle_memory_status") or strategy_status.get("candle_memory_status"),
+            "latest_strategy_candle_timestamp": strategy_trace.get("latest_strategy_closed_candle_timestamp") or strategy_status.get("latest_strategy_closed_candle_timestamp"),
+            "latest_signal_action": action,
+            "latest_selected_strategy_id": selected,
+            "paper_path_verified": False,
+            "broker_command_path_verified": False,
+            "dashboard_read_only_verified": True,
+            "reasons": ["no certified live signal path yet"],
+            "warnings": [],
+        },
+    )
+    live = _read_or_create(
+        root / "live_readiness_report.json",
+        {
+            "generated_at": _utc_now_iso(),
+            "status": "BLOCKED",
+            "score": 0.0,
+            "required_score": 1.0,
+            "arming_allowed": False,
+            "execution_allowed": False,
+            "live_arming_allowed": False,
+            "live_execution_allowed": False,
+            "reasons": ["live readiness requires passing evidence, reconciliation, risk, and signal certification gates"],
+            "blocking_reasons": ["live readiness requires passing evidence, reconciliation, risk, and signal certification gates"],
+            "evidence_growth_status": evidence.get("status"),
+            "broker_reconciliation_status": broker_recon_status,
+            "daily_risk_status": daily_status,
+            "signal_certification_status": signal_cert.get("status"),
+            "warnings": [],
+        },
+    )
+    return {"evidence_growth": evidence, "signal_certification": signal_cert, "live_readiness": live}
+
+
+def _read_or_create(path: Path, fallback: dict[str, Any]) -> dict[str, Any]:
+    existing: dict[str, Any] = {}
+    if path.exists():
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            existing = value if isinstance(value, dict) else {}
+        except Exception:
+            existing = {}
+    if existing:
+        return existing
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(path, fallback)
+    return fallback
 
 
 def _market(snapshot: dict[str, Any] | None, decision: dict[str, Any], decision_status: dict[str, Any], risk: dict[str, Any]) -> dict[str, Any]:
@@ -275,6 +369,7 @@ def build_runtime_dashboard_summary(
     trade_explanation_index = _list(store.read_json("trade_explanations/index.json", []))
     durable_audit = _dict(store.read_json("durable_audit/status.json", {}))
     demo_broker_execution = _dict(store.read_json("demo_broker_execution/status.json", {}))
+    daily_risk_state = _dict(store.read_json("risk/daily_risk_state.json", {}))
     broker_status = _dict(store.read_json("broker_reconciliation/status.json", {}))
     broker_report = _dict(store.read_json("broker_reconciliation/report.json", {}))
     live_readiness = _dict(store.read_json("live_readiness_report.json", {}))
@@ -284,6 +379,13 @@ def build_runtime_dashboard_summary(
     quick_validation = _dict(store.read_json("quick_validation_report.json", {}))
     context_items = _list(store.read_json("context_snapshots.json", []))
     operator_summary = _dict(store.read_json("operator_summary.json", {}))
+    generated_reports = _ensure_readiness_reports(data_dir, strategy_status, broker_status, daily_risk_state)
+    if not live_readiness:
+        live_readiness = generated_reports["live_readiness"]
+    if not evidence_growth:
+        evidence_growth = generated_reports["evidence_growth"]
+    if not signal_cert:
+        signal_cert = generated_reports["signal_certification"]
 
     decision = _decision(decision_status, decision_report)
     market = _market(snapshot, decision_report, decision_status, risk_status)
@@ -348,6 +450,8 @@ def build_runtime_dashboard_summary(
     railway_broker_execution = _dict(runtime_environment).get("broker_execution_enabled")
     ea_broker_execution = raw.get("broker_execution_enabled")
     broker_matched = railway_broker_execution == ea_broker_execution if ea_broker_execution is not None and railway_broker_execution is not None else None
+    if daily_risk_state:
+        demo_broker_execution["daily_risk_guard"] = {**daily_risk_state, **_dict(demo_broker_execution.get("daily_risk_guard"))}
     latest_gate = _dict(demo_broker_execution.get("latest_gate_decision"))
     latest_command = _dict(demo_broker_execution.get("latest_command"))
     risk_model = _dict(demo_broker_execution.get("risk_model"))

@@ -96,7 +96,18 @@ class BrokerReconciliationReport(BaseModel):
     generated_at: str = Field(default_factory=utc_now_iso)
     symbol: str = "XAUUSDm"
     mode: str = "RECONCILIATION_ONLY"
-    status: Literal["CLEAN", "WARNINGS", "MISMATCH", "BLOCKED", "NO_BROKER_DATA"] = "NO_BROKER_DATA"
+    status: Literal["CLEAN", "DIRTY", "UNKNOWN", "WARNINGS", "MISMATCH", "BLOCKED", "NO_BROKER_DATA"] = "UNKNOWN"
+    account_login_masked: Optional[str] = None
+    server: Optional[str] = None
+    snapshot_age_seconds: Optional[float] = None
+    positions_count: int = 0
+    orders_count: int = 0
+    expected_positions_count: int = 0
+    expected_orders_count: int = 0
+    unexpected_exposure: bool = False
+    mismatches_count: int = 0
+    dirty_evidence_found: bool = False
+    reasons: list[str] = Field(default_factory=list)
     account: Optional[BrokerAccountSnapshot] = None
     broker_positions: list[BrokerPositionSnapshot] = Field(default_factory=list)
     broker_orders: list[BrokerOrderSnapshot] = Field(default_factory=list)
