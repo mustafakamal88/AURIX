@@ -572,6 +572,14 @@ function render(summary) {
   setText("strategyAgentsSignal",        agents.latest_signal_direction || pipeline.latest_direction_candidate || "NONE");
   setStatus("strategyAgentsLatestResult", pipeline.latest_result || "UNKNOWN");
   setStatusAlias("strategyAgentsLatestRejection", pipeline.latest_rejection_reason || "--");
+  setTextTitle("strategyAgentsCompactLine", agents.compact_status_line || "--");
+  setText("strategyAgentsTimeframe", `raw ${agents.raw_timeframe || "UNKNOWN"} → strategy ${agents.strategy_timeframe || "UNKNOWN"}`);
+  setText("strategyAgentsCandleMemory", agents.candle_memory || "--");
+  setText(
+    "strategyAgentsBuckets",
+    `${agents.m15_bucket_count_complete ?? 0}/${agents.m15_bucket_count_total ?? 0} complete · ${agents.m15_bucket_count_incomplete ?? 0} incomplete`
+  );
+  setText("strategyAgentsLatestStrategyCandle", fmtTime(agents.latest_strategy_closed_candle_timestamp));
   setExecLock("strategyAgentsPaperAllowed",  agents.paper_trade_creation_allowed);
   setExecLock("strategyAgentsOrderAllowed",  agents.order_request_creation_allowed);
   renderStrategyAgentStatuses(agents.latest_statuses);

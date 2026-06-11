@@ -95,13 +95,22 @@ class StrategyAgentStore:
                     "selected_candidate": trace.get("selected_candidate"),
                     "last_block_reason": trace.get("block_reason"),
                     "latest_closed_candle_timestamp": trace.get("latest_closed_candle_timestamp"),
+                    "latest_raw_candle_timestamp": trace.get("latest_raw_candle_timestamp"),
                     "latest_strategy_closed_candle_timestamp": trace.get("latest_strategy_closed_candle_timestamp"),
                     "available_closed_candle_count": trace.get("available_candle_count"),
                     "raw_timeframe": trace.get("raw_timeframe"),
                     "strategy_timeframe": trace.get("strategy_timeframe"),
                     "resampled": trace.get("resampled"),
                     "source_candle_count": trace.get("source_candle_count"),
+                    "raw_closed_candle_count": trace.get("raw_closed_candle_count"),
+                    "m15_bucket_count_total": trace.get("m15_bucket_count_total"),
+                    "m15_bucket_count_complete": trace.get("m15_bucket_count_complete"),
+                    "m15_bucket_count_incomplete": trace.get("m15_bucket_count_incomplete"),
                     "strategy_candle_count": trace.get("strategy_candle_count"),
+                    "required_strategy_candle_count": trace.get("required_strategy_candle_count"),
+                    "dropped_latest_incomplete_bucket": trace.get("dropped_latest_incomplete_bucket"),
+                    "last_incomplete_bucket_start": trace.get("last_incomplete_bucket_start"),
+                    "candle_memory_status": trace.get("candle_memory_status"),
                     "last_strategy_outputs": trace.get("strategy_outputs") or [],
                 }
             )
@@ -144,13 +153,22 @@ class StrategyAgentStore:
                     "selected_candidate": trace.get("selected_candidate"),
                     "last_block_reason": trace.get("block_reason"),
                     "latest_closed_candle_timestamp": trace.get("latest_closed_candle_timestamp"),
+                    "latest_raw_candle_timestamp": trace.get("latest_raw_candle_timestamp"),
                     "latest_strategy_closed_candle_timestamp": trace.get("latest_strategy_closed_candle_timestamp"),
                     "available_closed_candle_count": trace.get("available_candle_count"),
                     "raw_timeframe": trace.get("raw_timeframe"),
                     "strategy_timeframe": trace.get("strategy_timeframe"),
                     "resampled": trace.get("resampled"),
                     "source_candle_count": trace.get("source_candle_count"),
+                    "raw_closed_candle_count": trace.get("raw_closed_candle_count"),
+                    "m15_bucket_count_total": trace.get("m15_bucket_count_total"),
+                    "m15_bucket_count_complete": trace.get("m15_bucket_count_complete"),
+                    "m15_bucket_count_incomplete": trace.get("m15_bucket_count_incomplete"),
                     "strategy_candle_count": trace.get("strategy_candle_count"),
+                    "required_strategy_candle_count": trace.get("required_strategy_candle_count"),
+                    "dropped_latest_incomplete_bucket": trace.get("dropped_latest_incomplete_bucket"),
+                    "last_incomplete_bucket_start": trace.get("last_incomplete_bucket_start"),
+                    "candle_memory_status": trace.get("candle_memory_status"),
                     "last_strategy_outputs": trace.get("strategy_outputs") or [],
                 }
             )
@@ -232,7 +250,9 @@ class StrategyAgentEvaluator:
         return {**base, "shared_candle_context": shared_context}
 
     def _context_guard_result(self, agent_id: str, shared_context: dict[str, Any]) -> StrategyEvaluationResult | None:
-        if int(shared_context.get("available_candle_count") or 0) >= 25:
+        available = int(shared_context.get("strategy_candle_count") or shared_context.get("available_candle_count") or 0)
+        required = int(shared_context.get("required_strategy_candle_count") or 26)
+        if available >= required:
             return None
         agent = self.registry.get_agent(agent_id)
         if agent is None:
@@ -249,7 +269,12 @@ class StrategyAgentEvaluator:
             confidence=0.0,
             setup_reason=reason,
             decision_trace={"shared_candle_context": shared_context, "rule_checks": {"enough_candle_memory": False}},
-            rejection_reasons=[StrategyRejectionReason(code=reason, message="Need at least 25 closed strategy-timeframe candles for strategy context.")],
+            rejection_reasons=[
+                StrategyRejectionReason(
+                    code=reason,
+                    message=f"Need at least {required} closed strategy-timeframe candles: one trigger candle plus 25 prior context candles.",
+                )
+            ],
             safety=StrategyAgentSafety(),
         )
 
@@ -286,7 +311,15 @@ class StrategyAgentEvaluator:
             "strategy_timeframe": shared_context.get("strategy_timeframe"),
             "resampled": shared_context.get("resampled"),
             "source_candle_count": shared_context.get("source_candle_count"),
+            "raw_closed_candle_count": shared_context.get("raw_closed_candle_count"),
+            "m15_bucket_count_total": shared_context.get("m15_bucket_count_total"),
+            "m15_bucket_count_complete": shared_context.get("m15_bucket_count_complete"),
+            "m15_bucket_count_incomplete": shared_context.get("m15_bucket_count_incomplete"),
             "strategy_candle_count": shared_context.get("strategy_candle_count"),
+            "required_strategy_candle_count": shared_context.get("required_strategy_candle_count"),
+            "dropped_latest_incomplete_bucket": shared_context.get("dropped_latest_incomplete_bucket"),
+            "last_incomplete_bucket_start": shared_context.get("last_incomplete_bucket_start"),
+            "candle_memory_status": shared_context.get("candle_memory_status"),
             "latest_raw_candle_timestamp": shared_context.get("latest_raw_candle_timestamp"),
             "latest_strategy_closed_candle_timestamp": shared_context.get("latest_strategy_closed_candle_timestamp"),
             "timestamp": blackcat.get("timestamp") or shared_context.get("latest_closed_candle_timestamp"),
@@ -462,9 +495,17 @@ class StrategyAgentEvaluator:
             "strategy_timeframe": shared_context.get("strategy_timeframe"),
             "resampled": shared_context.get("resampled"),
             "source_candle_count": shared_context.get("source_candle_count"),
+            "raw_closed_candle_count": shared_context.get("raw_closed_candle_count"),
             "source_closed_candle_count": shared_context.get("source_closed_candle_count"),
+            "m15_bucket_count_total": shared_context.get("m15_bucket_count_total"),
+            "m15_bucket_count_complete": shared_context.get("m15_bucket_count_complete"),
+            "m15_bucket_count_incomplete": shared_context.get("m15_bucket_count_incomplete"),
             "strategy_candle_count": shared_context.get("strategy_candle_count"),
+            "required_strategy_candle_count": shared_context.get("required_strategy_candle_count"),
             "incomplete_strategy_bucket_count": shared_context.get("incomplete_strategy_bucket_count"),
+            "dropped_latest_incomplete_bucket": shared_context.get("dropped_latest_incomplete_bucket"),
+            "last_incomplete_bucket_start": shared_context.get("last_incomplete_bucket_start"),
+            "candle_memory_status": shared_context.get("candle_memory_status"),
             "spread_method": shared_context.get("spread_method"),
             "system_status": "CANDIDATE_FOUND" if selected else "SCANNING",
             "latest_closed_candle_timestamp": shared_context.get("latest_closed_candle_timestamp"),
@@ -491,7 +532,7 @@ class StrategyAgentEvaluator:
             "selected_confidence": selected.get("confidence") if selected else 0.0,
             "selection_reason": memory_reason or selection.get("reason"),
             "final_decision": final_decision,
-            "block_stage": "NONE" if selected else "STRATEGY",
+            "block_stage": "NONE" if selected else "DATA" if memory_reason else "STRATEGY",
             "block_reason": block_reason,
             "broker_execution_enabled": False,
             "paper_enabled": True,
@@ -578,15 +619,29 @@ class StrategyAgentEvaluator:
                 "last_heartbeat": latest_trace.get("timestamp") or status.get("last_evaluation_at"),
                 "active_strategies": [agent.spec.id for agent in active],
                 "active_strategy_count": len(active),
-                "candle_memory_status": "READY" if int(latest_trace.get("available_candle_count") or 0) >= 25 else "INSUFFICIENT",
+                "candle_memory_status": latest_trace.get("candle_memory_status")
+                or (
+                    "READY"
+                    if int(latest_trace.get("strategy_candle_count") or latest_trace.get("available_candle_count") or 0)
+                    >= int(latest_trace.get("required_strategy_candle_count") or 26)
+                    else "WAITING_FOR_STRATEGY_TIMEFRAME_CANDLES"
+                ),
                 "latest_closed_candle_timestamp": latest_trace.get("latest_closed_candle_timestamp"),
+                "latest_raw_candle_timestamp": latest_trace.get("latest_raw_candle_timestamp"),
                 "latest_strategy_closed_candle_timestamp": latest_trace.get("latest_strategy_closed_candle_timestamp"),
                 "available_closed_candle_count": latest_trace.get("available_candle_count"),
                 "raw_timeframe": latest_trace.get("raw_timeframe"),
                 "strategy_timeframe": latest_trace.get("strategy_timeframe"),
                 "resampled": latest_trace.get("resampled"),
                 "source_candle_count": latest_trace.get("source_candle_count"),
+                "raw_closed_candle_count": latest_trace.get("raw_closed_candle_count"),
+                "m15_bucket_count_total": latest_trace.get("m15_bucket_count_total"),
+                "m15_bucket_count_complete": latest_trace.get("m15_bucket_count_complete"),
+                "m15_bucket_count_incomplete": latest_trace.get("m15_bucket_count_incomplete"),
                 "strategy_candle_count": latest_trace.get("strategy_candle_count"),
+                "required_strategy_candle_count": latest_trace.get("required_strategy_candle_count"),
+                "dropped_latest_incomplete_bucket": latest_trace.get("dropped_latest_incomplete_bucket"),
+                "last_incomplete_bucket_start": latest_trace.get("last_incomplete_bucket_start"),
                 "last_strategy_outputs": latest_trace.get("strategy_outputs") or [],
                 "selected_candidate": latest_trace.get("selected_candidate"),
                 "last_decision_trace": latest_trace,

@@ -62,7 +62,7 @@ def build_closed_candle_context(
     *,
     symbol: str = "XAUUSDm",
     timeframe: str = "M15",
-    min_candles: int = 25,
+    min_candles: int = 26,
     metadata: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     closed, ignored_latest = closed_candles_only(candles)
@@ -77,12 +77,20 @@ def build_closed_candle_context(
         "strategy_timeframe": metadata.get("strategy_timeframe") or timeframe,
         "resampled": bool(metadata.get("resampled", False)),
         "source_candle_count": metadata.get("source_candle_count", len(candles)),
+        "raw_closed_candle_count": metadata.get("raw_closed_candle_count", metadata.get("source_closed_candle_count", len(candles))),
         "source_closed_candle_count": metadata.get("source_closed_candle_count", len(candles)),
+        "m15_bucket_count_total": metadata.get("m15_bucket_count_total", 0),
+        "m15_bucket_count_complete": metadata.get("m15_bucket_count_complete", metadata.get("strategy_candle_count", available) if timeframe == "M15" else 0),
+        "m15_bucket_count_incomplete": metadata.get("m15_bucket_count_incomplete", 0),
         "strategy_candle_count": metadata.get("strategy_candle_count", available),
+        "required_strategy_candle_count": min_candles,
         "latest_raw_candle_timestamp": metadata.get("latest_raw_candle_timestamp"),
         "latest_strategy_closed_candle_timestamp": metadata.get("latest_strategy_closed_candle_timestamp") if metadata.get("latest_strategy_closed_candle_timestamp") is not None else _timestamp(latest),
         "ignored_unfinished_raw_candle": bool(metadata.get("ignored_unfinished_raw_candle", False)),
         "incomplete_strategy_bucket_count": metadata.get("incomplete_strategy_bucket_count", 0),
+        "dropped_latest_incomplete_bucket": bool(metadata.get("dropped_latest_incomplete_bucket", False)),
+        "last_incomplete_bucket_start": metadata.get("last_incomplete_bucket_start"),
+        "deduped_raw_duplicate_count": metadata.get("deduped_raw_duplicate_count", 0),
         "spread_method": metadata.get("spread_method"),
         "latest_closed_candle": latest,
         "latest_closed_candle_timestamp": _timestamp(latest),
@@ -93,7 +101,7 @@ def build_closed_candle_context(
         "available_candle_count": available,
         "is_closed_candle_only": True,
         "ignored_unfinished_candle": ignored_latest,
-        "candle_memory_status": "READY" if available >= min_candles else "INSUFFICIENT",
+        "candle_memory_status": "READY" if available >= min_candles else "WAITING_FOR_STRATEGY_TIMEFRAME_CANDLES",
         "insufficient_reason": None if available >= min_candles else insufficient_reason,
     }
     if available < min_candles or latest is None:
