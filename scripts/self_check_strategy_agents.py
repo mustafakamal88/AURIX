@@ -69,7 +69,7 @@ def candle_series(closes: list[float], spread: int = 10) -> list[dict[str, Any]]
     return [
         {
             "symbol": "XAUUSDm",
-            "time": 1000 + index * 60,
+            "time": 9000 + index * 900,
             "open": close,
             "high": close + 0.1,
             "low": close - 0.1,
@@ -281,7 +281,7 @@ def main() -> int:
         ref = {"closes": [100, 99, 98]}
         evaluator = make_fast_evaluator(tmpdir, ref)
         insufficient = evaluator.evaluate_agent("fast_rsi_first_reversal_v1")
-        if insufficient.status != "SKIPPED" or insufficient.rejection_reasons[0].code != "insufficient_candle_memory":
+        if insufficient.status != "SKIPPED" or insufficient.rejection_reasons[0].code != "insufficient_strategy_timeframe_candles":
             raise AssertionError(f"insufficient candles failed: {insufficient}")
         evaluator.store.save_results([insufficient], evaluator.registry)
         pipeline = build_strategy_pipeline_snapshot(
@@ -293,7 +293,7 @@ def main() -> int:
         )
         if pipeline["strategy_registry_loaded"] is not True:
             raise AssertionError(f"insufficient data should not unload registry: {pipeline}")
-        if pipeline["latest_result"] != "BLOCKED" or pipeline["latest_rejection_reason"] != "INSUFFICIENT_CANDLE_MEMORY":
+        if pipeline["latest_result"] != "BLOCKED" or pipeline["latest_rejection_reason"] != "INSUFFICIENT_STRATEGY_TIMEFRAME_CANDLES":
             raise AssertionError(f"insufficient candles should produce insufficient memory block: {pipeline}")
 
         ref["closes"] = with_candle_memory([100, 99, 98, 97, 96, 95, 94])

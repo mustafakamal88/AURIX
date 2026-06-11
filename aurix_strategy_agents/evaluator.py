@@ -9,6 +9,7 @@ from aurix_common import write_json_atomic, write_text_atomic
 from aurix_event_bus import AurixEvent, AurixEventBus, AurixEventType, EventSafety
 
 from .candle_context import build_closed_candle_context
+from .candle_timeframe import normalize_candles_for_timeframe
 from .config import StrategyAgentsConfig
 from .diagnostics import build_strategy_pipeline_snapshot, result_state, write_strategy_pipeline_snapshot
 from .models import StrategyAgentSafety, StrategyEvaluationInput, StrategyEvaluationResult, StrategyRejectionReason, utc_now_iso
@@ -94,7 +95,13 @@ class StrategyAgentStore:
                     "selected_candidate": trace.get("selected_candidate"),
                     "last_block_reason": trace.get("block_reason"),
                     "latest_closed_candle_timestamp": trace.get("latest_closed_candle_timestamp"),
+                    "latest_strategy_closed_candle_timestamp": trace.get("latest_strategy_closed_candle_timestamp"),
                     "available_closed_candle_count": trace.get("available_candle_count"),
+                    "raw_timeframe": trace.get("raw_timeframe"),
+                    "strategy_timeframe": trace.get("strategy_timeframe"),
+                    "resampled": trace.get("resampled"),
+                    "source_candle_count": trace.get("source_candle_count"),
+                    "strategy_candle_count": trace.get("strategy_candle_count"),
                     "last_strategy_outputs": trace.get("strategy_outputs") or [],
                 }
             )
@@ -137,7 +144,13 @@ class StrategyAgentStore:
                     "selected_candidate": trace.get("selected_candidate"),
                     "last_block_reason": trace.get("block_reason"),
                     "latest_closed_candle_timestamp": trace.get("latest_closed_candle_timestamp"),
+                    "latest_strategy_closed_candle_timestamp": trace.get("latest_strategy_closed_candle_timestamp"),
                     "available_closed_candle_count": trace.get("available_candle_count"),
+                    "raw_timeframe": trace.get("raw_timeframe"),
+                    "strategy_timeframe": trace.get("strategy_timeframe"),
+                    "resampled": trace.get("resampled"),
+                    "source_candle_count": trace.get("source_candle_count"),
+                    "strategy_candle_count": trace.get("strategy_candle_count"),
                     "last_strategy_outputs": trace.get("strategy_outputs") or [],
                 }
             )
@@ -204,7 +217,14 @@ class StrategyAgentEvaluator:
         return event.get("event_id")
 
     def build_candle_context(self) -> dict[str, Any]:
-        return build_closed_candle_context(self.candles(), symbol=self.config.symbol, timeframe="M15")
+        strategy_timeframe = "M15"
+        normalized = normalize_candles_for_timeframe(self.candles(), strategy_timeframe=strategy_timeframe)
+        return build_closed_candle_context(
+            normalized.get("candles") or [],
+            symbol=self.config.symbol,
+            timeframe=strategy_timeframe,
+            metadata=normalized,
+        )
 
     def _input_context(self, shared_context: dict[str, Any]) -> dict[str, Any]:
         external = self.context()
@@ -217,6 +237,7 @@ class StrategyAgentEvaluator:
         agent = self.registry.get_agent(agent_id)
         if agent is None:
             return None
+        reason = str(shared_context.get("insufficient_reason") or "insufficient_candle_memory")
         return StrategyEvaluationResult(
             agent_id=agent.spec.id,
             strategy_name=self.registry.source_strategy(agent_id) or agent.spec.name,
@@ -226,9 +247,9 @@ class StrategyAgentEvaluator:
             status="SKIPPED",
             direction=None,
             confidence=0.0,
-            setup_reason="insufficient_candle_memory",
+            setup_reason=reason,
             decision_trace={"shared_candle_context": shared_context, "rule_checks": {"enough_candle_memory": False}},
-            rejection_reasons=[StrategyRejectionReason(code="insufficient_candle_memory", message="Need at least 25 closed candles for strategy context.")],
+            rejection_reasons=[StrategyRejectionReason(code=reason, message="Need at least 25 closed strategy-timeframe candles for strategy context.")],
             safety=StrategyAgentSafety(),
         )
 
@@ -261,6 +282,13 @@ class StrategyAgentEvaluator:
             "agent_id": result.get("agent_id"),
             "symbol": result.get("symbol") or shared_context.get("symbol"),
             "timeframe": trace.get("timeframe") or shared_context.get("timeframe"),
+            "raw_timeframe": shared_context.get("raw_timeframe"),
+            "strategy_timeframe": shared_context.get("strategy_timeframe"),
+            "resampled": shared_context.get("resampled"),
+            "source_candle_count": shared_context.get("source_candle_count"),
+            "strategy_candle_count": shared_context.get("strategy_candle_count"),
+            "latest_raw_candle_timestamp": shared_context.get("latest_raw_candle_timestamp"),
+            "latest_strategy_closed_candle_timestamp": shared_context.get("latest_strategy_closed_candle_timestamp"),
             "timestamp": blackcat.get("timestamp") or shared_context.get("latest_closed_candle_timestamp"),
             "action": action,
             "direction": direction,
@@ -423,14 +451,25 @@ class StrategyAgentEvaluator:
         outputs = [self.normalize_output(result.model_dump(), shared_context) for result in results]
         selected, selection = self.select_candidate(outputs)
         final_decision = "CANDIDATE_FOUND" if selected else "WAIT"
-        block_reason = None if selected else selection.get("reason")
+        memory_reason = shared_context.get("insufficient_reason") if shared_context.get("candle_memory_status") != "READY" else None
+        block_reason = None if selected else memory_reason or selection.get("reason")
         trace = {
             "cycle_id": cycle_id,
             "timestamp": utc_now_iso(),
             "symbol": self.config.symbol,
             "timeframe": shared_context.get("timeframe"),
+            "raw_timeframe": shared_context.get("raw_timeframe"),
+            "strategy_timeframe": shared_context.get("strategy_timeframe"),
+            "resampled": shared_context.get("resampled"),
+            "source_candle_count": shared_context.get("source_candle_count"),
+            "source_closed_candle_count": shared_context.get("source_closed_candle_count"),
+            "strategy_candle_count": shared_context.get("strategy_candle_count"),
+            "incomplete_strategy_bucket_count": shared_context.get("incomplete_strategy_bucket_count"),
+            "spread_method": shared_context.get("spread_method"),
             "system_status": "CANDIDATE_FOUND" if selected else "SCANNING",
             "latest_closed_candle_timestamp": shared_context.get("latest_closed_candle_timestamp"),
+            "latest_raw_candle_timestamp": shared_context.get("latest_raw_candle_timestamp"),
+            "latest_strategy_closed_candle_timestamp": shared_context.get("latest_strategy_closed_candle_timestamp"),
             "available_candle_count": shared_context.get("available_candle_count"),
             "candle_memory_used": len(shared_context.get("candles_25") or []),
             "structure_context": {
@@ -450,7 +489,7 @@ class StrategyAgentEvaluator:
             "selected_strategy_id": selected.get("strategy_id") if selected else None,
             "selected_action": selected.get("action") if selected else "WAIT",
             "selected_confidence": selected.get("confidence") if selected else 0.0,
-            "selection_reason": selection.get("reason"),
+            "selection_reason": memory_reason or selection.get("reason"),
             "final_decision": final_decision,
             "block_stage": "NONE" if selected else "STRATEGY",
             "block_reason": block_reason,
@@ -541,7 +580,13 @@ class StrategyAgentEvaluator:
                 "active_strategy_count": len(active),
                 "candle_memory_status": "READY" if int(latest_trace.get("available_candle_count") or 0) >= 25 else "INSUFFICIENT",
                 "latest_closed_candle_timestamp": latest_trace.get("latest_closed_candle_timestamp"),
+                "latest_strategy_closed_candle_timestamp": latest_trace.get("latest_strategy_closed_candle_timestamp"),
                 "available_closed_candle_count": latest_trace.get("available_candle_count"),
+                "raw_timeframe": latest_trace.get("raw_timeframe"),
+                "strategy_timeframe": latest_trace.get("strategy_timeframe"),
+                "resampled": latest_trace.get("resampled"),
+                "source_candle_count": latest_trace.get("source_candle_count"),
+                "strategy_candle_count": latest_trace.get("strategy_candle_count"),
                 "last_strategy_outputs": latest_trace.get("strategy_outputs") or [],
                 "selected_candidate": latest_trace.get("selected_candidate"),
                 "last_decision_trace": latest_trace,

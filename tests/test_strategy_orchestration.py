@@ -12,7 +12,7 @@ from aurix_event_bus import AurixEventBus, load_event_bus_config
 from aurix_paper_trading.config import PaperTradingConfig
 from aurix_paper_trading.engine import PaperTradingEngine
 from aurix_risk_governor.config import RiskConfig
-from aurix_strategy_agents import StrategyAgentEvaluator, StrategyAgentRegistry, build_closed_candle_context
+from aurix_strategy_agents import StrategyAgentEvaluator, StrategyAgentRegistry, build_closed_candle_context, detect_raw_timeframe, normalize_candles_for_timeframe
 from aurix_strategy_agents.config import StrategyAgentConfigEntry, StrategyAgentsConfig
 from aurix_strategy_engine.models import StrategySignal
 
@@ -46,6 +46,62 @@ def contextual_candles(count: int = 80, final_close: float = 110.0) -> list[dict
             "closed": True,
         }
     )
+    return candles
+
+
+def strategy_m15_candles(count: int = 80, final_close: float = 110.0) -> list[dict[str, Any]]:
+    candles: list[dict[str, Any]] = []
+    for index in range(count - 1):
+        close = 100.0 + (((index % 5) - 2) * 0.05)
+        open_ = 100.0 + ((((index - 1) % 5) - 2) * 0.05) if index else close
+        candles.append(
+            {
+                "symbol": "XAUUSDm",
+                "time": index * 900,
+                "open": open_,
+                "high": max(open_, close) + 0.5,
+                "low": min(open_, close) - 0.5,
+                "close": close,
+                "tick_volume": 100,
+                "spread": 10,
+                "closed": True,
+            }
+        )
+    candles.append(
+        {
+            "symbol": "XAUUSDm",
+            "time": (count - 1) * 900,
+            "open": 100.0,
+            "high": max(100.0, final_close) + 0.5,
+            "low": min(100.0, final_close) - 0.5,
+            "close": final_close,
+            "tick_volume": 100,
+            "spread": 10,
+            "closed": True,
+        }
+    )
+    return candles
+
+
+def m1_candles(minutes: int, *, start: int = 0) -> list[dict[str, Any]]:
+    candles: list[dict[str, Any]] = []
+    for index in range(minutes):
+        open_ = 100.0 + index * 0.1
+        close = open_ + 0.05
+        candles.append(
+            {
+                "symbol": "XAUUSDm",
+                "time": start + index * 60,
+                "open": open_,
+                "high": close + 0.2,
+                "low": open_ - 0.3,
+                "close": close,
+                "tick_volume": index + 1,
+                "real_volume": index + 2,
+                "spread": 5 + (index % 3),
+                "closed": True,
+            }
+        )
     return candles
 
 
@@ -98,7 +154,7 @@ class StrategyOrchestrationTests(unittest.TestCase):
 
     def test_all_four_strategies_same_cycle_same_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, contextual_candles(), [signal("xauusd_paper_v1", "BUY", 0.61), signal("xauusd_paper_v2", "SELL", 0.91)])
+            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(), [signal("xauusd_paper_v1", "BUY", 0.61), signal("xauusd_paper_v2", "SELL", 0.91)])
             results = evaluator.evaluate_all_agents()
             trace = evaluator.recent_traces(1)[0]
 
@@ -111,12 +167,12 @@ class StrategyOrchestrationTests(unittest.TestCase):
 
     def test_insufficient_memory_forces_all_wait(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, contextual_candles(24), [signal("xauusd_paper_v1", "BUY", 0.99)])
+            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(24), [signal("xauusd_paper_v1", "BUY", 0.99)])
             results = evaluator.evaluate_all_agents()
             trace = evaluator.recent_traces(1)[0]
 
             self.assertTrue(all(result.status == "SKIPPED" for result in results))
-            self.assertTrue(all("insufficient_candle_memory" in item["reasons"] for item in trace["strategy_outputs"]))
+            self.assertTrue(all("insufficient_strategy_timeframe_candles" in item["reasons"] for item in trace["strategy_outputs"]))
             self.assertEqual(trace["selected_strategy_id"], None)
 
     def test_unfinished_candle_excluded_from_shared_context(self) -> None:
@@ -128,7 +184,7 @@ class StrategyOrchestrationTests(unittest.TestCase):
         self.assertTrue(context["ignored_unfinished_candle"])
 
     def test_structure_and_premium_discount_context(self) -> None:
-        candles = contextual_candles(80, final_close=110.0)
+        candles = strategy_m15_candles(80, final_close=110.0)
         context = build_closed_candle_context(candles)
 
         self.assertEqual(len(context["candles_25"]), 25)
@@ -140,9 +196,60 @@ class StrategyOrchestrationTests(unittest.TestCase):
         self.assertIsInstance(context["bull_power"], float)
         self.assertIsInstance(context["bear_power"], float)
 
+    def test_m1_timeframe_detected_from_sixty_second_steps(self) -> None:
+        self.assertEqual(detect_raw_timeframe(m1_candles(30)), "M1")
+
+    def test_m1_resampled_to_closed_m15_candles_with_ohlcv(self) -> None:
+        raw = m1_candles(30)
+        normalized = normalize_candles_for_timeframe(raw, strategy_timeframe="M15")
+        candles = normalized["candles"]
+
+        self.assertTrue(normalized["resampled"])
+        self.assertEqual(normalized["raw_timeframe"], "M1")
+        self.assertEqual(normalized["strategy_timeframe"], "M15")
+        self.assertEqual(len(candles), 2)
+        self.assertEqual(candles[0]["time"], 0)
+        self.assertEqual(candles[0]["open"], raw[0]["open"])
+        self.assertEqual(candles[0]["close"], raw[14]["close"])
+        self.assertEqual(candles[0]["high"], max(item["high"] for item in raw[:15]))
+        self.assertEqual(candles[0]["low"], min(item["low"] for item in raw[:15]))
+        self.assertEqual(candles[0]["tick_volume"], sum(item["tick_volume"] for item in raw[:15]))
+        self.assertEqual(candles[0]["real_volume"], sum(item["real_volume"] for item in raw[:15]))
+        self.assertEqual(candles[0]["spread"], raw[14]["spread"])
+
+    def test_incomplete_latest_m15_bucket_is_excluded(self) -> None:
+        normalized = normalize_candles_for_timeframe(m1_candles(37), strategy_timeframe="M15")
+
+        self.assertEqual(len(normalized["candles"]), 2)
+        self.assertEqual(normalized["incomplete_strategy_bucket_count"], 1)
+        self.assertEqual(normalized["latest_strategy_closed_candle_timestamp"], 900)
+
+    def test_strategy_agents_receive_m15_candles_from_m1_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            evaluator = self.make_evaluator(tmpdir, m1_candles(25 * 15), [signal("xauusd_paper_v1", "BUY", 0.70)])
+            evaluator.evaluate_all_agents()
+            trace = evaluator.recent_traces(1)[0]
+
+            self.assertEqual(trace["raw_timeframe"], "M1")
+            self.assertEqual(trace["strategy_timeframe"], "M15")
+            self.assertTrue(trace["resampled"])
+            self.assertEqual(trace["strategy_candle_count"], 25)
+            self.assertTrue(all(item["strategy_timeframe"] == "M15" for item in trace["strategy_outputs"]))
+            self.assertTrue(all(item["candle_memory_used"] == 25 for item in trace["strategy_outputs"]))
+
+    def test_insufficient_resampled_m15_candles_waits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            evaluator = self.make_evaluator(tmpdir, m1_candles((24 * 15) + 14), [signal("xauusd_paper_v1", "BUY", 0.99)])
+            results = evaluator.evaluate_all_agents()
+            trace = evaluator.recent_traces(1)[0]
+
+            self.assertEqual(trace["strategy_candle_count"], 24)
+            self.assertTrue(all(result.status == "SKIPPED" for result in results))
+            self.assertTrue(all("insufficient_strategy_timeframe_candles" in item["reasons"] for item in trace["strategy_outputs"]))
+
     def test_highest_confidence_candidate_selected(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, contextual_candles(), [signal("xauusd_paper_v1", "BUY", 0.62), signal("xauusd_paper_v2", "SELL", 0.92)])
+            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(), [signal("xauusd_paper_v1", "BUY", 0.62), signal("xauusd_paper_v2", "SELL", 0.92)])
             evaluator.evaluate_all_agents()
             trace = evaluator.recent_traces(1)[0]
 
@@ -151,7 +258,7 @@ class StrategyOrchestrationTests(unittest.TestCase):
 
     def test_conflict_too_close_waits(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, contextual_candles(), [])
+            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(), [])
             outputs = [
                 {"strategy_id": "a", "status": "CANDIDATE", "direction": "LONG", "confidence": 0.70},
                 {"strategy_id": "b", "status": "CANDIDATE", "direction": "SHORT", "confidence": 0.68},
@@ -163,7 +270,7 @@ class StrategyOrchestrationTests(unittest.TestCase):
 
     def test_decision_engine_spread_block_preserves_selected_strategy(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            evaluator = self.make_evaluator(tmpdir, contextual_candles(), [signal("xauusd_paper_v1", "BUY", 0.90)])
+            evaluator = self.make_evaluator(tmpdir, strategy_m15_candles(), [signal("xauusd_paper_v1", "BUY", 0.90)])
             evaluator.evaluate_all_agents()
             engine = AurixDecisionEngine(
                 data_dir=tmpdir,
